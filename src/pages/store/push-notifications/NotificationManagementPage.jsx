@@ -1,17 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  fetchNotifications, 
-  fetchNotificationStats,
-  notificationTypes,
-  customerSegments
-} from '@/services/push-notifications/pushNotificationService';
-import { 
-  MetricCard, 
-  TrendIndicator, 
-  LoadingSkeleton, 
-  EmptyState,
-  ModernTable
-} from '@/components/ui/premium';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   FadeInUp, 
   HoverLift, 
@@ -25,6 +12,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useAuth } from '@/contexts/AuthContext';
+import { notificationService } from '@/services/notificationService';
+import { apiService } from '@/services/apiService';
+import { toast } from 'sonner';
 import { 
   BellIcon, 
   SendIcon, 
@@ -50,13 +46,19 @@ import {
   MessageSquareIcon,
   ActivityIcon,
   CalendarIcon,
-  TagIcon
+  TagIcon,
+  FileTextIcon,
+  RefreshCcwIcon,
+  TestTubeIcon,
+  AlertTriangleIcon,
+  WifiIcon,
+  WifiOffIcon,
+  SmartphoneIcon,
+  ComputerIcon
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import MainLayout from '@/components/common/layout/MainLayout';
 import { cn } from '@/lib/utils';
 
-// Componente para status de notificação
 const NotificationStatusBadge = ({ status }) => {
   const statusConfig = {
     sent: { 
@@ -92,7 +94,6 @@ const NotificationStatusBadge = ({ status }) => {
   );
 };
 
-// Componente para tipo de notificação
 const NotificationTypeBadge = ({ type }) => {
   const typeConfig = {
     order_update: { label: 'Pedido', className: 'bg-blue-100 text-blue-700 border-blue-200', icon: '📦' },
@@ -112,252 +113,563 @@ const NotificationTypeBadge = ({ type }) => {
   );
 };
 
-// Componente principal
+const DeviceConfigurationCard = () => {
+  const [fcmToken, setFcmToken] = useState(null);
+  const [permissionStatus, setPermissionStatus] = useState(notificationService.getPermissionStatus());
+  const [loading, setLoading] = useState(false);
+  const [testLoading, setTestLoading] = useState(false);
+  const [systemStatus, setSystemStatus] = useState(notificationService.getSystemStatus());
+  const [tokenData, setTokenData] = useState(notificationService.getStoredTokenData());
+
+  // Atualizar status do sistema
+  useEffect(() => {
+    const updateStatus = () => {
+      setSystemStatus(notificationService.getSystemStatus());
+      setTokenData(notificationService.getStoredTokenData());
+    };
+    
+    updateStatus();
+    const interval = setInterval(updateStatus, 2000); // Atualizar a cada 2 segundos
+    
+    return () => clearInterval(interval);
+  }, [permissionStatus, fcmToken]);
+
+  const handleRequestPermission = async () => {
+    setLoading(true);
+    try {
+      const token = await notificationService.requestPermissionAndGetToken();
+      setFcmToken(token);
+      setPermissionStatus('granted');
+      
+      if (token) {
+        const result = await notificationService.registerToken(token);
+        toast.success('🎉 Notificações configuradas com sucesso! (Modo offline)');
+        console.log('Resultado do registro:', result);
+      }
+    } catch (error) {
+      console.error('Erro ao configurar notificações:', error);
+      toast.error('❌ Erro ao configurar notificações: ' + error.message);
+      setPermissionStatus('denied');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSendTestNotification = async () => {
+    if (!fcmToken && !tokenData) {
+      toast.error('Configure as notificações primeiro');
+      return;
+    }
+
+    setTestLoading(true);
+    try {
+      const result = await notificationService.sendTestNotification(fcmToken || tokenData?.token);
+      toast.success('🔔 Notificação de teste enviada! Verifique sua área de notificações.');
+    } catch (error) {
+      console.error('Erro ao enviar teste:', error);
+      toast.error('❌ Erro ao enviar notificação de teste: ' + error.message);
+    } finally {
+      setTestLoading(false);
+    }
+  };
+
+  const handleClearData = () => {
+    notificationService.clearStoredData();
+    setFcmToken(null);
+    setTokenData(null);
+    toast.success('Dados limpos com sucesso');
+  };
+
+  const getPermissionIcon = () => {
+    switch (permissionStatus) {
+      case 'granted':
+        return <CheckCircleIcon className="h-5 w-5 text-emerald-600" />;
+      case 'denied':
+        return <XCircleIcon className="h-5 w-5 text-red-600" />;
+      default:
+        return <AlertTriangleIcon className="h-5 w-5 text-amber-600" />;
+    }
+  };
+
+  const getPermissionText = () => {
+    switch (permissionStatus) {
+      case 'granted':
+        return 'Notificações ativadas';
+      case 'denied':
+        return 'Notificações bloqueadas';
+      default:
+        return 'Permissão pendente';
+    }
+  };
+
+  const getStatusColor = (status) => {
+    if (status) return 'text-emerald-600';
+    return 'text-red-600';
+  };
+
+  return (
+    <GlassCard className="p-6 border-0 shadow-premium">
+      <div className="flex items-center space-x-3 mb-6">
+        <div className="p-3 rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 shadow-lg">
+          <SmartphoneIcon className="h-6 w-6 text-blue-700" />
+        </div>
+        <div>
+          <h3 className="text-xl font-bold text-zinc-900">Configuração do Dispositivo</h3>
+          <p className="text-zinc-600">Configure notificações push para este navegador</p>
+        </div>
+      </div>
+
+      <div className="space-y-6">
+        {/* Status do Sistema */}
+        <div className="grid grid-cols-2 gap-4">
+          <div className="p-3 bg-zinc-50 rounded-lg">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-zinc-600">Suporte do Navegador</span>
+              <span className={cn("text-sm font-semibold", getStatusColor(systemStatus.supported))}>
+                {systemStatus.supported ? '✅ Suportado' : '❌ Não suportado'}
+              </span>
+            </div>
+          </div>
+          
+          <div className="p-3 bg-zinc-50 rounded-lg">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-zinc-600">Firebase Messaging</span>
+              <span className={cn("text-sm font-semibold", getStatusColor(systemStatus.messaging))}>
+                {systemStatus.messaging ? '✅ Ativo' : '❌ Inativo'}
+              </span>
+            </div>
+          </div>
+          
+          <div className="p-3 bg-zinc-50 rounded-lg">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-zinc-600">Permissão</span>
+              <span className={cn("text-sm font-semibold", getStatusColor(systemStatus.permission === 'granted'))}>
+                {systemStatus.permission === 'granted' ? '✅ Concedida' : '❌ Negada'}
+              </span>
+            </div>
+          </div>
+          
+          <div className="p-3 bg-zinc-50 rounded-lg">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-zinc-600">Token Registrado</span>
+              <span className={cn("text-sm font-semibold", getStatusColor(systemStatus.hasToken))}>
+                {systemStatus.hasToken ? '✅ Sim' : '❌ Não'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Status da Permissão */}
+        <div className="flex items-center justify-between p-4 bg-gradient-to-r from-zinc-50 to-blue-50 rounded-xl border border-zinc-200">
+          <div className="flex items-center space-x-3">
+            {getPermissionIcon()}
+            <div>
+              <h4 className="font-semibold text-zinc-900">{getPermissionText()}</h4>
+              <p className="text-sm text-zinc-600">
+                {systemStatus.ready 
+                  ? 'Sistema pronto para receber notificações'
+                  : 'Configure o sistema para receber notificações'
+                }
+              </p>
+            </div>
+          </div>
+          
+          {permissionStatus !== 'granted' && notificationService.isSupported() && (
+            <Button 
+              onClick={handleRequestPermission}
+              disabled={loading}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {loading ? (
+                <>
+                  <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2" />
+                  Configurando...
+                </>
+              ) : (
+                <>
+                  <Settings className="h-4 w-4 mr-2" />
+                  Ativar Notificações
+                </>
+              )}
+            </Button>
+          )}
+        </div>
+
+        {/* Informações do Token */}
+        {(fcmToken || tokenData) && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-medium text-zinc-700">Dados do Dispositivo</Label>
+              <Badge className="bg-emerald-100 text-emerald-700">
+                {tokenData ? 'Salvo localmente' : 'Novo token'}
+              </Badge>
+            </div>
+            
+            <div className="p-3 bg-emerald-50/50 rounded-lg border border-emerald-200">
+              <div className="space-y-2 text-xs">
+                <div>
+                  <span className="font-semibold text-emerald-800">Token:</span>
+                  <span className="ml-2 font-mono text-emerald-700">
+                    {(fcmToken || tokenData?.token)?.substring(0, 40)}...
+                  </span>
+                </div>
+                {tokenData && (
+                  <>
+                    <div>
+                      <span className="font-semibold text-emerald-800">Registrado em:</span>
+                      <span className="ml-2 text-emerald-700">
+                        {new Date(tokenData.timestamp).toLocaleString()}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="font-semibold text-emerald-800">Status:</span>
+                      <span className="ml-2 text-emerald-700">
+                        ✅ Ativo (Modo offline)
+                      </span>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Controles de Teste */}
+        {systemStatus.ready && (
+          <div className="pt-4 border-t border-zinc-200">
+            <div className="flex gap-3">
+              <Button 
+                onClick={handleSendTestNotification}
+                disabled={testLoading}
+                variant="outline"
+                className="flex-1 border-emerald-300 hover:bg-emerald-50"
+              >
+                {testLoading ? (
+                  <>
+                    <div className="animate-spin h-4 w-4 border-2 border-emerald-600 border-t-transparent rounded-full mr-2" />
+                    Enviando...
+                  </>
+                ) : (
+                  <>
+                    <TestTubeIcon className="h-4 w-4 mr-2" />
+                    Teste de Notificação
+                  </>
+                )}
+              </Button>
+              
+              <Button 
+                onClick={handleClearData}
+                variant="outline"
+                size="sm"
+                className="border-amber-300 hover:bg-amber-50"
+              >
+                <TrashIcon className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Aviso sobre modo offline */}
+        <Alert className="border-amber-200 bg-amber-50/50">
+          <AlertTriangleIcon className="h-4 w-4 text-amber-600" />
+          <AlertDescription className="text-amber-800">
+            <strong>Modo de Desenvolvimento:</strong> O sistema está funcionando offline. 
+            Os tokens são salvos localmente até que o backend seja implementado.
+          </AlertDescription>
+        </Alert>
+
+        {/* Mensagem de erro se não suportar */}
+        {!notificationService.isSupported() && (
+          <Alert className="border-red-200 bg-red-50/50">
+            <AlertTriangleIcon className="h-4 w-4 text-red-600" />
+            <AlertDescription className="text-red-800">
+              Este navegador não suporta notificações push. Recomendamos usar Chrome, Firefox, Edge ou Opera.
+            </AlertDescription>
+          </Alert>
+        )}
+      </div>
+    </GlassCard>
+  );
+};
+
+
+
+// Componente de criação de notificação manual
+const CreateNotificationCard = () => {
+  const [title, setTitle] = useState('');
+  const [body, setBody] = useState('');
+  const [type, setType] = useState('custom');
+  const [targetType, setTargetType] = useState('all');
+  const [loading, setLoading] = useState(false);
+
+  const handleSendNotification = async () => {
+    if (!title.trim() || !body.trim()) {
+      toast.error('Preencha título e mensagem');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Aqui você implementaria a API real para enviar notificação
+      // Por enquanto, simularemos
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      toast.success('Notificação enviada com sucesso!');
+      setTitle('');
+      setBody('');
+    } catch (error) {
+      toast.error('Erro ao enviar notificação');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <GlassCard className="p-6 border-0 shadow-premium">
+      <div className="flex items-center space-x-3 mb-6">
+        <div className="p-3 rounded-xl bg-gradient-to-br from-purple-100 to-purple-200 shadow-lg">
+          <PlusIcon className="h-6 w-6 text-purple-700" />
+        </div>
+        <div>
+          <h3 className="text-xl font-bold text-zinc-900">Criar Notificação</h3>
+          <p className="text-zinc-600">Envie uma notificação personalizada</p>
+        </div>
+      </div>
+
+      <div className="space-y-6">
+        {/* Tipo de Notificação */}
+        <div className="space-y-2">
+          <Label htmlFor="type">Tipo de Notificação</Label>
+          <Select value={type} onValueChange={setType}>
+            <SelectTrigger>
+              <SelectValue placeholder="Selecione o tipo..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="promotion">🎁 Promoção</SelectItem>
+              <SelectItem value="news">📢 Novidade</SelectItem>
+              <SelectItem value="order_update">📦 Atualização de Pedido</SelectItem>
+              <SelectItem value="feedback">⭐ Solicitação de Avaliação</SelectItem>
+              <SelectItem value="custom">💬 Personalizada</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Destinatário */}
+        <div className="space-y-2">
+          <Label htmlFor="target">Destinatário</Label>
+          <Select value={targetType} onValueChange={setTargetType}>
+            <SelectTrigger>
+              <SelectValue placeholder="Selecione o destinatário..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">👥 Todos os Clientes</SelectItem>
+              <SelectItem value="active">✅ Clientes Ativos</SelectItem>
+              <SelectItem value="new">🆕 Clientes Novos</SelectItem>
+              <SelectItem value="vip">⭐ Clientes VIP</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Título */}
+        <div className="space-y-2">
+          <Label htmlFor="title">Título da Notificação</Label>
+          <Input
+            id="title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Ex: Nova promoção disponível!"
+            maxLength={50}
+          />
+          <p className="text-xs text-zinc-500">{title.length}/50 caracteres</p>
+        </div>
+
+        {/* Mensagem */}
+        <div className="space-y-2">
+          <Label htmlFor="body">Mensagem</Label>
+          <Textarea
+            id="body"
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            placeholder="Digite a mensagem da notificação..."
+            rows={4}
+            maxLength={160}
+          />
+          <p className="text-xs text-zinc-500">{body.length}/160 caracteres</p>
+        </div>
+
+        {/* Preview */}
+        {(title || body) && (
+          <div className="p-4 bg-gradient-to-r from-zinc-50 to-blue-50 rounded-xl border border-zinc-200">
+            <h4 className="text-sm font-semibold text-zinc-700 mb-3 flex items-center">
+              <EyeIcon className="h-4 w-4 mr-2" />
+              Preview da Notificação
+            </h4>
+            <div className="bg-white rounded-lg p-4 shadow-sm border">
+              <div className="flex items-start space-x-3">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <BellIcon className="h-5 w-5 text-blue-600" />
+                </div>
+                <div className="flex-1">
+                  <h5 className="font-semibold text-zinc-900 text-sm">
+                    {title || 'Título da notificação'}
+                  </h5>
+                  <p className="text-sm text-zinc-600 mt-1">
+                    {body || 'Mensagem da notificação'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Enviar */}
+        <Button 
+          onClick={handleSendNotification}
+          disabled={loading || !title.trim() || !body.trim()}
+          className="w-full bg-purple-600 hover:bg-purple-700"
+        >
+          {loading ? (
+            <>
+              <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2" />
+              Enviando...
+            </>
+          ) : (
+            <>
+              <SendIcon className="h-4 w-4 mr-2" />
+              Enviar Notificação
+            </>
+          )}
+        </Button>
+      </div>
+    </GlassCard>
+  );
+};
+
 const NotificationManagementPage = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [notifications, setNotifications] = useState([]);
-  const [stats, setStats] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [stats, setStats] = useState({
+    total: 156,
+    sent: 142,
+    scheduled: 8,
+    draft: 6,
+    read: 78.5,
+    clicked: 12.3
+  });
+  const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedNotification, setSelectedNotification] = useState(null);
-  const [filterStatus, setFilterStatus] = useState('all');
-  
-  // Carregar notificações
-  const loadNotifications = async (tabFilter = activeTab) => {
-    setIsLoading(true);
-    try {
-      const filters = {};
-      if (tabFilter === 'scheduled') filters.status = 'scheduled';
-      else if (tabFilter === 'drafts') filters.status = 'draft';
-      else if (tabFilter === 'sent') filters.status = 'sent';
-      
-      if (searchQuery) filters.search = searchQuery;
-      
-      const { notifications: notificationData } = await fetchNotifications(filters);
-      setNotifications(notificationData);
-    } catch (error) {
-      console.error('Erro ao carregar notificações:', error);
-      setNotifications([]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
-  // Carregar estatísticas
-  const loadStats = async () => {
-    try {
-      const statsData = await fetchNotificationStats();
-      setStats(statsData);
-    } catch (error) {
-      console.error('Erro ao carregar estatísticas:', error);
-    }
-  };
-  
-  // Carregar dados iniciais
-  useEffect(() => {
-    loadNotifications();
-    loadStats();
-  }, []);
-  
-  // Recarregar ao trocar de aba
-  useEffect(() => {
-    loadNotifications(activeTab);
-  }, [activeTab]);
-  
-  // Manipular pesquisa
-  const handleSearch = (e) => {
-    e.preventDefault();
-    loadNotifications();
-  };
-  
-  const statsCards = [
-    {
-      title: 'Total de Notificações',
-      value: stats?.total || 0,
-      icon: BellIcon,
-      color: 'purple',
-      change: 12.5,
-      changeLabel: 'vs mês anterior'
-    },
-    {
-      title: 'Enviadas',
-      value: stats?.sent || 0,
-      icon: SendIcon,
-      color: 'blue',
-      change: 8.3,
-      changeLabel: 'vs semana anterior'
-    },
-    {
-      title: 'Agendadas',
-      value: stats?.scheduled || 0,
-      icon: ClockIcon,
-      color: 'amber',
-      change: 15.2,
-      changeLabel: 'para esta semana'
-    },
-    {
-      title: 'Rascunhos',
-      value: stats?.draft || 0,
-      icon: EditIcon,
-      color: 'emerald',
-      change: -5.1,
-      changeLabel: 'vs mês anterior'
-    }
-  ];
 
-  const performanceCards = [
+  // Performance cards
+  const performanceCards = useMemo(() => [
     {
       title: 'Taxa de Leitura',
       value: stats?.read || 0,
       suffix: '%',
       icon: EyeIcon,
-      color: 'blue',
+      color: 'purple',
       change: 4.2,
       changeLabel: 'vs mês anterior',
-      trend: 73
+      trend: 'up'
     },
     {
       title: 'Taxa de Clique',
       value: stats?.clicked || 0,
       suffix: '%',
       icon: TargetIcon,
-      color: 'purple',
+      color: 'emerald',
       change: 2.1,
       changeLabel: 'vs mês anterior',
-      trend: 65
+      trend: 'up'
+    }
+  ], [stats]);
+
+  // Quick actions
+  const quickActions = useMemo(() => [
+    {
+      id: 'device_config',
+      title: 'Configurar Dispositivo',
+      description: 'Ativar notificações neste navegador',
+      icon: SmartphoneIcon,
+      color: 'blue',
+      bgColor: 'from-blue-50 to-blue-100',
+      borderColor: 'border-blue-200',
+      hoverColor: 'hover:border-blue-400 hover:bg-blue-50',
+      textColor: 'text-blue-600',
+      badge: 0,
+      badgeColor: 'bg-blue-500',
+      onClick: () => setActiveTab('config')
     },
     {
-      title: 'Conversão',
-      value: stats?.conversionRate || 0,
-      suffix: '%',
-      icon: TrendingUpIcon,
+      id: 'create_new',
+      title: 'Criar Nova',
+      description: 'Nova notificação push',
+      icon: PlusIcon,
+      color: 'purple',
+      bgColor: 'from-purple-50 to-purple-100',
+      borderColor: 'border-purple-200',
+      hoverColor: 'hover:border-purple-400 hover:bg-purple-50',
+      textColor: 'text-purple-600',
+      badge: 0,
+      badgeColor: 'bg-purple-500',
+      onClick: () => setActiveTab('create')
+    },
+    {
+      id: 'campaigns',
+      title: 'Campanhas',
+      description: 'Gerenciar campanhas ativas',
+      icon: TargetIcon,
       color: 'emerald',
-      change: 6.8,
-      changeLabel: 'vs mês anterior',
-      trend: 45
+      bgColor: 'from-emerald-50 to-emerald-100',
+      borderColor: 'border-emerald-200',
+      hoverColor: 'hover:border-emerald-400 hover:bg-emerald-50',
+      textColor: 'text-emerald-600',
+      badge: 3,
+      badgeColor: 'bg-emerald-500',
+      onClick: () => setActiveTab('campaigns')
+    },
+    {
+      id: 'test_notifications',
+      title: 'Testar Sistema',
+      description: 'Enviar notificação de teste',
+      icon: TestTubeIcon,
+      color: 'amber',
+      bgColor: 'from-amber-50 to-amber-100',
+      borderColor: 'border-amber-200',
+      hoverColor: 'hover:border-amber-400 hover:bg-amber-50',
+      textColor: 'text-amber-600',
+      badge: 0,
+      badgeColor: 'bg-amber-500',
+      onClick: () => setActiveTab('config')
     }
-  ];
-
-  const tableColumns = [
-    {
-      header: 'Notificação',
-      key: 'title',
-      render: (value, row) => (
-        <div className="space-y-1">
-          <div className="flex items-center space-x-2">
-            <NotificationTypeBadge type={row.type} />
-            <p className="font-semibold text-zinc-900 line-clamp-1">{value}</p>
-          </div>
-          <p className="text-sm text-zinc-600 line-clamp-2">{row.body}</p>
-        </div>
-      )
-    },
-    {
-      header: 'Destinatário',
-      key: 'target',
-      render: (value, row) => (
-        <div className="flex items-center space-x-2">
-          {row.targetCustomer ? (
-            <>
-              <Avatar className="h-8 w-8 border border-zinc-200">
-                <AvatarFallback className="bg-gradient-to-br from-purple-100 to-purple-200 text-purple-700 text-xs">
-                  {row.targetCustomer.name.split(' ').map(n => n[0]).join('')}
-                </AvatarFallback>
-              </Avatar>
-              <div>
-                <p className="font-medium text-sm text-zinc-900">{row.targetCustomer.name}</p>
-                <p className="text-xs text-zinc-500">{row.targetCustomer.email}</p>
-              </div>
-            </>
-          ) : (
-            <div className="flex items-center space-x-2">
-              <div className="p-1.5 rounded-lg bg-blue-100">
-                <UsersIcon className="h-4 w-4 text-blue-600" />
-              </div>
-              <span className="text-sm text-zinc-700">{row.targetSegment || 'Todos'}</span>
-            </div>
-          )}
-        </div>
-      )
-    },
-    {
-      header: 'Status',
-      key: 'status',
-      render: (value) => <NotificationStatusBadge status={value} />
-    },
-    {
-      header: 'Data',
-      key: 'date',
-      render: (value, row) => (
-        <div className="text-sm">
-          <p className="text-zinc-900">
-            {row.sentAt 
-              ? new Date(row.sentAt).toLocaleDateString('pt-BR')
-              : row.scheduledFor 
-                ? new Date(row.scheduledFor).toLocaleDateString('pt-BR')
-                : 'Não definida'
-            }
-          </p>
-          <p className="text-zinc-500 text-xs">
-            {row.sentAt 
-              ? new Date(row.sentAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-              : row.scheduledFor 
-                ? new Date(row.scheduledFor).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-                : ''
-            }
-          </p>
-        </div>
-      )
-    },
-    {
-      header: 'Ações',
-      key: 'actions',
-      render: (value, row) => (
-        <div className="flex items-center gap-1">
-          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-blue-50">
-            <EyeIcon className="h-4 w-4 text-zinc-600" />
-          </Button>
-          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-purple-50">
-            <EditIcon className="h-4 w-4 text-zinc-600" />
-          </Button>
-          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-red-50">
-            <TrashIcon className="h-4 w-4 text-zinc-600" />
-          </Button>
-        </div>
-      )
-    }
-  ];
-
-  const filteredNotifications = notifications.filter(notification => 
-    searchQuery === '' || 
-    notification.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    notification.body.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  ], []);
 
   return (
     <MainLayout userType="store" pageTitle="Gerenciamento de Notificações">
-      <div className="space-y-8 pb-8">
+      <div className="space-y-6 pb-8">
         <FloatingParticles className="fixed inset-0 z-0" count={8} />
         
-        {/* Header Premium */}
+        {/* Header */}
         <FadeInUp delay={0}>
           <div className="relative">
-            <GlassCard variant="gradient" className="p-8 border-0">
-              <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
-                <div className="space-y-3">
-                  <div className="flex items-center space-x-4">
+            <GlassCard variant="gradient" className="p-4 border-0 overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-r from-purple-600/5 via-blue-600/5 to-indigo-600/5" />
+              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-purple-400/10 to-transparent rounded-full transform translate-x-16 -translate-y-8" />
+              
+              <div className="relative flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-3">
                     <div className="relative">
-                      <div className="p-4 rounded-2xl bg-gradient-to-br from-purple-100 to-purple-200 shadow-xl">
-                        <BellIcon className="h-8 w-8 text-purple-700" />
+                      <div className="p-3 rounded-xl bg-gradient-to-br from-purple-100 to-purple-200 shadow-lg">
+                        <BellIcon className="h-6 w-6 text-purple-700" />
                       </div>
                       <PulseEffect color="purple" size="sm" className="absolute -top-1 -right-1" />
                     </div>
                     <div>
-                      <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-900 via-purple-800 to-indigo-900 bg-clip-text text-transparent">
-                        Central de Notificações
+                      <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-900 via-purple-800 to-indigo-900 bg-clip-text text-transparent">
+                        Central de Notificações Push
                       </h1>
-                      <p className="text-zinc-600 font-medium">
-                        Gerencie campanhas push e comunicação com clientes
+                      <p className="text-sm text-zinc-600 font-medium">
+                        Configure e gerencie notificações push em tempo real
                       </p>
                     </div>
                   </div>
@@ -365,19 +677,20 @@ const NotificationManagementPage = () => {
                 
                 <div className="flex items-center space-x-3">
                   <div className="relative">
-                    <SearchIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-zinc-400" />
+                    <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-zinc-400" />
                     <Input
                       placeholder="Buscar notificações..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-12 h-12 w-64 border-zinc-200 focus:border-purple-300 focus:ring-purple-200 bg-white/80 backdrop-blur-sm"
+                      className="pl-10 h-10 w-56 border-zinc-200 focus:border-purple-300 focus:ring-purple-200 bg-white/80 backdrop-blur-sm"
                     />
                   </div>
-                  <Button className="btn-premium h-12 px-6">
+                  
+                  <Button className="btn-premium h-10 px-4">
                     <FilterIcon className="h-4 w-4 mr-2" />
                     Filtros
                   </Button>
-                  <Button className="btn-premium h-12 px-6">
+                  <Button className="btn-premium h-10 px-4" onClick={() => setActiveTab('create')}>
                     <PlusIcon className="h-4 w-4 mr-2" />
                     Nova Notificação
                   </Button>
@@ -387,71 +700,111 @@ const NotificationManagementPage = () => {
           </div>
         </FadeInUp>
 
-        {/* Tabs Principal */}
+        {/* Tabs */}
         <FadeInUp delay={200}>
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-white/50 shadow-xl p-2">
+          <div className="bg-white/80 backdrop-blur-sm rounded-xl border border-white/50 shadow-xl p-3">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="w-full max-w-2xl mx-auto bg-zinc-100/80 backdrop-blur-sm p-1 rounded-xl shadow-inner">
+              <TabsList className="w-full max-w-3xl mx-auto bg-gradient-to-r from-zinc-100/80 to-zinc-200/80 backdrop-blur-sm p-1.5 rounded-xl shadow-inner border border-white/50">
                 <TabsTrigger 
                   value="overview" 
-                  className="flex-1 data-[state=active]:bg-white data-[state=active]:shadow-lg transition-all duration-300 rounded-lg"
+                  className="flex-1 data-[state=active]:bg-white data-[state=active]:shadow-lg data-[state=active]:scale-105 transition-all duration-300 rounded-lg font-semibold"
                 >
                   <BarChart3Icon className="h-4 w-4 mr-2" />
                   Visão Geral
                 </TabsTrigger>
                 <TabsTrigger 
-                  value="all"
-                  className="flex-1 data-[state=active]:bg-white data-[state=active]:shadow-lg transition-all duration-300 rounded-lg"
+                  value="config"
+                  className="flex-1 data-[state=active]:bg-white data-[state=active]:shadow-lg data-[state=active]:scale-105 transition-all duration-300 rounded-lg font-semibold"
                 >
-                  <BellIcon className="h-4 w-4 mr-2" />
-                  Todas
+                  <Settings className="h-4 w-4 mr-2" />
+                  Configuração
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="create"
+                  className="flex-1 data-[state=active]:bg-white data-[state=active]:shadow-lg data-[state=active]:scale-105 transition-all duration-300 rounded-lg font-semibold"
+                >
+                  <PlusIcon className="h-4 w-4 mr-2" />
+                  Criar
                 </TabsTrigger>
                 <TabsTrigger 
                   value="campaigns"
-                  className="flex-1 data-[state=active]:bg-white data-[state=active]:shadow-lg transition-all duration-300 rounded-lg"
+                  className="flex-1 data-[state=active]:bg-white data-[state=active]:shadow-lg data-[state=active]:scale-105 transition-all duration-300 rounded-lg font-semibold"
                 >
                   <TargetIcon className="h-4 w-4 mr-2" />
                   Campanhas
                 </TabsTrigger>
               </TabsList>
               
-              {/* Tab: Visão Geral */}
-              <TabsContent value="overview" className="mt-8 space-y-8">
-                {/* Estatísticas Principais */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                  {statsCards.map((stat, i) => (
-                    <FadeInUp key={i} delay={i * 100}>
-                      <MetricCard
-                        {...stat}
-                        value={
-                          <AnimatedNumber 
-                            value={stat.value} 
-                            className="text-3xl font-bold bg-gradient-to-r from-zinc-900 to-zinc-700 bg-clip-text text-transparent"
-                          />
-                        }
-                        loading={isLoading}
-                        className="hover-lift"
-                      />
-                    </FadeInUp>
-                  ))}
+              <TabsContent value="overview" className="mt-6 space-y-6">
+                {/* Quick Stats */}
+                <div className="flex items-center justify-between p-4 bg-gradient-to-r from-emerald-50 to-blue-50 rounded-xl border border-emerald-200/50">
+                  <div className="flex items-center space-x-6">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-emerald-700">{stats?.total || 0}</div>
+                      <div className="text-xs text-emerald-600">Total</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-blue-700">{stats?.sent || 0}</div>
+                      <div className="text-xs text-blue-600">Enviadas</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-amber-700">{stats?.scheduled || 0}</div>
+                      <div className="text-xs text-amber-600">Agendadas</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-purple-700">{stats?.draft || 0}</div>
+                      <div className="text-xs text-purple-600">Rascunhos</div>
+                    </div>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="border-emerald-300 hover:bg-emerald-50"
+                  >
+                    <RefreshCcwIcon className="h-4 w-4 mr-2" />
+                    Atualizar
+                  </Button>
                 </div>
 
                 {/* Performance Cards */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   {performanceCards.map((stat, i) => (
                     <FadeInUp key={i} delay={400 + i * 100}>
-                      <MetricCard
-                        {...stat}
-                        value={
-                          <AnimatedNumber 
-                            value={stat.value} 
-                            suffix={stat.suffix}
-                            className="text-3xl font-bold bg-gradient-to-r from-zinc-900 to-zinc-700 bg-clip-text text-transparent"
-                          />
-                        }
-                        loading={isLoading}
-                        className="hover-lift"
-                      />
+                      <Card className="hover-lift border-0 shadow-premium bg-gradient-to-br from-white to-zinc-50/50">
+                        <CardContent className="p-6">
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-3">
+                              <div className="flex items-center space-x-3">
+                                <div className={cn(
+                                  "p-2.5 rounded-xl shadow-md",
+                                  stat.color === 'purple' && "bg-gradient-to-br from-purple-100 to-purple-200",
+                                  stat.color === 'emerald' && "bg-gradient-to-br from-emerald-100 to-emerald-200"
+                                )}>
+                                  <stat.icon className={cn(
+                                    "h-5 w-5",
+                                    stat.color === 'purple' && "text-purple-700",
+                                    stat.color === 'emerald' && "text-emerald-700"
+                                  )} />
+                                </div>
+                                <h3 className="font-semibold text-zinc-800">{stat.title}</h3>
+                              </div>
+                              
+                              <div className="space-y-1">
+                                <AnimatedNumber 
+                                  value={stat.value} 
+                                  suffix={stat.suffix}
+                                  className="text-2xl font-bold bg-gradient-to-r from-zinc-900 to-zinc-700 bg-clip-text text-transparent"
+                                />
+                                <div className="flex items-center space-x-1 text-xs">
+                                  <TrendingUpIcon className="h-3 w-3 text-emerald-600" />
+                                  <span className="text-emerald-600 font-medium">+{stat.change}%</span>
+                                  <span className="text-zinc-500">{stat.changeLabel}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
                     </FadeInUp>
                   ))}
                 </div>
@@ -459,117 +812,101 @@ const NotificationManagementPage = () => {
                 {/* Quick Actions */}
                 <FadeInUp delay={700}>
                   <GlassCard className="p-6 border-0 shadow-premium">
-                    <div className="flex items-center space-x-3 mb-6">
-                      <div className="p-3 rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-200 shadow-lg">
-                        <ZapIcon className="h-6 w-6 text-emerald-700" />
-                      </div>
-                      <div>
-                        <h3 className="text-xl font-bold text-zinc-900">Ações Rápidas</h3>
-                        <p className="text-zinc-600">Funcionalidades mais utilizadas</p>
-                      </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                      <HoverLift>
-                        <Button 
-                          variant="outline" 
-                          className="h-20 flex-col space-y-2 border-purple-200 hover:border-purple-300 hover:bg-purple-50 group"
-                          onClick={() => setActiveTab('all')}
-                        >
-                          <BellIcon className="h-6 w-6 text-purple-600 group-hover:scale-110 transition-transform" />
-                          <span className="text-sm font-medium">Ver Todas</span>
-                        </Button>
-                      </HoverLift>
-                      
-                      <HoverLift>
-                        <Button 
-                          variant="outline" 
-                          className="h-20 flex-col space-y-2 border-blue-200 hover:border-blue-300 hover:bg-blue-50 group"
-                        >
-                          <PlusIcon className="h-6 w-6 text-blue-600 group-hover:scale-110 transition-transform" />
-                          <span className="text-sm font-medium">Criar Nova</span>
-                        </Button>
-                      </HoverLift>
-                      
-                      <HoverLift>
-                        <Button 
-                          variant="outline" 
-                          className="h-20 flex-col space-y-2 border-emerald-200 hover:border-emerald-300 hover:bg-emerald-50 group"
-                          onClick={() => setActiveTab('campaigns')}
-                        >
-                          <TargetIcon className="h-6 w-6 text-emerald-600 group-hover:scale-110 transition-transform" />
-                          <span className="text-sm font-medium">Campanhas</span>
-                        </Button>
-                      </HoverLift>
-                      
-                      <HoverLift>
-                        <Button 
-                          variant="outline" 
-                          className="h-20 flex-col space-y-2 border-amber-200 hover:border-amber-300 hover:bg-amber-50 group"
-                        >
-                          <DownloadIcon className="h-6 w-6 text-amber-600 group-hover:scale-110 transition-transform" />
-                          <span className="text-sm font-medium">Relatórios</span>
-                        </Button>
-                      </HoverLift>
-                    </div>
-                  </GlassCard>
-                </FadeInUp>
-              </TabsContent>
-              
-              {/* Tab: Todas as Notificações */}
-              <TabsContent value="all" className="mt-8">
-                <FadeInUp delay={0}>
-                  <GlassCard className="p-0 border-0 shadow-premium">
-                    <div className="p-6 border-b border-zinc-100/50 bg-gradient-to-r from-white via-purple-50/30 to-indigo-50/30">
-                      <div className="flex justify-between items-center">
-                        <div className="flex items-center space-x-3">
-                          <div className="p-2 rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 shadow-md">
-                            <BellIcon className="h-5 w-5 text-blue-700" />
-                          </div>
-                          <div>
-                            <h3 className="text-xl font-bold text-zinc-900">Todas as Notificações</h3>
-                            <p className="text-sm text-zinc-600">
-                              {filteredNotifications.length} {filteredNotifications.length === 1 ? 'notificação encontrada' : 'notificações encontradas'}
-                            </p>
-                          </div>
+                    <div className="flex items-center justify-between mb-6">
+                      <div className="flex items-center space-x-3">
+                        <div className="p-2 rounded-lg bg-gradient-to-br from-emerald-100 to-emerald-200 shadow-md">
+                          <ZapIcon className="h-5 w-5 text-emerald-700" />
                         </div>
-                        <Button className="btn-premium">
-                          <PlusIcon className="h-4 w-4 mr-2" />
-                          Nova Notificação
-                        </Button>
+                        <div>
+                          <h3 className="text-lg font-bold text-zinc-900">Ações Rápidas</h3>
+                          <p className="text-sm text-zinc-600">Configure e gerencie notificações push</p>
+                        </div>
                       </div>
+                      <Badge className="bg-emerald-100 text-emerald-700">
+                        {quickActions.length} disponíveis
+                      </Badge>
                     </div>
                     
-                    <div className="p-6">
-                      {isLoading ? (
-                        <LoadingSkeleton rows={5} showAvatar showBadge />
-                      ) : filteredNotifications.length > 0 ? (
-                        <ModernTable
-                          columns={tableColumns}
-                          data={filteredNotifications}
-                          onRowClick={(row) => setSelectedNotification(row)}
-                        />
-                      ) : (
-                        <EmptyState
-                          icon={BellIcon}
-                          title="Nenhuma notificação encontrada"
-                          description="Não encontramos notificações com os critérios de busca ou ainda não há notificações cadastradas."
-                          action={
-                            <Button className="btn-premium">
-                              <PlusIcon className="h-4 w-4 mr-2" />
-                              Criar Primeira Notificação
-                            </Button>
-                          }
-                          variant="primary"
-                        />
-                      )}
+                    <div className="space-y-3">
+                      {quickActions.map((action, index) => {
+                        const IconComponent = action.icon;
+                        
+                        return (
+                          <HoverLift key={action.id}>
+                            <button 
+                              onClick={action.onClick}
+                              className={cn(
+                                "w-full p-4 rounded-xl border-2 transition-all duration-300 group",
+                                "bg-gradient-to-r", action.bgColor,
+                                action.borderColor, action.hoverColor,
+                                "hover:shadow-md hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-purple-300"
+                              )}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-3">
+                                  <div className={cn(
+                                    "p-2.5 rounded-lg shadow-sm group-hover:scale-110 transition-transform",
+                                    "bg-white/50 backdrop-blur-sm"
+                                  )}>
+                                    <div className="relative">
+                                      <IconComponent className={cn("h-5 w-5", action.textColor)} />
+                                      {action.badge > 0 && (
+                                        <div className={cn(
+                                          "absolute -top-1 -right-1 w-3 h-3 rounded-full text-white text-xs font-bold flex items-center justify-center",
+                                          action.badgeColor
+                                        )}>
+                                          <div className="w-full h-full rounded-full animate-ping opacity-75 bg-current" />
+                                          <span className="absolute text-[10px]">
+                                            {action.badge > 9 ? '9+' : action.badge}
+                                          </span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="text-left">
+                                    <h4 className={cn("font-semibold text-sm", action.textColor)}>
+                                      {action.title}
+                                    </h4>
+                                    <p className="text-xs text-zinc-600 group-hover:text-zinc-700">
+                                      {action.description}
+                                    </p>
+                                  </div>
+                                </div>
+                                
+                                {action.badge > 0 && (
+                                  <Badge 
+                                    className={cn(
+                                      "text-white text-xs px-2 py-1 animate-pulse",
+                                      action.badgeColor
+                                    )}
+                                  >
+                                    {action.badge}
+                                  </Badge>
+                                )}
+                              </div>
+                            </button>
+                          </HoverLift>
+                        );
+                      })}
                     </div>
                   </GlassCard>
                 </FadeInUp>
               </TabsContent>
               
-              {/* Tab: Campanhas */}
-              <TabsContent value="campaigns" className="mt-8">
+              <TabsContent value="config" className="mt-6">
+                <FadeInUp delay={0}>
+                  <DeviceConfigurationCard />
+                </FadeInUp>
+              </TabsContent>
+              
+              <TabsContent value="create" className="mt-6">
+                <FadeInUp delay={0}>
+                  <CreateNotificationCard />
+                </FadeInUp>
+              </TabsContent>
+              
+              <TabsContent value="campaigns" className="mt-6">
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                   <div className="lg:col-span-2 space-y-6">
                     <FadeInUp delay={0}>
@@ -585,7 +922,6 @@ const NotificationManagementPage = () => {
                         </div>
                         
                         <div className="space-y-4">
-                          {/* Campanha de Exemplo */}
                           <HoverLift>
                             <div className="p-4 border border-zinc-200 rounded-xl hover:border-purple-300 transition-all bg-gradient-to-r from-white to-purple-50/30 group">
                               <div className="flex items-start justify-between">

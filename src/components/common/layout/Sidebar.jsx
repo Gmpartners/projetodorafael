@@ -61,20 +61,7 @@ const Sidebar = ({ userType = 'store' }) => {
   
   const storeNavItems = [
     { name: 'Dashboard', path: '/store/dashboard', icon: <HomeIcon className="h-5 w-5" /> },
-    { 
-      name: 'Pedidos', 
-      path: '/store/orders', 
-      icon: <ShoppingBagIcon className="h-5 w-5" />,
-      badge: 15,
-      subItems: [
-        { name: 'Novos', path: '/store/orders/new', badge: 5 },
-        { name: 'Processando', path: '/store/orders/processing', badge: 3 },
-        { name: 'Enviados', path: '/store/orders/shipped', badge: 7 },
-        { name: 'Entregues', path: '/store/orders/delivered' },
-        { name: 'Concluídos', path: '/store/orders/completed' },
-        { name: 'Cancelados', path: '/store/orders/cancelled' }
-      ]
-    },
+    
     { 
       name: 'Mensagens', 
       path: '/store/chats', 

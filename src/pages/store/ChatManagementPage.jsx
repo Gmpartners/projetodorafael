@@ -4,7 +4,6 @@ import MainLayout from '@/components/common/layout/MainLayout';
 import ChatList from '@/components/common/chat/ChatList';
 import ChatInitiator from '@/components/store/chat/ChatInitiator';
 import ChatWindow from '@/components/store/chat/ChatWindow';
-import QuickResponsePanel from '@/components/store/chat/QuickResponsePanel';
 import { 
   MetricCard, 
   TrendIndicator, 
@@ -33,8 +32,6 @@ import {
   CheckCircle2, 
   AlertCircle,
   TrendingUpIcon,
-  ClockIcon,
-  StarIcon,
   ZapIcon,
   ShieldCheckIcon,
   UsersIcon,
@@ -49,13 +46,12 @@ import {
   UserPlusIcon,
   RefreshCcwIcon,
   MoreVerticalIcon,
-  PhoneIcon,
-  VideoIcon,
   DownloadIcon,
-  ShareIcon,
   HeadphonesIcon,
   Activity,
-  BarChart3
+  BarChart3,
+  FileTextIcon,
+  HelpCircleIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -67,8 +63,6 @@ const ChatManagementPage = () => {
     unread: 0,
     needAttention: 0,
     resolved: 0,
-    avgResponseTime: 0,
-    satisfaction: 0,
     todayMessages: 0,
     responseRate: 0
   });
@@ -76,7 +70,6 @@ const ChatManagementPage = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
-  const [autoRefresh, setAutoRefresh] = useState(true);
   
   // Configurações de notificação otimizadas
   const [notificationSettings, setNotificationSettings] = useState({
@@ -87,21 +80,6 @@ const ChatManagementPage = () => {
     offlineMode: false,
     urgentOnly: false
   });
-
-  // Real-time updates simulation
-  useEffect(() => {
-    if (!autoRefresh) return;
-    
-    const interval = setInterval(() => {
-      setChatStats(prev => ({
-        ...prev,
-        unread: Math.max(0, prev.unread + Math.floor(Math.random() * 3) - 1),
-        todayMessages: prev.todayMessages + Math.floor(Math.random() * 2)
-      }));
-    }, 10000); // Update every 10 seconds
-    
-    return () => clearInterval(interval);
-  }, [autoRefresh]);
   
   // Carregar estatísticas e dados iniciais - otimizado
   const fetchData = useCallback(async () => {
@@ -116,8 +94,6 @@ const ChatManagementPage = () => {
         unread: 8,
         needAttention: 5,
         resolved: 19,
-        avgResponseTime: 12,
-        satisfaction: 4.7,
         todayMessages: 156,
         responseRate: 92.5
       });
@@ -189,69 +165,8 @@ const ChatManagementPage = () => {
     }));
   }, []);
 
-  // Estatísticas principais - memoizadas para performance
-  const statsCards = useMemo(() => [
-    {
-      title: 'Total de Conversas',
-      value: chatStats.total,
-      icon: MessageSquareIcon,
-      color: 'purple',
-      change: 8.2,
-      changeLabel: 'vs semana anterior',
-      trend: 'up'
-    },
-    {
-      title: 'Não Lidas',
-      value: chatStats.unread,
-      icon: BellOff,
-      color: 'blue',
-      change: -12.5,
-      changeLabel: 'vs ontem',
-      trend: 'down',
-      urgent: chatStats.unread > 5
-    },
-    {
-      title: 'Precisam Atenção',
-      value: chatStats.needAttention,
-      icon: AlertCircle,
-      color: 'amber',
-      change: 5.1,
-      changeLabel: 'vs ontem',
-      trend: 'up',
-      urgent: chatStats.needAttention > 3
-    },
-    {
-      title: 'Resolvidas Hoje',
-      value: chatStats.resolved,
-      icon: CheckCircle2,
-      color: 'emerald',
-      change: 15.3,
-      changeLabel: 'vs ontem',
-      trend: 'up'
-    }
-  ], [chatStats]);
-
+  // Performance cards - memoizadas para performance (REMOVIDO tempo de resposta e satisfação)
   const performanceCards = useMemo(() => [
-    {
-      title: 'Tempo Resposta Médio',
-      value: chatStats.avgResponseTime,
-      suffix: ' min',
-      icon: ClockIcon,
-      color: 'blue',
-      change: -8.5,
-      changeLabel: 'vs semana anterior',
-      trend: 'down'
-    },
-    {
-      title: 'Satisfação Cliente',
-      value: chatStats.satisfaction,
-      suffix: '/5',
-      icon: StarIcon,
-      color: 'amber',
-      change: 2.1,
-      changeLabel: 'vs mês anterior',
-      trend: 'up'
-    },
     {
       title: 'Mensagens Hoje',
       value: chatStats.todayMessages,
@@ -272,6 +187,69 @@ const ChatManagementPage = () => {
       trend: 'up'
     }
   ], [chatStats]);
+
+  // Dados das ações rápidas organizadas - MELHORADO
+  const quickActions = useMemo(() => [
+    {
+      id: 'chats',
+      title: 'Ver Conversas',
+      description: 'Gerenciar todas as conversas',
+      icon: MessageSquareIcon,
+      color: 'purple',
+      bgColor: 'from-purple-50 to-purple-100',
+      borderColor: 'border-purple-200',
+      hoverColor: 'hover:border-purple-400 hover:bg-purple-50',
+      textColor: 'text-purple-600',
+      badge: chatStats.unread,
+      badgeColor: 'bg-red-500',
+      onClick: () => setActiveTab('chats')
+    },
+    {
+      id: 'new_chat',
+      title: 'Nova Conversa',
+      description: 'Iniciar atendimento',
+      icon: UserPlusIcon,
+      color: 'blue',
+      bgColor: 'from-blue-50 to-blue-100',
+      borderColor: 'border-blue-200',
+      hoverColor: 'hover:border-blue-400 hover:bg-blue-50',
+      textColor: 'text-blue-600',
+      badge: 0,
+      badgeColor: 'bg-blue-500',
+      onClick: () => {
+        setActiveTab('chats');
+        // Trigger new chat modal
+      }
+    },
+    {
+      id: 'settings',
+      title: 'Configurações',
+      description: 'Ajustes de notificação',
+      icon: SettingsIcon,
+      color: 'emerald',
+      bgColor: 'from-emerald-50 to-emerald-100',
+      borderColor: 'border-emerald-200',
+      hoverColor: 'hover:border-emerald-400 hover:bg-emerald-50',
+      textColor: 'text-emerald-600',
+      badge: 0,
+      badgeColor: 'bg-emerald-500',
+      onClick: () => setActiveTab('settings')
+    },
+    {
+      id: 'export',
+      title: 'Exportar Dados',
+      description: 'Relatórios e análises',
+      icon: DownloadIcon,
+      color: 'amber',
+      bgColor: 'from-amber-50 to-amber-100',
+      borderColor: 'border-amber-200',
+      hoverColor: 'hover:border-amber-400 hover:bg-amber-50',
+      textColor: 'text-amber-600',
+      badge: 0,
+      badgeColor: 'bg-amber-500',
+      onClick: () => console.log('Exportar dados')
+    }
+  ], [chatStats.unread]);
 
   // Quick response handler
   const handleQuickResponse = useCallback((responseText) => {
@@ -328,22 +306,6 @@ const ChatManagementPage = () => {
                 </div>
                 
                 <div className="flex items-center space-x-3">
-                  {/* Auto-refresh toggle */}
-                  <div className="flex items-center space-x-2 px-3 py-2 bg-white/60 backdrop-blur-sm rounded-lg border border-white/50">
-                    <RefreshCcwIcon className={cn(
-                      "h-4 w-4 text-emerald-600 transition-all duration-300",
-                      autoRefresh && "animate-spin"
-                    )} />
-                    <span className="text-sm font-medium text-zinc-700">
-                      {autoRefresh ? 'Auto-sync' : 'Manual'}
-                    </span>
-                    <Switch 
-                      checked={autoRefresh}
-                      onCheckedChange={setAutoRefresh}
-                      size="sm"
-                    />
-                  </div>
-                  
                   {/* Search */}
                   <div className="relative">
                     <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-zinc-400" />
@@ -404,63 +366,12 @@ const ChatManagementPage = () => {
               
               {/* Tab: Visão Geral - Melhorada */}
               <TabsContent value="overview" className="mt-6 space-y-6">
-                {/* Quick Stats Bar */}
-                <div className="flex items-center justify-between p-4 bg-gradient-to-r from-emerald-50 to-blue-50 rounded-xl border border-emerald-200/50">
-                  <div className="flex items-center space-x-6">
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-emerald-700">{chatStats.total}</div>
-                      <div className="text-xs text-emerald-600">Total</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-blue-700">{chatStats.unread}</div>
-                      <div className="text-xs text-blue-600">Não Lidas</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-amber-700">{chatStats.needAttention}</div>
-                      <div className="text-xs text-amber-600">Urgentes</div>
-                    </div>
-                  </div>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={fetchData}
-                    className="border-emerald-300 hover:bg-emerald-50"
-                  >
-                    <RefreshCcwIcon className="h-4 w-4 mr-2" />
-                    Atualizar
-                  </Button>
-                </div>
+                
 
-                {/* Estatísticas Principais */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {statsCards.map((stat, i) => (
-                    <FadeInUp key={i} delay={i * 100}>
-                      <div className="relative">
-                        {stat.urgent && (
-                          <div className="absolute -top-2 -right-2 z-10">
-                            <PulseEffect color="red">
-                              <div className="w-4 h-4 bg-red-500 rounded-full" />
-                            </PulseEffect>
-                          </div>
-                        )}
-                        <MetricCard
-                          {...stat}
-                          value={
-                            <AnimatedNumber 
-                              value={stat.value} 
-                              className="text-2xl font-bold bg-gradient-to-r from-zinc-900 to-zinc-700 bg-clip-text text-transparent"
-                            />
-                          }
-                          loading={isLoading}
-                          className="hover-lift"
-                        />
-                      </div>
-                    </FadeInUp>
-                  ))}
-                </div>
+                
 
-                {/* Performance Cards Expandidas */}
-                <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+                {/* Performance Cards - Apenas 2 cards */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   {performanceCards.map((stat, i) => (
                     <FadeInUp key={i} delay={400 + i * 100}>
                       <MetricCard
@@ -479,7 +390,7 @@ const ChatManagementPage = () => {
                   ))}
                 </div>
 
-                {/* Quick Actions Melhoradas */}
+                {/* Quick Actions Melhoradas - LAYOUT VERTICAL MELHORADO */}
                 <FadeInUp delay={800}>
                   <GlassCard className="p-6 border-0 shadow-premium">
                     <div className="flex items-center justify-between mb-6">
@@ -493,118 +404,87 @@ const ChatManagementPage = () => {
                         </div>
                       </div>
                       <Badge className="bg-emerald-100 text-emerald-700">
-                        4 disponíveis
+                        {quickActions.length} disponíveis
                       </Badge>
                     </div>
                     
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                      <HoverLift>
-                        <Button 
-                          variant="outline" 
-                          className="h-20 flex-col space-y-2 border-purple-200 hover:border-purple-400 hover:bg-purple-50 hover:shadow-lg group transition-all duration-300"
-                          onClick={() => setActiveTab('chats')}
-                        >
-                          <div className="relative">
-                            <MessageSquareIcon className="h-6 w-6 text-purple-600 group-hover:scale-110 transition-transform" />
-                            {chatStats.unread > 0 && (
-                              <div className="absolute -top-2 -right-2 w-4 h-4 bg-red-500 rounded-full text-xs text-white flex items-center justify-center">
-                                {chatStats.unread}
+                    {/* Grid das Ações Melhorado */}
+                    <div className="space-y-3">
+                      {quickActions.map((action, index) => {
+                        const IconComponent = action.icon;
+                        
+                        return (
+                          <HoverLift key={action.id}>
+                            <button 
+                              onClick={action.onClick}
+                              className={cn(
+                                "w-full p-4 rounded-xl border-2 transition-all duration-300 group",
+                                "bg-gradient-to-r", action.bgColor,
+                                action.borderColor, action.hoverColor,
+                                "hover:shadow-md hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-purple-300"
+                              )}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-3">
+                                  <div className={cn(
+                                    "p-2.5 rounded-lg shadow-sm group-hover:scale-110 transition-transform",
+                                    "bg-white/50 backdrop-blur-sm"
+                                  )}>
+                                    <div className="relative">
+                                      <IconComponent className={cn("h-5 w-5", action.textColor)} />
+                                      {action.badge > 0 && (
+                                        <div className={cn(
+                                          "absolute -top-1 -right-1 w-3 h-3 rounded-full text-white text-xs font-bold flex items-center justify-center",
+                                          action.badgeColor
+                                        )}>
+                                          <div className="w-full h-full rounded-full animate-ping opacity-75 bg-current" />
+                                          <span className="absolute text-[10px]">
+                                            {action.badge > 9 ? '9+' : action.badge}
+                                          </span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="text-left">
+                                    <h4 className={cn("font-semibold text-sm", action.textColor)}>
+                                      {action.title}
+                                    </h4>
+                                    <p className="text-xs text-zinc-600 group-hover:text-zinc-700">
+                                      {action.description}
+                                    </p>
+                                  </div>
+                                </div>
+                                
+                                {action.badge > 0 && (
+                                  <Badge 
+                                    className={cn(
+                                      "text-white text-xs px-2 py-1 animate-pulse",
+                                      action.badgeColor
+                                    )}
+                                  >
+                                    {action.badge}
+                                  </Badge>
+                                )}
                               </div>
-                            )}
-                          </div>
-                          <span className="text-sm font-medium">Ver Conversas</span>
-                        </Button>
-                      </HoverLift>
-                      
-                      <HoverLift>
-                        <Button 
-                          variant="outline" 
-                          className="h-20 flex-col space-y-2 border-blue-200 hover:border-blue-400 hover:bg-blue-50 hover:shadow-lg group transition-all duration-300"
-                          onClick={() => {
-                            setActiveTab('chats');
-                            // Trigger new chat modal
-                          }}
-                        >
-                          <UserPlusIcon className="h-6 w-6 text-blue-600 group-hover:scale-110 transition-transform" />
-                          <span className="text-sm font-medium">Nova Conversa</span>
-                        </Button>
-                      </HoverLift>
-                      
-                      <HoverLift>
-                        <Button 
-                          variant="outline" 
-                          className="h-20 flex-col space-y-2 border-emerald-200 hover:border-emerald-400 hover:bg-emerald-50 hover:shadow-lg group transition-all duration-300"
-                          onClick={() => setActiveTab('settings')}
-                        >
-                          <SettingsIcon className="h-6 w-6 text-emerald-600 group-hover:scale-110 transition-transform" />
-                          <span className="text-sm font-medium">Configurações</span>
-                        </Button>
-                      </HoverLift>
-                      
-                      <HoverLift>
-                        <Button 
-                          variant="outline" 
-                          className="h-20 flex-col space-y-2 border-amber-200 hover:border-amber-400 hover:bg-amber-50 hover:shadow-lg group transition-all duration-300"
-                        >
-                          <DownloadIcon className="h-6 w-6 text-amber-600 group-hover:scale-110 transition-transform" />
-                          <span className="text-sm font-medium">Exportar Dados</span>
-                        </Button>
-                      </HoverLift>
+                            </button>
+                          </HoverLift>
+                        );
+                      })}
                     </div>
                   </GlassCard>
                 </FadeInUp>
               </TabsContent>
               
-              {/* Tab: Conversas - Layout Otimizado */}
+              {/* Tab: Conversas - Layout Otimizado (SEM painel de suporte) */}
               <TabsContent value="chats" className="mt-6">
                 <div className="h-[calc(100vh-280px)] min-h-[650px] max-h-[900px]">
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-full">
-                    {/* Lista de Conversas - Coluna responsiva */}
-                    <div className="lg:col-span-4 xl:col-span-3 h-full">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
+                    {/* Lista de Conversas */}
+                    <div className="h-full">
                       <FadeInUp delay={0} className="h-full">
                         <div className="h-full overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-lg">
-                          {/* Header da lista */}
-                          <div className="p-4 border-b border-zinc-100 bg-gradient-to-r from-purple-50 to-indigo-50">
-                            <div className="flex items-center justify-between mb-3">
-                              <h3 className="font-bold text-zinc-900">Conversas</h3>
-                              <div className="flex items-center space-x-2">
-                                <Badge className="bg-purple-100 text-purple-700 text-xs">
-                                  {chatStats.total}
-                                </Badge>
-                                <Button variant="ghost" size="icon" className="h-6 w-6">
-                                  <MoreVerticalIcon className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </div>
-                            
-                            {/* Quick filters */}
-                            <div className="flex space-x-2">
-                              <Button 
-                                variant={filterStatus === 'all' ? 'default' : 'outline'}
-                                size="sm"
-                                className="text-xs"
-                                onClick={() => setFilterStatus('all')}
-                              >
-                                Todas
-                              </Button>
-                              <Button 
-                                variant={filterStatus === 'unread' ? 'default' : 'outline'}
-                                size="sm"
-                                className="text-xs"
-                                onClick={() => setFilterStatus('unread')}
-                              >
-                                Não Lidas {chatStats.unread > 0 && `(${chatStats.unread})`}
-                              </Button>
-                              <Button 
-                                variant={filterStatus === 'urgent' ? 'default' : 'outline'}
-                                size="sm"
-                                className="text-xs"
-                                onClick={() => setFilterStatus('urgent')}
-                              >
-                                Urgentes
-                              </Button>
-                            </div>
-                          </div>
+                         
                           
                           <ChatList 
                             onSelectChat={handleSelectChat}
@@ -619,7 +499,7 @@ const ChatManagementPage = () => {
                     </div>
                     
                     {/* Janela de Chat */}
-                    <div className="lg:col-span-5 xl:col-span-6 h-full">
+                    <div className="h-full">
                       <FadeInUp delay={200} className="h-full">
                         <div className="h-full overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-lg">
                           <ChatWindow 
@@ -627,54 +507,6 @@ const ChatManagementPage = () => {
                             onStartNewChat={handleStartNewChat}
                             onSelectResponse={handleQuickResponse}
                           />
-                        </div>
-                      </FadeInUp>
-                    </div>
-                    
-                    {/* Painel de Respostas Rápidas */}
-                    <div className="lg:col-span-3 xl:col-span-3 h-full">
-                      <FadeInUp delay={400} className="h-full">
-                        <div className="h-full overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-lg">
-                          <div className="p-3 border-b border-zinc-100 bg-gradient-to-r from-emerald-50 to-teal-50">
-                            <h3 className="font-bold text-zinc-900 text-sm">Painel de Suporte</h3>
-                            <p className="text-xs text-zinc-600">Ferramentas rápidas</p>
-                          </div>
-                          
-                          <div className="p-3 space-y-3">
-                            {/* Quick actions */}
-                            <div className="grid grid-cols-2 gap-2">
-                              <Button variant="outline" size="sm" className="text-xs">
-                                <PhoneIcon className="h-3 w-3 mr-1" />
-                                Ligar
-                              </Button>
-                              <Button variant="outline" size="sm" className="text-xs">
-                                <VideoIcon className="h-3 w-3 mr-1" />
-                                Vídeo
-                              </Button>
-                            </div>
-                            
-                            {/* Customer info panel would go here */}
-                            {activeChat && (
-                              <div className="p-3 bg-purple-50 rounded-lg border border-purple-200">
-                                <h4 className="font-semibold text-sm text-purple-900 mb-2">
-                                  Informações do Cliente
-                                </h4>
-                                <div className="space-y-1 text-xs text-purple-700">
-                                  <div>Nome: {activeChat.name}</div>
-                                  <div>Pedido: {activeChat.orderId}</div>
-                                  <div>Status: {activeChat.orderStatus}</div>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                          
-                          {/* Quick responses panel */}
-                          <div className="flex-1 overflow-hidden">
-                            <QuickResponsePanel 
-                              onSelectResponse={handleQuickResponse}
-                              orderId={activeChat?.orderId}
-                            />
-                          </div>
                         </div>
                       </FadeInUp>
                     </div>
