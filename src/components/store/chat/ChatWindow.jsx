@@ -40,45 +40,9 @@ import {
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { useStoreChat } from '@/contexts/StoreChatContext';
 import ChatInitiator from './ChatInitiator';
 
-// Mock messages generator - optimized
-const generateMockMessages = (chat) => [
-  {
-    id: 1,
-    sender: 'customer',
-    content: `Olá! Gostaria de saber sobre o status do meu pedido ${chat.orderId}. Quando será enviado?`,
-    timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000),
-    read: true,
-    type: 'text'
-  },
-  {
-    id: 2,
-    sender: 'store',
-    content: `Olá ${chat.name}! Seu pedido está sendo preparado com cuidado. Será enviado amanhã pela manhã e você receberá o código de rastreamento.`,
-    timestamp: new Date(Date.now() - 1.5 * 60 * 60 * 1000),
-    read: true,
-    type: 'text'
-  },
-  {
-    id: 3,
-    sender: 'customer',
-    content: 'Perfeito! Muito obrigada pelo atendimento rápido. Vocês são excelentes! 😊',
-    timestamp: new Date(Date.now() - 1 * 60 * 60 * 1000),
-    read: true,
-    type: 'text'
-  },
-  {
-    id: 4,
-    sender: 'store',
-    content: 'Fico muito feliz em ajudar! Se precisar de mais alguma coisa, estarei aqui. Tenha um ótimo dia!',
-    timestamp: new Date(Date.now() - 30 * 60 * 1000),
-    read: true,
-    type: 'text'
-  }
-];
-
-// Message status icons mapping
 const MESSAGE_STATUS = {
   sending: Clock,
   sent: CheckCircle,
@@ -86,36 +50,21 @@ const MESSAGE_STATUS = {
   read: CheckCircle
 };
 
-// Quick emoji panel
 const QUICK_EMOJIS = ['😊', '👍', '🎉', '❤️', '👏', '🔥', '💯', '✨'];
 
 const ChatWindow = ({ activeChat, onStartNewChat, onSelectResponse }) => {
-  const [messages, setMessages] = useState([]);
+  const { messages, sendMessage, markChatAsRead, isLoading, error } = useStoreChat();
   const [newMessage, setNewMessage] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
   const [showEmojiPanel, setShowEmojiPanel] = useState(false);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [isOnline, setIsOnline] = useState(true);
+  const [isSending, setIsSending] = useState(false);
   
   const messagesEndRef = useRef(null);
   const scrollAreaRef = useRef(null);
   const inputRef = useRef(null);
 
-  // Load messages when active chat changes - optimized with useMemo
-  const currentMessages = useMemo(() => {
-    if (activeChat) {
-      return generateMockMessages(activeChat);
-    }
-    return [];
-  }, [activeChat]);
-
-  useEffect(() => {
-    setMessages(currentMessages);
-  }, [currentMessages]);
-
-  // Auto-scroll to bottom - optimized with callback
   const scrollToBottom = useCallback((smooth = true) => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ 
@@ -128,7 +77,6 @@ const ChatWindow = ({ activeChat, onStartNewChat, onSelectResponse }) => {
     scrollToBottom(false);
   }, [messages, scrollToBottom]);
 
-  // Handle scroll events to show/hide scroll to bottom button
   const handleScroll = useCallback((event) => {
     const scrollElement = event.target;
     const { scrollTop, scrollHeight, clientHeight } = scrollElement;
@@ -136,63 +84,30 @@ const ChatWindow = ({ activeChat, onStartNewChat, onSelectResponse }) => {
     setShowScrollToBottom(!isNearBottom && messages.length > 3);
   }, [messages.length]);
 
-  // Send message - optimized with useCallback
-  const handleSendMessage = useCallback(() => {
-    if (!newMessage.trim() || !activeChat) return;
+  const handleSendMessage = useCallback(async () => {
+    if (!newMessage.trim() || !activeChat || isSending) return;
 
-    const message = {
-      id: Date.now(),
-      sender: 'store',
-      content: newMessage.trim(),
-      timestamp: new Date(),
-      read: false,
-      type: 'text',
-      status: 'sending'
-    };
-
-    setMessages(prev => [...prev, message]);
-    setNewMessage('');
-    
-    // Focus back to input
-    if (inputRef.current) {
-      inputRef.current.focus();
-    }
-
-    // Simulate message status updates
-    setTimeout(() => {
-      setMessages(prev => 
-        prev.map(msg => 
-          msg.id === message.id 
-            ? { ...msg, status: 'sent' }
-            : msg
-        )
-      );
-    }, 500);
-
-    // Simulate customer response (optional)
-    setIsTyping(true);
-    setTimeout(() => {
-      setIsTyping(false);
-      const customerResponse = {
-        id: Date.now() + 1,
-        sender: 'customer',
-        content: 'Obrigado pela resposta! Isso esclarece tudo.',
-        timestamp: new Date(),
-        read: false,
-        type: 'text'
-      };
-      setMessages(prev => [...prev, customerResponse]);
-      setUnreadCount(prev => prev + 1);
+    try {
+      setIsSending(true);
+      console.log('📤 ChatWindow: Enviando mensagem:', newMessage.trim());
       
-      // Play notification sound
-      if (soundEnabled) {
-        // You would implement actual sound here
-        console.log('🔔 Nova mensagem recebida');
+      await sendMessage(newMessage.trim());
+      
+      setNewMessage('');
+      
+      if (inputRef.current) {
+        inputRef.current.focus();
       }
-    }, 2000);
-  }, [newMessage, activeChat, soundEnabled]);
+      
+      console.log('✅ ChatWindow: Mensagem enviada com sucesso');
+      
+    } catch (error) {
+      console.error('❌ ChatWindow: Erro ao enviar mensagem:', error);
+    } finally {
+      setIsSending(false);
+    }
+  }, [newMessage, activeChat, sendMessage, isSending]);
 
-  // Handle keyboard shortcuts
   const handleKeyPress = useCallback((e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -200,7 +115,6 @@ const ChatWindow = ({ activeChat, onStartNewChat, onSelectResponse }) => {
     }
   }, [handleSendMessage]);
 
-  // Order status badge - memoized for performance
   const getOrderStatusBadge = useMemo(() => (status) => {
     const statusMap = {
       'processing': { 
@@ -236,15 +150,19 @@ const ChatWindow = ({ activeChat, onStartNewChat, onSelectResponse }) => {
     );
   }, []);
 
-  // Format message time - memoized
   const formatMessageTime = useMemo(() => (timestamp) => {
-    return formatDistanceToNow(timestamp, {
+    if (!timestamp) return 'Agora';
+    
+    const date = timestamp instanceof Date ? timestamp : 
+                 timestamp.toDate ? timestamp.toDate() : 
+                 new Date(timestamp);
+    
+    return formatDistanceToNow(date, {
       addSuffix: true,
       locale: ptBR
     });
   }, []);
 
-  // Quick response handler
   const handleQuickResponse = useCallback((text) => {
     setNewMessage(text);
     if (inputRef.current) {
@@ -252,7 +170,6 @@ const ChatWindow = ({ activeChat, onStartNewChat, onSelectResponse }) => {
     }
   }, []);
 
-  // Add emoji to message
   const addEmoji = useCallback((emoji) => {
     setNewMessage(prev => prev + emoji);
     setShowEmojiPanel(false);
@@ -261,21 +178,11 @@ const ChatWindow = ({ activeChat, onStartNewChat, onSelectResponse }) => {
     }
   }, []);
 
-  // Mark messages as read
-  const markAsRead = useCallback(() => {
-    setUnreadCount(0);
-    setMessages(prev => 
-      prev.map(msg => 
-        msg.sender === 'customer' ? { ...msg, read: true } : msg
-      )
-    );
-  }, []);
-
-  useEffect(() => {
+  const handleMarkAsRead = useCallback(() => {
     if (activeChat) {
-      markAsRead();
+      markChatAsRead(activeChat.id);
     }
-  }, [activeChat, markAsRead]);
+  }, [activeChat, markChatAsRead]);
 
   if (!activeChat) {
     return (
@@ -309,17 +216,7 @@ const ChatWindow = ({ activeChat, onStartNewChat, onSelectResponse }) => {
 
   return (
     <div className="h-full flex flex-col bg-white rounded-xl shadow-lg overflow-hidden">
-      {/* Header - Optimized */}
       <div className="p-3 border-b border-zinc-100 bg-gradient-to-r from-white via-purple-50/30 to-indigo-50/30 flex-shrink-0 relative">
-        {/* Unread indicator */}
-        {unreadCount > 0 && (
-          <div className="absolute top-2 right-2">
-            <Badge className="bg-red-500 text-white animate-pulse">
-              {unreadCount} nova{unreadCount > 1 ? 's' : ''}
-            </Badge>
-          </div>
-        )}
-        
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="relative">
@@ -329,7 +226,6 @@ const ChatWindow = ({ activeChat, onStartNewChat, onSelectResponse }) => {
                   {activeChat.initials}
                 </AvatarFallback>
               </Avatar>
-              {/* Online status */}
               <div className={cn(
                 "absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white",
                 isOnline ? "bg-emerald-500" : "bg-zinc-400"
@@ -384,7 +280,6 @@ const ChatWindow = ({ activeChat, onStartNewChat, onSelectResponse }) => {
         </div>
       </div>
 
-      {/* Messages Area - Optimized */}
       <div className="flex-1 overflow-hidden bg-gradient-to-br from-zinc-50/30 to-white relative">
         <ScrollArea 
           ref={scrollAreaRef}
@@ -392,7 +287,6 @@ const ChatWindow = ({ activeChat, onStartNewChat, onSelectResponse }) => {
           onScroll={handleScroll}
         >
           <div className="p-3 space-y-3">
-            {/* Customer Info Card - Compact */}
             <div className="bg-gradient-to-r from-purple-50/70 to-indigo-50/70 border border-purple-100 rounded-lg p-3 transition-all hover:shadow-md">
               <div className="flex items-center space-x-3">
                 <Avatar className="h-8 w-8 border-2 border-white shadow-sm">
@@ -417,60 +311,63 @@ const ChatWindow = ({ activeChat, onStartNewChat, onSelectResponse }) => {
                   variant="ghost" 
                   size="sm"
                   className="h-7 text-xs text-purple-600 hover:bg-purple-100"
-                  onClick={markAsRead}
+                  onClick={handleMarkAsRead}
                 >
                   Marcar como lida
                 </Button>
               </div>
             </div>
             
-            {/* Messages */}
             <div className="space-y-3">
-              {messages.map((message) => (
-                <div
-                  key={message.id}
-                  className={cn(
-                    "flex",
-                    message.sender === 'store' ? 'justify-end' : 'justify-start'
-                  )}
-                >
-                  <div className={cn(
-                    "max-w-[75%] rounded-xl p-3 shadow-sm transition-all hover:shadow-md",
-                    message.sender === 'store'
-                      ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-br-md'
-                      : 'bg-white border border-zinc-200 text-zinc-900 rounded-bl-md'
-                  )}>
-                    <p className="text-sm whitespace-pre-wrap leading-relaxed">{message.content}</p>
+              {isLoading && messages.length === 0 ? (
+                <div className="text-center text-zinc-500 py-8">
+                  <Clock className="h-8 w-8 mx-auto mb-2 animate-spin" />
+                  <p>Carregando mensagens...</p>
+                </div>
+              ) : messages.length === 0 ? (
+                <div className="text-center text-zinc-500 py-8">
+                  <MessageSquare className="h-8 w-8 mx-auto mb-2" />
+                  <p>Nenhuma mensagem ainda</p>
+                  <p className="text-sm">Seja o primeiro a enviar uma mensagem!</p>
+                </div>
+              ) : (
+                messages.map((message) => (
+                  <div
+                    key={message.id}
+                    className={cn(
+                      "flex",
+                      message.sender === 'store' || message.senderType === 'store' ? 'justify-end' : 'justify-start'
+                    )}
+                  >
                     <div className={cn(
-                      "flex items-center justify-between mt-2 text-xs",
-                      message.sender === 'store' ? 'text-purple-100' : 'text-zinc-500'
+                      "max-w-[75%] rounded-xl p-3 shadow-sm transition-all hover:shadow-md",
+                      message.sender === 'store' || message.senderType === 'store'
+                        ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-br-md'
+                        : message.senderType === 'system'
+                        ? 'bg-zinc-100 text-zinc-700 rounded-lg text-center text-sm'
+                        : 'bg-white border border-zinc-200 text-zinc-900 rounded-bl-md'
                     )}>
-                      <span>{formatMessageTime(message.timestamp)}</span>
-                      {message.sender === 'store' && (
-                        <div className="flex items-center space-x-1">
-                          {message.status && MESSAGE_STATUS[message.status] && (
-                            React.createElement(MESSAGE_STATUS[message.status], {
+                      <p className="text-sm whitespace-pre-wrap leading-relaxed">
+                        {message.content || message.text}
+                      </p>
+                      <div className={cn(
+                        "flex items-center justify-between mt-2 text-xs",
+                        message.sender === 'store' || message.senderType === 'store' 
+                          ? 'text-purple-100' 
+                          : 'text-zinc-500'
+                      )}>
+                        <span>{formatMessageTime(message.time || message.timestamp)}</span>
+                        {(message.sender === 'store' || message.senderType === 'store') && message.status && MESSAGE_STATUS[message.status] && (
+                          <div className="flex items-center space-x-1">
+                            {React.createElement(MESSAGE_STATUS[message.status], {
                               className: cn("h-3 w-3", message.status === 'sending' && "animate-spin")
-                            })
-                          )}
-                        </div>
-                      )}
+                            })}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-              
-              {/* Typing indicator */}
-              {isTyping && (
-                <div className="flex justify-start">
-                  <div className="bg-zinc-100 rounded-xl rounded-bl-md p-3 shadow-sm">
-                    <div className="flex space-x-1">
-                      <div className="w-2 h-2 bg-zinc-400 rounded-full animate-bounce"></div>
-                      <div className="w-2 h-2 bg-zinc-400 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
-                      <div className="w-2 h-2 bg-zinc-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
-                    </div>
-                  </div>
-                </div>
+                ))
               )}
               
               <div ref={messagesEndRef} />
@@ -478,7 +375,6 @@ const ChatWindow = ({ activeChat, onStartNewChat, onSelectResponse }) => {
           </div>
         </ScrollArea>
         
-        {/* Scroll to bottom button */}
         {showScrollToBottom && (
           <Button
             size="icon"
@@ -490,7 +386,6 @@ const ChatWindow = ({ activeChat, onStartNewChat, onSelectResponse }) => {
         )}
       </div>
 
-      {/* Quick Response Panel - Show when available */}
       {onSelectResponse && (
         <div className="border-t border-zinc-100 p-2 bg-zinc-50/50">
           <div className="flex space-x-2 overflow-x-auto">
@@ -522,9 +417,7 @@ const ChatWindow = ({ activeChat, onStartNewChat, onSelectResponse }) => {
         </div>
       )}
 
-      {/* Input Area - Enhanced */}
       <div className="p-3 border-t border-zinc-100 bg-white flex-shrink-0">
-        {/* Emoji panel */}
         {showEmojiPanel && (
           <div className="mb-2 p-2 border rounded-lg bg-zinc-50">
             <div className="flex space-x-2">
@@ -557,6 +450,7 @@ const ChatWindow = ({ activeChat, onStartNewChat, onSelectResponse }) => {
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
               onKeyPress={handleKeyPress}
+              disabled={isSending}
               className="pr-16 h-9 text-sm border-zinc-200 focus:border-purple-300 focus:ring-purple-200 bg-white"
               maxLength={500}
             />
@@ -582,19 +476,22 @@ const ChatWindow = ({ activeChat, onStartNewChat, onSelectResponse }) => {
           <Button 
             size="icon" 
             onClick={handleSendMessage}
-            disabled={!newMessage.trim()}
+            disabled={!newMessage.trim() || isSending}
             className={cn(
               "h-8 w-8 flex-shrink-0 transition-all",
-              newMessage.trim() 
+              newMessage.trim() && !isSending
                 ? "bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 hover:scale-105" 
                 : "bg-zinc-300 cursor-not-allowed"
             )}
           >
-            <Send className="h-4 w-4" />
+            {isSending ? (
+              <Clock className="h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
           </Button>
         </div>
         
-        {/* Character counter */}
         {newMessage.length > 400 && (
           <div className="mt-1 text-xs text-zinc-500 text-right">
             {newMessage.length}/500

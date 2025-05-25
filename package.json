@@ -6,7 +6,10 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "firebase:emulators": "firebase emulators:start",
+    "firebase:build": "npm run build && firebase deploy --only hosting",
+    "firebase:serve": "npm run build && firebase serve --only hosting"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.0.1",
@@ -66,6 +69,7 @@
     "eslint": "^9.25.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.19",
+    "firebase-tools": "^13.34.0",
     "globals": "^16.0.0",
     "postcss": "^8.4.21",
     "tailwindcss": "^3.3.3",

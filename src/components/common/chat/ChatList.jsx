@@ -40,15 +40,57 @@ import {
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { useCustomerChat } from '@/contexts/CustomerChatContext';
+import { useStoreChat } from '@/contexts/StoreChatContext';
+import { useAuth } from '@/contexts/AuthContext';
 
-// Componente premium para item de conversa - COMPACTO IGUAL AO SKELETON
+const safeFormatTimestamp = (timestamp) => {
+  try {
+    if (!timestamp) {
+      return 'Recente';
+    }
+
+    let dateToFormat = null;
+
+    if (timestamp.toDate && typeof timestamp.toDate === 'function') {
+      dateToFormat = timestamp.toDate();
+    }
+    else if (typeof timestamp === 'string' || typeof timestamp === 'number') {
+      dateToFormat = new Date(timestamp);
+    }
+    else if (timestamp instanceof Date) {
+      dateToFormat = timestamp;
+    }
+    else if (timestamp.seconds && typeof timestamp.seconds === 'number') {
+      dateToFormat = new Date(timestamp.seconds * 1000);
+    }
+
+    if (!dateToFormat || isNaN(dateToFormat.getTime())) {
+      console.warn('⚠️ Timestamp inválido recebido:', timestamp);
+      return 'Recente';
+    }
+
+    const year = dateToFormat.getFullYear();
+    if (year < 2020 || year > 2030) {
+      console.warn('⚠️ Data fora do range esperado:', dateToFormat);
+      return 'Recente';
+    }
+
+    return formatDistanceToNow(dateToFormat, { 
+      addSuffix: true, 
+      locale: ptBR 
+    });
+
+  } catch (error) {
+    console.error('❌ Erro ao formatar timestamp:', error, 'Timestamp original:', timestamp);
+    return 'Recente';
+  }
+};
+
 const ChatListItem = ({ chat, activeChat, onClick }) => {
   const isActive = activeChat && activeChat.id === chat.id;
   
-  const formattedTime = formatDistanceToNow(new Date(chat.lastMessage.timestamp), {
-    addSuffix: true,
-    locale: ptBR
-  });
+  const formattedTime = safeFormatTimestamp(chat.lastMessage?.timestamp);
   
   const getPriorityColor = (priority) => {
     switch(priority) {
@@ -62,9 +104,11 @@ const ChatListItem = ({ chat, activeChat, onClick }) => {
 
   const getStatusIcon = () => {
     if (chat.hasAttention) return <AlertCircle className="h-2.5 w-2.5 text-amber-600" />;
-    if (chat.unreadCount > 0) return <MessageCircle className="h-2.5 w-2.5 text-purple-600" />;
+    if (chat.unreadCount > 0 || chat.userUnreadCount > 0) return <MessageCircle className="h-2.5 w-2.5 text-purple-600" />;
     return <CheckCircle className="h-2.5 w-2.5 text-emerald-600" />;
   };
+
+  const unreadCount = chat.unreadCount || chat.userUnreadCount || 0;
   
   return (
     <HoverLift>
@@ -77,7 +121,6 @@ const ChatListItem = ({ chat, activeChat, onClick }) => {
         )}
         onClick={() => onClick(chat)}
       >
-        {/* Priority Indicator */}
         {chat.priority && chat.priority !== 'low' && (
           <div className={cn(
             "absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full",
@@ -86,7 +129,6 @@ const ChatListItem = ({ chat, activeChat, onClick }) => {
         )}
         
         <div className="flex items-start gap-2.5">
-          {/* Avatar with Status - MENOR */}
           <div className="relative flex-shrink-0">
             <Avatar className={cn(
               "h-8 w-8 border-2 shadow-sm transition-all duration-300",
@@ -98,7 +140,6 @@ const ChatListItem = ({ chat, activeChat, onClick }) => {
               </AvatarFallback>
             </Avatar>
             
-            {/* Online Status - MENOR */}
             {chat.online && (
               <div className="absolute -bottom-0.5 -right-0.5">
                 <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full border border-white shadow-sm flex items-center justify-center">
@@ -107,19 +148,16 @@ const ChatListItem = ({ chat, activeChat, onClick }) => {
               </div>
             )}
             
-            {/* Unread Indicator - MENOR */}
-            {chat.unreadCount > 0 && (
+            {unreadCount > 0 && (
               <PulseEffect color="purple" size="sm" className="absolute -top-0.5 -right-0.5">
                 <Badge className="bg-purple-600 text-white text-xs min-w-[16px] h-3.5 flex items-center justify-center p-0 shadow-lg">
-                  {chat.unreadCount}
+                  {unreadCount}
                 </Badge>
               </PulseEffect>
             )}
           </div>
           
-          {/* Content - COMPACTO */}
           <div className="flex-1 min-w-0 space-y-0.5">
-            {/* Header */}
             <div className="flex items-start justify-between">
               <div className="space-y-0.5 min-w-0 flex-1">
                 <div className="flex items-center space-x-1">
@@ -134,21 +172,21 @@ const ChatListItem = ({ chat, activeChat, onClick }) => {
                   )}
                 </div>
                 
-                {/* Order Badge - MENOR */}
-                <Badge 
-                  variant="outline" 
-                  className={cn(
-                    "text-xs px-1 py-0 font-medium transition-colors h-4",
-                    isActive 
-                      ? "border-purple-300 text-purple-700 bg-purple-50" 
-                      : "border-zinc-200 text-zinc-700 bg-zinc-50 group-hover:border-purple-200 group-hover:text-purple-700"
-                  )}
-                >
-                  {chat.orderId}
-                </Badge>
+                {chat.orderId && (
+                  <Badge 
+                    variant="outline" 
+                    className={cn(
+                      "text-xs px-1 py-0 font-medium transition-colors h-4",
+                      isActive 
+                        ? "border-purple-300 text-purple-700 bg-purple-50" 
+                        : "border-zinc-200 text-zinc-700 bg-zinc-50 group-hover:border-purple-200 group-hover:text-purple-700"
+                    )}
+                  >
+                    {chat.orderId}
+                  </Badge>
+                )}
               </div>
               
-              {/* Time & Status - MENOR */}
               <div className="flex flex-col items-end space-y-0.5 flex-shrink-0">
                 <span className="text-xs text-zinc-500">
                   {formattedTime}
@@ -168,18 +206,16 @@ const ChatListItem = ({ chat, activeChat, onClick }) => {
               </div>
             </div>
             
-            {/* Message Preview - MENOR */}
             <div className="space-y-0.5">
               <p className={cn(
-                "text-xs line-clamp-1 transition-colors", // line-clamp-1 ao invés de 2
-                chat.unreadCount > 0 
+                "text-xs line-clamp-1 transition-colors",
+                unreadCount > 0 
                   ? "text-zinc-900 font-medium" 
                   : "text-zinc-600"
               )}>
-                {chat.lastMessage.text}
+                {chat.lastMessage?.text || 'Conversa iniciada'}
               </p>
               
-              {/* Tags - MENORES */}
               <div className="flex items-center space-x-0.5">
                 {chat.hasAttachment && (
                   <Badge variant="outline" className="text-xs px-0.5 py-0 bg-blue-50 text-blue-700 border-blue-200 h-3">
@@ -191,7 +227,7 @@ const ChatListItem = ({ chat, activeChat, onClick }) => {
                     ⚡
                   </Badge>
                 )}
-                {chat.hasRating && (
+                {chat.hasRating && chat.rating && (
                   <div className="flex items-center space-x-0.5">
                     <Star className="h-2.5 w-2.5 text-yellow-500 fill-yellow-500" />
                     <span className="text-xs text-zinc-600">{chat.rating}</span>
@@ -202,7 +238,6 @@ const ChatListItem = ({ chat, activeChat, onClick }) => {
           </div>
         </div>
         
-        {/* Hover Actions - MENOR */}
         <div className="absolute top-1.5 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
           <Button variant="ghost" size="sm" className="h-4 w-4 p-0 hover:bg-white/80">
             <MoreVertical className="h-2.5 w-2.5" />
@@ -213,185 +248,52 @@ const ChatListItem = ({ chat, activeChat, onClick }) => {
   );
 };
 
-// Componente principal para lista de conversas premium
 const ChatList = ({ 
   onSelectChat,
   userType = 'store',
   activeChat = null,
   onCreateChat = null
 }) => {
-  const [chats, setChats] = useState([]);
+  const { userProfile } = useAuth();
+  
+  const customerChatContext = userType === 'customer' ? useCustomerChat() : null;
+  const storeChatContext = userType === 'store' ? useStoreChat() : null;
+  
+  const {
+    chats = [],
+    stats = { total: 0, unread: 0, urgent: 0, online: 0 },
+    isLoading = false,
+    error = null,
+    loadActiveChats = () => {},
+    markChatAsRead = () => {}
+  } = userType === 'customer' ? (customerChatContext || {}) : (storeChatContext || {});
+
   const [filteredChats, setFilteredChats] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
-  const [isLoading, setIsLoading] = useState(true);
-  const [stats, setStats] = useState({
-    total: 0,
-    unread: 0,
-    urgent: 0,
-    online: 0
+
+  console.log('📋 ChatList: Estado atual:', {
+    userType,
+    chatsCount: chats.length,
+    stats,
+    isLoading,
+    userProfile: userProfile?.email
   });
-  
-  // Carregar conversas (simulação com dados realistas)
-  useEffect(() => {
-    const loadChats = async () => {
-      setIsLoading(true);
-      
-      // Simular carregamento
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Dados simulados mais realistas
-      const mockChats = [
-        {
-          id: 'chat-1',
-          name: 'Ana Silva Costa',
-          orderId: '#ORD-2024-001',
-          orderStatus: 'processing',
-          avatar: 'https://i.pravatar.cc/150?u=ana',
-          initials: 'AC',
-          isCustomer: userType === 'store',
-          isVerified: true,
-          online: true,
-          lastMessage: {
-            text: 'Oi! Gostaria de saber se meu pedido já foi processado? Está há 2 dias como "confirmado" e estou ansiosa para receber.',
-            timestamp: new Date(Date.now() - 15 * 60 * 1000),
-            senderId: userType === 'store' ? 'customer-1' : 'store-1'
-          },
-          unreadCount: 3,
-          hasAttention: true,
-          priority: 'high',
-          hasAttachment: false,
-          hasRating: true,
-          rating: 4.8,
-          isUrgent: false
-        },
-        {
-          id: 'chat-2',
-          name: 'Carlos Eduardo Santos',
-          orderId: '#ORD-2024-002',
-          orderStatus: 'shipped',
-          avatar: 'https://i.pravatar.cc/150?u=carlos',
-          initials: 'CS',
-          isCustomer: userType === 'store',
-          isVerified: true,
-          online: true,
-          lastMessage: {
-            text: 'Perfeito! Acabei de receber o código de rastreamento. Muito obrigado pelo excelente atendimento! 🙏',
-            timestamp: new Date(Date.now() - 45 * 60 * 1000),
-            senderId: 'customer-2'
-          },
-          unreadCount: 0,
-          hasAttention: false,
-          priority: 'low',
-          hasAttachment: false,
-          hasRating: true,
-          rating: 5.0,
-          isUrgent: false
-        },
-        {
-          id: 'chat-3',
-          name: 'Maria Fernanda Lima',
-          orderId: '#ORD-2024-003',
-          orderStatus: 'delivered',
-          avatar: 'https://i.pravatar.cc/150?u=maria',
-          initials: 'ML',
-          isCustomer: userType === 'store',
-          isVerified: false,
-          online: false,
-          lastMessage: {
-            text: 'Infelizmente o produto chegou com defeito. A embalagem estava danificada e o item não funciona corretamente.',
-            timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000),
-            senderId: 'customer-3'
-          },
-          unreadCount: 2,
-          hasAttention: true,
-          priority: 'urgent',
-          hasAttachment: true,
-          hasRating: false,
-          isUrgent: true
-        },
-        {
-          id: 'chat-4',
-          name: 'Roberto Almeida',
-          orderId: '#ORD-2024-004',
-          orderStatus: 'processing',
-          avatar: 'https://i.pravatar.cc/150?u=roberto',
-          initials: 'RA',
-          isCustomer: userType === 'store',
-          isVerified: true,
-          online: false,
-          lastMessage: {
-            text: 'Bom dia! Preciso alterar o endereço de entrega do meu pedido. É possível fazer essa modificação?',
-            timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000),
-            senderId: 'customer-4'
-          },
-          unreadCount: 1,
-          hasAttention: true,
-          priority: 'medium',
-          hasAttachment: false,
-          hasRating: false,
-          isUrgent: false
-        },
-        {
-          id: 'chat-5',
-          name: 'Juliana Rodrigues',
-          orderId: '#ORD-2024-005',
-          orderStatus: 'cancelled',
-          avatar: 'https://i.pravatar.cc/150?u=juliana',
-          initials: 'JR',
-          isCustomer: userType === 'store',
-          isVerified: true,
-          online: false,
-          lastMessage: {
-            text: 'Entendo perfeitamente. Obrigada pela explicação sobre o cancelamento. O reembolso já foi processado?',
-            timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
-            senderId: 'customer-5'
-          },
-          unreadCount: 0,
-          hasAttention: false,
-          priority: 'low',
-          hasAttachment: false,
-          hasRating: true,
-          rating: 4.2,
-          isUrgent: false
-        }
-      ];
-      
-      setChats(mockChats);
-      
-      // Calcular estatísticas
-      const newStats = {
-        total: mockChats.length,
-        unread: mockChats.filter(chat => chat.unreadCount > 0).length,
-        urgent: mockChats.filter(chat => chat.priority === 'urgent' || chat.isUrgent).length,
-        online: mockChats.filter(chat => chat.online).length
-      };
-      setStats(newStats);
-      
-      filterChats(mockChats, searchTerm, activeFilter);
-      setIsLoading(false);
-    };
-    
-    loadChats();
-  }, [userType]);
-  
-  // Filtrar conversas com base na busca e no filtro ativo
+
   const filterChats = (chatsList, search, filter) => {
     let result = chatsList;
     
-    // Filtrar por termo de busca
     if (search) {
       result = result.filter(chat => 
         chat.name.toLowerCase().includes(search.toLowerCase()) ||
-        chat.orderId.toLowerCase().includes(search.toLowerCase()) ||
-        chat.lastMessage.text.toLowerCase().includes(search.toLowerCase())
+        (chat.orderId && chat.orderId.toLowerCase().includes(search.toLowerCase())) ||
+        (chat.lastMessage?.text && chat.lastMessage.text.toLowerCase().includes(search.toLowerCase()))
       );
     }
     
-    // Filtrar por status
     switch (filter) {
       case 'unread':
-        result = result.filter(chat => chat.unreadCount > 0);
+        result = result.filter(chat => (chat.unreadCount || chat.userUnreadCount || 0) > 0);
         break;
       case 'attention':
         result = result.filter(chat => chat.hasAttention || chat.isUrgent);
@@ -403,66 +305,71 @@ const ChatList = ({
         result = result.filter(chat => chat.priority === 'urgent' || chat.isUrgent);
         break;
       default:
-        // Filtro 'all' não precisa de filtro adicional
         break;
     }
     
-    // Ordenar por importância
     result.sort((a, b) => {
-      // Urgente primeiro
       if (a.isUrgent !== b.isUrgent) return b.isUrgent - a.isUrgent;
-      // Não lidas primeiro  
-      if (a.unreadCount !== b.unreadCount) return b.unreadCount - a.unreadCount;
-      // Online primeiro
+      const aUnread = a.unreadCount || a.userUnreadCount || 0;
+      const bUnread = b.unreadCount || b.userUnreadCount || 0;
+      if (aUnread !== bUnread) return bUnread - aUnread;
       if (a.online !== b.online) return b.online - a.online;
-      // Por último timestamp
-      return new Date(b.lastMessage.timestamp) - new Date(a.lastMessage.timestamp);
+      const aTime = a.lastMessage?.timestamp || a.lastUpdated || new Date(0);
+      const bTime = b.lastMessage?.timestamp || b.lastUpdated || new Date(0);
+      return new Date(bTime) - new Date(aTime);
     });
     
-    setFilteredChats(result);
+    return result;
   };
   
-  // Atualizar filtro quando o termo de busca mudar
   useEffect(() => {
-    filterChats(chats, searchTerm, activeFilter);
+    const filtered = filterChats(chats, searchTerm, activeFilter);
+    setFilteredChats(filtered);
   }, [searchTerm, activeFilter, chats]);
   
-  // Manipulador para alteração de filtro
   const handleFilterChange = (filter) => {
     setActiveFilter(filter);
   };
   
-  // Manipulador para busca
   const handleSearch = (e) => {
     setSearchTerm(e.target.value);
   };
   
-  // Manipulador para atualização de lista
   const handleRefresh = async () => {
-    setIsLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 800));
-    setIsLoading(false);
-  };
-  
-  // Manipulador para seleção de conversa
-  const handleSelectChat = (chat) => {
-    if (onSelectChat) {
-      onSelectChat(chat);
-      
-      // Atualizar o contador de não lidas
-      setChats(prevChats => 
-        prevChats.map(c => 
-          c.id === chat.id 
-            ? { ...c, unreadCount: 0 } 
-            : c
-        )
-      );
+    try {
+      await loadActiveChats();
+    } catch (error) {
+      console.error('❌ Erro ao atualizar lista de chats:', error);
     }
   };
   
+  const handleSelectChat = (chat) => {
+    console.log('📋 ChatList: Selecionando chat:', chat.id);
+    
+    if (onSelectChat) {
+      onSelectChat(chat);
+    }
+    
+    if (chat.unreadCount > 0 || chat.userUnreadCount > 0) {
+      markChatAsRead(chat.id);
+    }
+  };
+
+  if (!chats && isLoading) {
+    return (
+      <div className="h-full flex flex-col bg-white rounded-xl shadow-lg overflow-hidden">
+        <div className="p-3 border-b border-zinc-100">
+          <LoadingSkeleton rows={1} showAvatar={false} />
+        </div>
+        <div className="flex-1 p-2">
+          <LoadingSkeleton rows={4} showAvatar />
+        </div>
+      </div>
+    );
+  }
+  
   return (
     <div className="h-full flex flex-col bg-white rounded-xl shadow-lg overflow-hidden">
-      {/* Header Super Compacto */}
       <div className="p-3 border-b border-zinc-100 bg-gradient-to-r from-white via-purple-50/30 to-indigo-50/30 flex-shrink-0">
         <div className="flex justify-between items-center mb-2">
           <div className="flex items-center space-x-2">
@@ -488,7 +395,6 @@ const ChatList = ({
           </Button>
         </div>
         
-        {/* Stats Cards Mini */}
         <div className="grid grid-cols-4 gap-1.5">
           <div className="text-center p-1.5 rounded bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200">
             <p className="text-xs font-bold text-purple-900">{stats.total}</p>
@@ -509,7 +415,6 @@ const ChatList = ({
         </div>
       </div>
       
-      {/* Search Compacto */}
       <div className="p-2 border-b border-zinc-100 flex-shrink-0 bg-white">
         <div className="relative">
           <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-zinc-400" />
@@ -532,7 +437,23 @@ const ChatList = ({
         </div>
       </div>
       
-      {/* Tabs Mini */}
+      {error && (
+        <div className="p-2 bg-red-50 border-b border-red-200 flex-shrink-0">
+          <div className="flex items-center space-x-2 text-red-800">
+            <AlertCircle className="h-3 w-3" />
+            <span className="text-xs">{error}</span>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={handleRefresh}
+              className="text-red-600 hover:text-red-800 h-5 text-xs"
+            >
+              Tentar novamente
+            </Button>
+          </div>
+        </div>
+      )}
+      
       <Tabs defaultValue="all" className="flex-1 flex flex-col overflow-hidden bg-white" onValueChange={handleFilterChange}>
         <div className="px-2 pt-2 flex-shrink-0 bg-white">
           <TabsList className="w-full bg-zinc-100/80 backdrop-blur-sm p-0.5 rounded-lg h-7">
@@ -562,12 +483,11 @@ const ChatList = ({
           </TabsList>
         </div>
         
-        {/* Área de Conversas com Scroll - ALTURA FIXA IGUAL AO SKELETON */}
         <div className="flex-1 overflow-hidden bg-white">
           <TabsContent value="all" className="flex-1 m-0 h-full data-[state=active]:flex data-[state=active]:flex-col overflow-hidden">
             <div className="flex-1 overflow-hidden bg-white">
               <ScrollArea className="h-full">
-                {isLoading ? (
+                {isLoading && chats.length === 0 ? (
                   <div className="p-2 bg-white">
                     <LoadingSkeleton rows={4} showAvatar />
                   </div>
@@ -596,7 +516,6 @@ const ChatList = ({
             </div>
           </TabsContent>
           
-          {/* Outras tabs com o mesmo padrão */}
           <TabsContent value="unread" className="flex-1 m-0 h-full data-[state=active]:flex data-[state=active]:flex-col overflow-hidden">
             <div className="flex-1 overflow-hidden bg-white">
               <ScrollArea className="h-full">
@@ -683,8 +602,8 @@ const ChatList = ({
                   <div className="p-3 bg-white">
                     <EmptyState
                       icon={Users}
-                      title="Nenhum cliente online"
-                      description="Clientes estão offline."
+                      title="Nenhum usuário online"
+                      description="Usuários estão offline."
                       variant="default"
                     />
                   </div>
@@ -695,7 +614,6 @@ const ChatList = ({
         </div>
       </Tabs>
       
-      {/* Footer ultra compacto com ação */}
       {userType === 'store' && onCreateChat && (
         <div className="p-2 border-t border-zinc-100 bg-white flex-shrink-0">
           <Button

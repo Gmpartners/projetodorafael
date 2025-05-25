@@ -1,0 +1,31 @@
+{
+  "name": "Projeto Rafael - Portal de Comunicação",
+  "short_name": "Projeto Rafael",
+  "description": "Portal de comunicação pós-venda para e-commerce",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#8b5cf6",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "/vite.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Dashboard Cliente",
+      "url": "/customer/dashboard",
+      "icons": [{ "src": "/vite.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Dashboard Loja", 
+      "url": "/store/dashboard",
+      "icons": [{ "src": "/vite.svg", "sizes": "any" }]
+    }
+  ]
+}

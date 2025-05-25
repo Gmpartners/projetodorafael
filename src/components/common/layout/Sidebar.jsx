@@ -13,7 +13,9 @@ import {
   CheckSquareIcon,
   XCircleIcon,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Package2Icon,
+  CopyIcon
 } from 'lucide-react';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
@@ -25,12 +27,14 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { useState, useEffect } from 'react';
 import { cn } from "@/lib/utils";
 import { useSidebar } from '@/contexts/SidebarContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
 
 const Sidebar = ({ userType = 'store' }) => {
   const location = useLocation();
   const { isCollapsed, isMobile, toggleSidebar, collapseSidebar, expandSidebar } = useSidebar();
+  const { user, userProfile } = useAuth();
   const [expandedItem, setExpandedItem] = useState(null);
-  const [unreadNotifications, setUnreadNotifications] = useState(3);
   
   useEffect(() => {
     if (location.pathname.includes('/orders')) {
@@ -58,21 +62,48 @@ const Sidebar = ({ userType = 'store' }) => {
       }
     }
   };
+
+  // Função para copiar User ID
+  const copyUserId = () => {
+    if (user?.uid) {
+      navigator.clipboard.writeText(user.uid);
+      toast.success('User ID copiado para a área de transferência!');
+    }
+  };
   
   const storeNavItems = [
     { name: 'Dashboard', path: '/store/dashboard', icon: <HomeIcon className="h-5 w-5" /> },
     
     { 
+      name: 'Produtos', 
+      path: '/store/products', 
+      icon: <Package2Icon className="h-5 w-5" />
+    },
+    
+    { 
+      name: 'Pedidos', 
+      path: '/store/orders', 
+      icon: <ShoppingBagIcon className="h-5 w-5" />,
+      subItems: [
+        { name: 'Todos os Pedidos', path: '/store/orders' },
+        { name: 'Novos', path: '/store/orders/new' },
+        { name: 'Processando', path: '/store/orders/processing' },
+        { name: 'Enviados', path: '/store/orders/shipped' },
+        { name: 'Entregues', path: '/store/orders/delivered' },
+        { name: 'Concluídos', path: '/store/orders/completed' },
+        { name: 'Cancelados', path: '/store/orders/cancelled' },
+      ]
+    },
+    
+    { 
       name: 'Mensagens', 
       path: '/store/chats', 
-      icon: <MessageSquareIcon className="h-5 w-5" />,
-      badge: 5
+      icon: <MessageSquareIcon className="h-5 w-5" />
     },
     { 
       name: 'Notificações', 
       path: '/store/push-notifications', 
-      icon: <BellIcon className="h-5 w-5" />,
-      badge: unreadNotifications > 0 ? unreadNotifications : null
+      icon: <BellIcon className="h-5 w-5" />
     },
     { name: 'Configurações', path: '/store/settings', icon: <Settings className="h-5 w-5" /> },
   ];
@@ -83,8 +114,7 @@ const Sidebar = ({ userType = 'store' }) => {
     { 
       name: 'Mensagens', 
       path: '/customer/chat', 
-      icon: <MessageSquareIcon className="h-5 w-5" />,
-      badge: 2
+      icon: <MessageSquareIcon className="h-5 w-5" />
     },
     { name: 'Perfil', path: '/customer/profile', icon: <UserIcon className="h-5 w-5" /> },
   ];
@@ -239,20 +269,11 @@ const Sidebar = ({ userType = 'store' }) => {
                       
                       {!isCollapsed && (
                         <div className="flex items-center gap-2">
-                          {item.badge && (
-                            <Badge className="bg-purple-600 hover:bg-purple-700 text-white text-xs px-2 py-0.5">
-                              {item.badge}
-                            </Badge>
-                          )}
                           <ChevronRight className={cn(
                             "h-4 w-4 transition-transform text-zinc-400",
                             (expandedItem === item.path || isActive(item.path)) && "rotate-90"
                           )} />
                         </div>
-                      )}
-                      
-                      {isCollapsed && !isMobile && item.badge && (
-                        <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-purple-600"></span>
                       )}
                     </button>
                   </NavItem>
@@ -273,11 +294,6 @@ const Sidebar = ({ userType = 'store' }) => {
                               : "text-zinc-600 hover:text-zinc-900"
                           )}>
                             <span className="text-sm">{subItem.name}</span>
-                            {subItem.badge && (
-                              <Badge variant="outline" className="text-xs border-purple-200 text-purple-700 bg-purple-50 px-1.5 py-0.5">
-                                {subItem.badge}
-                              </Badge>
-                            )}
                           </div>
                         </Link>
                       ))}
@@ -309,16 +325,6 @@ const Sidebar = ({ userType = 'store' }) => {
                         <span className="ml-3 text-sm font-medium">{item.name}</span>
                       )}
                     </div>
-                    
-                    {!isCollapsed && item.badge && (
-                      <Badge className="bg-purple-600 hover:bg-purple-700 text-white text-xs px-2 py-0.5">
-                        {item.badge}
-                      </Badge>
-                    )}
-                    
-                    {isCollapsed && !isMobile && item.badge && (
-                      <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-purple-600"></span>
-                    )}
                   </Link>
                 </NavItem>
               )}
@@ -330,46 +336,91 @@ const Sidebar = ({ userType = 'store' }) => {
       {/* User Profile */}
       <div className={cn(
         "p-3 mt-auto border-t border-zinc-100 bg-zinc-50/50",
-        isCollapsed && !isMobile ? "flex flex-col items-center py-3 gap-1" : "flex items-center gap-3"
+        isCollapsed && !isMobile ? "flex flex-col items-center py-3 gap-1" : "flex flex-col gap-2"
       )}>
-        {isCollapsed && !isMobile ? (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Avatar className="w-8 h-8 border-2 border-purple-100 shadow-sm">
-                  <AvatarImage src="https://i.pinimg.com/736x/09/7e/ef/097eefc0841bed88ddba155bad43d2e6.jpg" alt="User avatar" />
-                  <AvatarFallback className="bg-purple-100 text-purple-700 text-xs">
-                    {userType === 'store' ? "LS" : "CL"}
-                  </AvatarFallback>
-                </Avatar>
-              </TooltipTrigger>
-              <TooltipContent side="right" className="ml-2">
-                <p>{userType === 'store' ? 'Loja Exemplo' : 'Cliente Exemplo'}</p>
-                <p className="text-xs text-zinc-500">
-                  {userType === 'store' ? 'loja@exemplo.com' : 'cliente@exemplo.com'}
+        {/* User ID Section - Sempre visível em destaque */}
+        {!isCollapsed && user?.uid && (
+          <div className="mb-2 p-2 bg-gradient-to-r from-emerald-50 to-blue-50 rounded-lg border border-emerald-200">
+            <div className="flex items-center justify-between">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-emerald-800 mb-1">🆔 User ID (Para Testes)</p>
+                <p className="text-xs font-mono text-emerald-700 break-all leading-tight">
+                  {user.uid}
                 </p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        ) : (
-          <>
-            <Avatar className="w-10 h-10 border-2 border-purple-100 shadow-sm">
-              <AvatarImage src="https://i.pinimg.com/736x/09/7e/ef/097eefc0841bed88ddba155bad43d2e6.jpg" alt="User avatar" />
-              <AvatarFallback className="bg-purple-100 text-purple-700">
-                {userType === 'store' ? "LS" : "CL"}
-              </AvatarFallback>
-            </Avatar>
-            
-            <div className="flex flex-col min-w-0 flex-1">
-              <p className="text-sm font-medium text-zinc-900 truncate">
-                {userType === 'store' ? 'Loja Exemplo' : 'Cliente Exemplo'}
-              </p>
-              <p className="text-xs text-zinc-500 truncate">
-                {userType === 'store' ? 'loja@exemplo.com' : 'cliente@exemplo.com'}
-              </p>
+              </div>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={copyUserId}
+                      className="h-6 w-6 ml-2 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-100"
+                    >
+                      <CopyIcon className="h-3 w-3" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Copiar User ID</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
-          </>
+          </div>
         )}
+
+        {/* Profile Section */}
+        <div className={cn(
+          isCollapsed && !isMobile ? "flex flex-col items-center gap-1" : "flex items-center gap-3"
+        )}>
+          {isCollapsed && !isMobile ? (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Avatar className="w-8 h-8 border-2 border-purple-100 shadow-sm">
+                    <AvatarImage src="https://i.pinimg.com/736x/09/7e/ef/097eefc0841bed88ddba155bad43d2e6.jpg" alt="User avatar" />
+                    <AvatarFallback className="bg-purple-100 text-purple-700 text-xs">
+                      {userProfile?.name ? userProfile.name.split(' ').map(n => n[0]).join('').substring(0, 2) : (userType === 'store' ? "LS" : "CL")}
+                    </AvatarFallback>
+                  </Avatar>
+                </TooltipTrigger>
+                <TooltipContent side="right" className="ml-2">
+                  <div className="text-left">
+                    <p className="font-semibold">
+                      {userProfile?.name || userProfile?.storeName || (userType === 'store' ? 'Loja Exemplo' : 'Cliente Exemplo')}
+                    </p>
+                    <p className="text-xs text-zinc-500">
+                      {user?.email || (userType === 'store' ? 'loja@exemplo.com' : 'cliente@exemplo.com')}
+                    </p>
+                    {user?.uid && (
+                      <div className="mt-1 pt-1 border-t border-zinc-200">
+                        <p className="text-xs text-emerald-600 font-mono">ID: {user.uid.substring(0, 8)}...</p>
+                      </div>
+                    )}
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : (
+            <>
+              <Avatar className="w-10 h-10 border-2 border-purple-100 shadow-sm">
+                <AvatarImage src="https://i.pinimg.com/736x/09/7e/ef/097eefc0841bed88ddba155bad43d2e6.jpg" alt="User avatar" />
+                <AvatarFallback className="bg-purple-100 text-purple-700">
+                  {userProfile?.name ? userProfile.name.split(' ').map(n => n[0]).join('').substring(0, 2) : (userType === 'store' ? "LS" : "CL")}
+                </AvatarFallback>
+              </Avatar>
+              
+              <div className="flex flex-col min-w-0 flex-1">
+                <p className="text-sm font-medium text-zinc-900 truncate">
+                  {userProfile?.name || userProfile?.storeName || (userType === 'store' ? 'Loja Exemplo' : 'Cliente Exemplo')}
+                </p>
+                <p className="text-xs text-zinc-500 truncate">
+                  {user?.email || (userType === 'store' ? 'loja@exemplo.com' : 'cliente@exemplo.com')}
+                </p>
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useStoreChat } from '@/contexts/StoreChatContext';
+import { useAuth } from '@/contexts/AuthContext';
 import MainLayout from '@/components/common/layout/MainLayout';
 import ChatList from '@/components/common/chat/ChatList';
 import ChatInitiator from '@/components/store/chat/ChatInitiator';
@@ -57,16 +59,20 @@ import { cn } from '@/lib/utils';
 
 const ChatManagementPage = () => {
   const navigate = useNavigate();
-  const [activeChat, setActiveChat] = useState(null);
-  const [chatStats, setChatStats] = useState({
-    total: 0,
-    unread: 0,
-    needAttention: 0,
-    resolved: 0,
-    todayMessages: 0,
-    responseRate: 0
-  });
-  const [isLoading, setIsLoading] = useState(true);
+  const { userProfile } = useAuth();
+  const { 
+    chats,
+    activeChat,
+    stats,
+    isLoading,
+    error,
+    sendMessage,
+    setActiveChat,
+    startNewChat,
+    loadActiveChats,
+    getChatStats
+  } = useStoreChat();
+
   const [activeTab, setActiveTab] = useState('overview');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -80,30 +86,24 @@ const ChatManagementPage = () => {
     offlineMode: false,
     urgentOnly: false
   });
-  
-  // Carregar estatísticas e dados iniciais - otimizado
+
+  console.log('🏪 ChatManagementPage: Estado atual:', {
+    chatsCount: chats.length,
+    stats,
+    activeChat: activeChat?.id,
+    isLoading,
+    userProfile: userProfile?.email
+  });
+
+  // Carregar estatísticas e dados iniciais - usando dados reais
   const fetchData = useCallback(async () => {
-    setIsLoading(true);
-    
     try {
-      // Simulação com dados mais realistas
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      setChatStats({
-        total: 24,
-        unread: 8,
-        needAttention: 5,
-        resolved: 19,
-        todayMessages: 156,
-        responseRate: 92.5
-      });
-      
-      setIsLoading(false);
+      await loadActiveChats();
+      await getChatStats();
     } catch (error) {
-      console.error('Erro ao carregar dados:', error);
-      setIsLoading(false);
+      console.error('❌ Erro ao carregar dados:', error);
     }
-  }, []);
+  }, [loadActiveChats, getChatStats]);
 
   useEffect(() => {
     fetchData();
@@ -111,51 +111,28 @@ const ChatManagementPage = () => {
   
   // Selecionar um chat para visualização - otimizado
   const handleSelectChat = useCallback((chat) => {
+    console.log('🏪 Loja: Selecionando chat:', chat.id);
     setActiveChat(chat);
-    
-    // Marcar como lido se necessário
-    if (chat?.unreadCount > 0) {
-      setChatStats(prev => ({
-        ...prev,
-        unread: Math.max(0, prev.unread - chat.unreadCount)
-      }));
-    }
-  }, []);
+  }, [setActiveChat]);
   
-  // Iniciar novo chat - otimizado
-  const handleStartNewChat = useCallback((chatData) => {
-    const newChat = {
-      id: `chat-${Date.now()}`,
-      name: chatData.customerName,
-      orderId: chatData.orderId,
-      orderStatus: 'processing',
-      avatar: `https://i.pravatar.cc/150?u=${chatData.customerName}`,
-      initials: chatData.customerName.split(' ').map(n => n[0]).join(''),
-      isCustomer: true,
-      isVerified: true,
-      online: true,
-      lastMessage: {
-        text: chatData.initialMessage,
-        timestamp: new Date(),
-        senderId: 'store-1'
-      },
-      unreadCount: 0,
-      hasAttention: false,
-      priority: 'medium',
-      hasAttachment: false,
-      hasRating: false,
-      isUrgent: false
-    };
-    
-    setActiveChat(newChat);
-    setActiveTab('chats');
-    
-    // Atualizar estatísticas
-    setChatStats(prev => ({
-      ...prev,
-      total: prev.total + 1
-    }));
-  }, []);
+  // Iniciar novo chat - usando função real
+  const handleStartNewChat = useCallback(async (chatData) => {
+    try {
+      console.log('🏪 Loja: Iniciando nova conversa:', chatData);
+      
+      const newChat = await startNewChat(
+        chatData.orderId, 
+        chatData.customerId, 
+        chatData.customerName
+      );
+      
+      setActiveTab('chats');
+      console.log('✅ Nova conversa iniciada:', newChat.id);
+      
+    } catch (error) {
+      console.error('❌ Erro ao iniciar nova conversa:', error);
+    }
+  }, [startNewChat]);
   
   // Alternar configuração de notificação - otimizado
   const toggleNotificationSetting = useCallback((setting) => {
@@ -165,30 +142,30 @@ const ChatManagementPage = () => {
     }));
   }, []);
 
-  // Performance cards - memoizadas para performance (REMOVIDO tempo de resposta e satisfação)
+  // Performance cards - usando dados reais
   const performanceCards = useMemo(() => [
     {
       title: 'Mensagens Hoje',
-      value: chatStats.todayMessages,
+      value: stats.total || 0, // Usar dados reais das stats
       icon: Activity,
       color: 'purple',
-      change: 18.7,
+      change: 0, // Pode calcular baseado em dados históricos se disponível
       changeLabel: 'vs ontem',
       trend: 'up'
     },
     {
       title: 'Taxa de Resposta',
-      value: chatStats.responseRate,
+      value: stats.total > 0 ? Math.round(((stats.total - stats.unread) / stats.total) * 100) : 100,
       suffix: '%',
       icon: BarChart3,
       color: 'emerald',
-      change: 3.2,
+      change: 0,
       changeLabel: 'vs semana anterior',
       trend: 'up'
     }
-  ], [chatStats]);
+  ], [stats]);
 
-  // Dados das ações rápidas organizadas - MELHORADO
+  // Dados das ações rápidas organizadas - usando dados reais
   const quickActions = useMemo(() => [
     {
       id: 'chats',
@@ -200,7 +177,7 @@ const ChatManagementPage = () => {
       borderColor: 'border-purple-200',
       hoverColor: 'hover:border-purple-400 hover:bg-purple-50',
       textColor: 'text-purple-600',
-      badge: chatStats.unread,
+      badge: stats.unread || 0, // Usar dados reais
       badgeColor: 'bg-red-500',
       onClick: () => setActiveTab('chats')
     },
@@ -218,7 +195,7 @@ const ChatManagementPage = () => {
       badgeColor: 'bg-blue-500',
       onClick: () => {
         setActiveTab('chats');
-        // Trigger new chat modal
+        // Trigger new chat modal se necessário
       }
     },
     {
@@ -236,40 +213,41 @@ const ChatManagementPage = () => {
       onClick: () => setActiveTab('settings')
     },
     {
-      id: 'export',
-      title: 'Exportar Dados',
-      description: 'Relatórios e análises',
-      icon: DownloadIcon,
-      color: 'amber',
-      bgColor: 'from-amber-50 to-amber-100',
-      borderColor: 'border-amber-200',
-      hoverColor: 'hover:border-amber-400 hover:bg-amber-50',
-      textColor: 'text-amber-600',
-      badge: 0,
-      badgeColor: 'bg-amber-500',
-      onClick: () => console.log('Exportar dados')
+      id: 'urgent',
+      title: 'Urgentes',
+      description: 'Conversas que precisam de atenção',
+      icon: AlertCircle,
+      color: 'red',
+      bgColor: 'from-red-50 to-red-100',
+      borderColor: 'border-red-200',
+      hoverColor: 'hover:border-red-400 hover:bg-red-50',
+      textColor: 'text-red-600',
+      badge: stats.urgent || 0, // Usar dados reais
+      badgeColor: 'bg-red-500',
+      onClick: () => {
+        setActiveTab('chats');
+        setFilterStatus('urgent');
+      }
     }
-  ], [chatStats.unread]);
+  ], [stats.unread, stats.urgent]);
 
-  // Quick response handler
-  const handleQuickResponse = useCallback((responseText) => {
+  // Quick response handler - usando função real
+  const handleQuickResponse = useCallback(async (responseText) => {
     if (!activeChat) return;
     
-    // Simular envio da resposta rápida
-    console.log('Resposta rápida enviada:', responseText);
-    
-    // Atualizar estatísticas
-    setChatStats(prev => ({
-      ...prev,
-      todayMessages: prev.todayMessages + 1
-    }));
-  }, [activeChat]);
+    try {
+      await sendMessage(responseText);
+      console.log('✅ Resposta rápida enviada:', responseText);
+    } catch (error) {
+      console.error('❌ Erro ao enviar resposta rápida:', error);
+    }
+  }, [activeChat, sendMessage]);
 
   return (
     <MainLayout userType="store" pageTitle="Gerenciamento de Chats">
       <div className="space-y-6 pb-8">
         
-        {/* Header Otimizado */}
+        {/* Header Otimizado - com dados reais */}
         <FadeInUp delay={0}>
           <div className="relative">
             <GlassCard variant="gradient" className="p-4 border-0 overflow-hidden">
@@ -284,11 +262,11 @@ const ChatManagementPage = () => {
                       <div className="p-3 rounded-xl bg-gradient-to-br from-purple-100 to-purple-200 shadow-lg">
                         <MessageSquareIcon className="h-6 w-6 text-purple-700" />
                       </div>
-                      {chatStats.unread > 0 && (
+                      {stats.unread > 0 && (
                         <div className="absolute -top-2 -right-2">
                           <PulseEffect color="red">
                             <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center">
-                              <span className="text-xs text-white font-bold">{chatStats.unread}</span>
+                              <span className="text-xs text-white font-bold">{stats.unread}</span>
                             </div>
                           </PulseEffect>
                         </div>
@@ -299,7 +277,7 @@ const ChatManagementPage = () => {
                         Central de Atendimento
                       </h1>
                       <p className="text-sm text-zinc-600 font-medium">
-                        Gerencie todas as conversas em tempo real
+                        {stats.total} conversas • {stats.unread} não lidas • {stats.online} online
                       </p>
                     </div>
                   </div>
@@ -325,11 +303,41 @@ const ChatManagementPage = () => {
                     <PlusIcon className="h-4 w-4 mr-2" />
                     Nova Conversa
                   </Button>
+
+                  <Button 
+                    variant="outline"
+                    size="sm"
+                    onClick={fetchData}
+                    disabled={isLoading}
+                    className="h-10"
+                  >
+                    <RefreshCcwIcon className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                  </Button>
                 </div>
               </div>
             </GlassCard>
           </div>
         </FadeInUp>
+
+        {/* Error Message */}
+        {error && (
+          <FadeInUp delay={100}>
+            <div className="bg-red-50 text-red-800 p-4 rounded-lg border border-red-200">
+              <div className="flex items-center space-x-2">
+                <AlertCircle className="h-5 w-5" />
+                <span>{error}</span>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={fetchData}
+                  className="text-red-600 hover:text-red-800"
+                >
+                  Tentar novamente
+                </Button>
+              </div>
+            </div>
+          </FadeInUp>
+        )}
 
         {/* Tabs Principal - Redesenhadas */}
         <FadeInUp delay={200}>
@@ -349,9 +357,9 @@ const ChatManagementPage = () => {
                 >
                   <MessageSquareIcon className="h-4 w-4 mr-2" />
                   Conversas
-                  {chatStats.unread > 0 && (
+                  {stats.unread > 0 && (
                     <Badge className="ml-2 bg-red-500 text-white text-xs px-1.5 py-0.5 animate-pulse">
-                      {chatStats.unread}
+                      {stats.unread}
                     </Badge>
                   )}
                 </TabsTrigger>
@@ -364,13 +372,9 @@ const ChatManagementPage = () => {
                 </TabsTrigger>
               </TabsList>
               
-              {/* Tab: Visão Geral - Melhorada */}
+              {/* Tab: Visão Geral - com dados reais */}
               <TabsContent value="overview" className="mt-6 space-y-6">
-                
-
-                
-
-                {/* Performance Cards - Apenas 2 cards */}
+                {/* Performance Cards - usando dados reais */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   {performanceCards.map((stat, i) => (
                     <FadeInUp key={i} delay={400 + i * 100}>
@@ -390,7 +394,7 @@ const ChatManagementPage = () => {
                   ))}
                 </div>
 
-                {/* Quick Actions Melhoradas - LAYOUT VERTICAL MELHORADO */}
+                {/* Quick Actions com dados reais */}
                 <FadeInUp delay={800}>
                   <GlassCard className="p-6 border-0 shadow-premium">
                     <div className="flex items-center justify-between mb-6">
@@ -408,7 +412,7 @@ const ChatManagementPage = () => {
                       </Badge>
                     </div>
                     
-                    {/* Grid das Ações Melhorado */}
+                    {/* Grid das Ações com dados reais */}
                     <div className="space-y-3">
                       {quickActions.map((action, index) => {
                         const IconComponent = action.icon;
@@ -476,16 +480,14 @@ const ChatManagementPage = () => {
                 </FadeInUp>
               </TabsContent>
               
-              {/* Tab: Conversas - Layout Otimizado (SEM painel de suporte) */}
+              {/* Tab: Conversas - Layout Otimizado usando componentes reais */}
               <TabsContent value="chats" className="mt-6">
                 <div className="h-[calc(100vh-280px)] min-h-[650px] max-h-[900px]">
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
-                    {/* Lista de Conversas */}
+                    {/* Lista de Conversas - usando dados reais */}
                     <div className="h-full">
                       <FadeInUp delay={0} className="h-full">
                         <div className="h-full overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-lg">
-                         
-                          
                           <ChatList 
                             onSelectChat={handleSelectChat}
                             userType="store"
@@ -498,7 +500,7 @@ const ChatManagementPage = () => {
                       </FadeInUp>
                     </div>
                     
-                    {/* Janela de Chat */}
+                    {/* Janela de Chat - usando dados reais */}
                     <div className="h-full">
                       <FadeInUp delay={200} className="h-full">
                         <div className="h-full overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-lg">
@@ -618,61 +620,36 @@ const ChatManagementPage = () => {
                           </div>
                         </div>
                         <Badge className="bg-emerald-100 text-emerald-700">
-                          2 ativos
+                          1 ativo
                         </Badge>
                       </div>
                       
                       <div className="space-y-4">
-                        {/* Enhanced team member cards */}
+                        {/* Membro atual da equipe baseado no usuário logado */}
                         <HoverLift>
                           <div className="flex items-center gap-4 p-4 border-2 border-purple-200 rounded-xl hover:border-purple-300 transition-all bg-gradient-to-r from-white to-purple-50/30">
                             <div className="relative">
                               <Avatar className="h-12 w-12 border-2 border-white shadow-lg">
-                                <AvatarImage src="https://i.pravatar.cc/150?u=admin" />
+                                <AvatarImage src={`https://i.pravatar.cc/150?u=${userProfile?.email}`} />
                                 <AvatarFallback className="bg-gradient-to-br from-purple-100 to-purple-200 text-purple-700 font-bold">
-                                  AD
+                                  {userProfile?.name?.split(' ').map(n => n[0]).join('') || 'LT'}
                                 </AvatarFallback>
                               </Avatar>
                               <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-white" />
                             </div>
                             <div className="flex-1">
                               <div className="flex items-center space-x-2">
-                                <p className="font-semibold text-zinc-900">Administrador</p>
+                                <p className="font-semibold text-zinc-900">{userProfile?.name || 'Loja'}</p>
                                 <ShieldCheckIcon className="h-4 w-4 text-emerald-600" />
                               </div>
-                              <p className="text-sm text-zinc-600">admin@exemplo.com</p>
+                              <p className="text-sm text-zinc-600">{userProfile?.email}</p>
                               <p className="text-xs text-emerald-600">Online agora</p>
                             </div>
                             <div className="text-right">
                               <Badge className="bg-gradient-to-r from-purple-100 to-purple-200 text-purple-800 border-purple-300 mb-1">
                                 Owner
                               </Badge>
-                              <p className="text-xs text-zinc-500">12 conversas hoje</p>
-                            </div>
-                          </div>
-                        </HoverLift>
-                        
-                        <HoverLift>
-                          <div className="flex items-center gap-4 p-4 border-2 border-blue-200 rounded-xl hover:border-blue-300 transition-all bg-gradient-to-r from-white to-blue-50/30">
-                            <div className="relative">
-                              <Avatar className="h-12 w-12 border-2 border-white shadow-lg">
-                                <AvatarImage src="https://i.pravatar.cc/150?u=agent1" />
-                                <AvatarFallback className="bg-gradient-to-br from-blue-100 to-blue-200 text-blue-700 font-bold">
-                                  AT
-                                </AvatarFallback>
-                              </Avatar>
-                              <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-yellow-500 rounded-full border-2 border-white" />
-                            </div>
-                            <div className="flex-1">
-                              <p className="font-semibold text-zinc-900">Atendente 1</p>
-                              <p className="text-sm text-zinc-600">atendente1@exemplo.com</p>
-                              <p className="text-xs text-yellow-600">Ausente</p>
-                            </div>
-                            <div className="text-right">
-                              <Badge className="bg-gradient-to-r from-blue-100 to-blue-200 text-blue-800 border-blue-300 mb-1">
-                                Agent
-                              </Badge>
-                              <p className="text-xs text-zinc-500">8 conversas hoje</p>
+                              <p className="text-xs text-zinc-500">{stats.total} conversas ativas</p>
                             </div>
                           </div>
                         </HoverLift>

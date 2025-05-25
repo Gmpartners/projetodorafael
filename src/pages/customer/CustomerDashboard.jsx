@@ -1,666 +1,655 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Input } from "@/components/ui/input";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { 
   Package, 
-  Truck, 
-  CheckCircle, 
   MessageSquare,
-  Clock,
-  Search,
-  ArrowRight,
-  Headphones,
-  Bell,
-  Box,
+  LogOut,
+  RefreshCw,
   User,
-  ShieldCheck,
-  Home,
-  Settings,
-  X
+  CheckCircle,
+  Clock,
+  Truck,
+  AlertCircle,
+  ArrowRight,
+  Sparkles,
+  BellIcon,
+  XIcon,
+  Loader2
 } from 'lucide-react';
-
-// Mock data for demonstration
-const storeData = [
-  {
-    id: 1,
-    name: "Essência Natural",
-    logo: "🌿",
-    accent: "#4CAF50",
-    verified: true,
-    products: ["Nature Burn Encapsulado"],
-    status: "In Preparation",
-    statusCode: 2,
-    date: "May 18",
-    estimated: "May 21",
-    progress: 40,
-    hasMessages: true,
-    orderCode: "#EN-7845"
-  },
-  {
-    id: 2,
-    name: "VitaMax Suplementos",
-    logo: "💪",
-    accent: "#3F51B5",
-    verified: true,
-    products: ["Whey Protein Premium"],
-    status: "On the way",
-    statusCode: 3, 
-    date: "May 16",
-    estimated: "May 19",
-    progress: 75,
-    hasMessages: false,
-    orderCode: "#VM-3219"
-  }
-];
-
-// Notification data
-const notificationData = [
-  {
-    id: 1,
-    type: "order",
-    title: "Order Shipped",
-    message: "Your order #EN-7845 has been shipped!",
-    time: "10 min ago",
-    read: false,
-    orderId: 1
-  },
-  {
-    id: 2,
-    type: "message",
-    title: "New Message",
-    message: "Essência Natural: Your order is being prepared...",
-    time: "30 min ago",
-    read: false,
-    storeId: 1
-  },
-  {
-    id: 3,
-    type: "order",
-    title: "Order Delivered",
-    message: "Your order #VM-3219 will be delivered today!",
-    time: "1 hour ago",
-    read: true,
-    orderId: 2
-  },
-  {
-    id: 4,
-    type: "message",
-    title: "New Message",
-    message: "VitaMax: Your order is on the way!",
-    time: "2 hours ago",
-    read: true,
-    storeId: 2
-  }
-];
+import { apiService } from '@/services/apiService';
+import { notificationService } from '@/services/notificationService';
+import { toast } from 'sonner';
 
 const CustomerDashboard = () => {
   const navigate = useNavigate();
-  const [searchText, setSearchText] = useState('');
-  const [userName, setUserName] = useState('John');
+  const { logout, userProfile, user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
-  const [filterStatus, setFilterStatus] = useState('all');
-  const [showNotifications, setShowNotifications] = useState(false);
-  const [notifications, setNotifications] = useState(notificationData);
-  const [unreadNotifications, setUnreadNotifications] = useState(
-    notifications.filter(n => !n.read).length
-  );
-
-  useEffect(() => {
-    // Simulating data loading
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 1000);
-    
-    return () => clearTimeout(timer);
-  }, []);
-
-  useEffect(() => {
-    setUnreadNotifications(notifications.filter(n => !n.read).length);
-  }, [notifications]);
-
-  const getStatusColor = (statusCode) => {
-    switch(statusCode) {
-      case 1: return "bg-amber-500 hover:bg-amber-600"; // Pending
-      case 2: return "bg-blue-500 hover:bg-blue-600";   // In preparation
-      case 3: return "bg-purple-600 hover:bg-purple-700"; // On the way
-      case 4: return "bg-green-500 hover:bg-green-600";  // Delivered
-      default: return "bg-gray-500 hover:bg-gray-600";
-    }
-  };
-
-  const getStatusBg = (statusCode) => {
-    switch(statusCode) {
-      case 1: return "bg-amber-50 text-amber-700 border-amber-200"; 
-      case 2: return "bg-blue-50 text-blue-700 border-blue-200";   
-      case 3: return "bg-purple-50 text-purple-700 border-purple-200"; 
-      case 4: return "bg-green-50 text-green-700 border-green-200";  
-      default: return "bg-gray-50 text-gray-700 border-gray-200";
-    }
-  };
-
-  const filteredStores = storeData.filter(store => {
-    const matchesSearch = 
-      searchText === '' || 
-      store.name.toLowerCase().includes(searchText.toLowerCase()) ||
-      store.products.some(p => p.toLowerCase().includes(searchText.toLowerCase())) ||
-      store.orderCode.toLowerCase().includes(searchText.toLowerCase());
-      
-    const matchesFilter = 
-      filterStatus === 'all' || 
-      (filterStatus === 'pending' && (store.statusCode === 1 || store.statusCode === 2)) ||
-      (filterStatus === 'shipped' && store.statusCode === 3) ||
-      (filterStatus === 'delivered' && store.statusCode === 4);
-      
-    return matchesSearch && matchesFilter;
+  const [error, setError] = useState(null);
+  
+  // ✅ Estados para notificações
+  const [showNotificationPrompt, setShowNotificationPrompt] = useState(false);
+  const [notificationLoading, setNotificationLoading] = useState(false);
+  const [notificationStatus, setNotificationStatus] = useState('unknown');
+  
+  // ✅ USAR UID REAL DO USUÁRIO LOGADO
+  const storeId = 'E47OkrK3IcNu1Ys8gD4CA29RrHk2';
+  const customerId = user?.uid || userProfile?.uid || '0HeRINZTlvOM5raS8J4AkITanWP2';
+  
+  // Estados para dados REAIS da API
+  const [customerOrders, setCustomerOrders] = useState([]);
+  const [dashboardStats, setDashboardStats] = useState({
+    totalOrders: 0,
+    inProgress: 0,
+    completed: 0,
+    messages: 0
   });
 
-  const handleNotificationClick = (notification) => {
-    // Mark notification as read
-    const updatedNotifications = notifications.map(n => 
-      n.id === notification.id ? {...n, read: true} : n
-    );
-    setNotifications(updatedNotifications);
-    
-    // Navigate based on notification type
-    if (notification.type === "order" && notification.orderId) {
-      navigate(`/customer/orders/${notification.orderId}`);
-    } else if (notification.type === "message" && notification.storeId) {
-      navigate(`/customer/chat/${notification.storeId}`);
+  // ✅ VERIFICAR STATUS DE NOTIFICAÇÕES AO CARREGAR
+  useEffect(() => {
+    const checkNotificationStatus = () => {
+      try {
+        const systemStatus = notificationService.getSystemStatus();
+        console.log('🔔 Status do sistema de notificações:', systemStatus);
+        
+        if (!systemStatus.supported) {
+          setNotificationStatus('not-supported');
+        } else if (systemStatus.permission === 'denied') {
+          setNotificationStatus('denied');
+        } else if (systemStatus.permission === 'granted') {
+          setNotificationStatus('granted');
+        } else {
+          // Permissão ainda não foi solicitada
+          setNotificationStatus('default');
+          
+          // ✅ MOSTRAR PROMPT AUTOMATICAMENTE APÓS 3 SEGUNDOS
+          setTimeout(() => {
+            if (systemStatus.supported) {
+              setShowNotificationPrompt(true);
+            }
+          }, 3000);
+        }
+      } catch (error) {
+        console.error('❌ Erro ao verificar status de notificações:', error);
+        setNotificationStatus('error');
+      }
+    };
+
+    if (customerId) {
+      checkNotificationStatus();
+      fetchRealCustomerData();
     }
-    
-    // Close notification panel
-    setShowNotifications(false);
+  }, [customerId]);
+
+  // ✅ FUNÇÃO PARA ATIVAR NOTIFICAÇÕES
+  const handleEnableNotifications = async () => {
+    try {
+      setNotificationLoading(true);
+      console.log('🔔 Ativando notificações para cliente:', customerId);
+      
+      // 1. Solicitar permissão e obter token
+      const token = await notificationService.requestPermissionAndGetToken();
+      console.log('✅ Token FCM obtido:', token.substring(0, 40) + '...');
+      
+      // 2. Registrar token no backend
+      const deviceInfo = notificationService.getDeviceInfo();
+      await apiService.registerFCMToken(token, deviceInfo);
+      console.log('✅ Token registrado no backend');
+      
+      // 3. Inscrever na loja para receber notificações
+      await apiService.subscribeToStore(storeId);
+      console.log('✅ Inscrito na loja:', storeId);
+      
+      // Atualizar status
+      setNotificationStatus('granted');
+      setShowNotificationPrompt(false);
+      
+      // Sucesso!
+      toast.success('🎉 Notificações ativadas!', {
+        description: 'Você receberá atualizações dos seus pedidos em tempo real'
+      });
+      
+    } catch (error) {
+      console.error('❌ Erro ao ativar notificações:', error);
+      
+      if (error.message.includes('negada')) {
+        setNotificationStatus('denied');
+        toast.error('❌ Permissão negada', {
+          description: 'Você pode ativar nas configurações do navegador'
+        });
+      } else {
+        toast.error('❌ Erro ao ativar notificações', {
+          description: error.message
+        });
+      }
+    } finally {
+      setNotificationLoading(false);
+    }
   };
-  
-  const markAllAsRead = () => {
-    const updatedNotifications = notifications.map(n => ({...n, read: true}));
-    setNotifications(updatedNotifications);
+
+  const fetchRealCustomerData = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      console.log('🔍 Buscando dados REAIS do customer:', customerId);
+      console.log('👤 User info:', { uid: user?.uid, email: user?.email });
+      
+      // ✅ BUSCAR PEDIDOS REAIS DO CLIENTE VIA API
+      const realOrders = await apiService.getCustomerOrders(customerId);
+      console.log('📋 Pedidos recebidos da API:', realOrders);
+      
+      if (realOrders && realOrders.length > 0) {
+        // ✅ FILTRAR APENAS PEDIDOS COM DADOS REAIS E PROGRESSO
+        const validOrders = realOrders.filter(order => {
+          // Manter pedidos que têm productId OU têm custom steps
+          const hasProductId = order.productId && order.productId !== 'N/A';
+          const hasCustomSteps = order.customSteps && order.customSteps.length > 0;
+          const hasProgress = order.progress > 0;
+          
+          return hasProductId || hasCustomSteps || hasProgress || order.product?.name;
+        });
+        
+        console.log(`✅ Pedidos válidos filtrados: ${validOrders.length}/${realOrders.length}`);
+        
+        // ✅ ENRIQUECER PEDIDOS COM DADOS DE PROGRESSO
+        const enrichedOrders = await Promise.all(
+          validOrders.map(async (order) => {
+            try {
+              // Buscar progresso detalhado se não tiver
+              if (!order.customSteps || order.customSteps.length === 0) {
+                const progressData = await apiService.getCustomerOrderProgress(order.id, customerId);
+                if (progressData && progressData.customSteps) {
+                  order.customSteps = progressData.customSteps;
+                  order.progress = progressData.progress;
+                  order.currentStep = progressData.currentStep;
+                }
+              }
+              
+              // Garantir que tem progresso calculado
+              if (!order.progress && order.customSteps) {
+                const completedSteps = order.customSteps.filter(step => step.completed).length;
+                order.progress = Math.round((completedSteps / order.customSteps.length) * 100);
+              }
+              
+              return order;
+            } catch (progressError) {
+              console.log(`⚠️ Erro ao buscar progresso do pedido ${order.id}:`, progressError.message);
+              return order;
+            }
+          })
+        );
+        
+        setCustomerOrders(enrichedOrders);
+        
+        // ✅ Calcular estatísticas REAIS
+        const stats = {
+          totalOrders: enrichedOrders.length,
+          inProgress: enrichedOrders.filter(order => 
+            order.progress < 100 && !['entregue', 'cancelado', 'finalizado'].includes(order.status?.toLowerCase())
+          ).length,
+          completed: enrichedOrders.filter(order => 
+            order.progress >= 100 || ['entregue', 'finalizado'].includes(order.status?.toLowerCase())
+          ).length,
+          messages: enrichedOrders.reduce((sum, order) => 
+            sum + (order.unreadMessages || 0), 0
+          )
+        };
+        
+        console.log('📊 Estatísticas calculadas:', stats);
+        setDashboardStats(stats);
+        
+      } else {
+        console.log('📋 Nenhum pedido encontrado para o cliente');
+        setCustomerOrders([]);
+      }
+      
+    } catch (error) {
+      console.error('❌ Erro ao carregar dados do cliente:', error);
+      setError(`Erro ao carregar seus pedidos: ${error.message}`);
+      setCustomerOrders([]);
+    } finally {
+      setIsLoading(false);
+    }
   };
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.error('Erro no logout:', error);
+    }
+  };
+
+  const getStatusColor = (order) => {
+    if (order.progress >= 100) return 'text-emerald-600';
+    if (order.progress >= 66) return 'text-violet-600';
+    if (order.progress >= 33) return 'text-blue-600';
+    return 'text-amber-600';
+  };
+
+  const getProgressBarColor = (order) => {
+    if (order.progress >= 100) return 'from-emerald-400 to-emerald-500';
+    if (order.progress >= 66) return 'from-violet-400 to-violet-500';
+    if (order.progress >= 33) return 'from-blue-400 to-blue-500';
+    return 'from-amber-400 to-amber-500';
+  };
+
+  const getStatusText = (order) => {
+    if (order.progress >= 100) return 'Entregue';
+    if (order.currentStep?.name) return order.currentStep.name;
+    if (order.customSteps) {
+      const currentStep = order.customSteps.find(step => step.current);
+      if (currentStep) return currentStep.name;
+      
+      const nextStep = order.customSteps.find(step => !step.completed);
+      if (nextStep) return nextStep.name;
+    }
+    return order.status || 'Processando';
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Hoje';
+    try {
+      const date = dateString.seconds ? new Date(dateString.seconds * 1000) : new Date(dateString);
+      return date.toLocaleDateString('pt-BR', {
+        day: '2-digit',
+        month: 'short'
+      });
+    } catch {
+      return 'Hoje';
+    }
+  };
+
+  const getStepIcon = (stepName) => {
+    if (!stepName) return Clock;
+    const name = stepName.toLowerCase();
+    if (name.includes('confirmado') || name.includes('recebido')) return CheckCircle;
+    if (name.includes('preparando') || name.includes('separando')) return Package;
+    if (name.includes('enviado') || name.includes('transito')) return Truck;
+    if (name.includes('entregue')) return CheckCircle;
+    return Clock;
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-violet-500 border-t-transparent mx-auto mb-3"></div>
+          <p className="text-slate-600 text-sm font-medium">Carregando seus pedidos...</p>
+          <p className="text-xs text-slate-400 mt-1">Cliente: {customerId}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-white relative">
-      {/* Pattern background */}
-      <div className="absolute inset-0 z-0 opacity-5 pointer-events-none">
-        <div className="absolute inset-0" style={{
-          backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'none\' fill-rule=\'evenodd\'%3E%3Cg fill=\'%239C92AC\' fill-opacity=\'0.2\'%3E%3Cpath d=\'M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")'
-        }}></div>
-      </div>
-
-      {/* Header */}
-      <header className="bg-gradient-to-r from-purple-800 via-purple-700 to-indigo-800 relative overflow-hidden">
-        {/* Header background elements */}
-        <div className="absolute inset-0 z-0">
-          <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 to-indigo-500/20"></div>
-          <div className="absolute -top-40 -left-40 w-80 h-80 rounded-full bg-purple-500/20 blur-3xl"></div>
-          <div className="absolute -bottom-40 -right-40 w-80 h-80 rounded-full bg-indigo-500/20 blur-3xl"></div>
-          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent"></div>
-          <div className="absolute bottom-0 left-0 right-0 h-px bg-black/10"></div>
-        </div>
-
-        <div className="container mx-auto px-4 py-6 relative z-10">
-          <div className="flex justify-between items-center mb-4">
-            <div className="flex items-center">
-              <div className="w-10 h-10 rounded-lg bg-white/20 backdrop-blur-sm flex items-center justify-center mr-3 shadow-md">
-                <Box className="h-5 w-5 text-white" />
-              </div>
-              <h1 className="text-2xl font-bold text-white">Order Portal</h1>
-            </div>
-
-            <div className="flex items-center space-x-3">
-              <button 
-                className="p-2 rounded-full bg-white/10 backdrop-blur-sm text-white hover:bg-white/20 transition-colors relative"
-                onClick={() => setShowNotifications(!showNotifications)}
-              >
-                <Bell className="h-5 w-5" />
-                {unreadNotifications > 0 && (
-                  <span className="absolute top-0 right-0 w-4 h-4 rounded-full bg-red-500 text-white text-xs flex items-center justify-center transform translate-x-1 -translate-y-1 shadow-md">
-                    {unreadNotifications}
-                  </span>
-                )}
-              </button>
-              
-              <Avatar className="h-9 w-9 border-2 border-white/20 shadow-md">
-                <AvatarFallback className="bg-gradient-to-br from-purple-600 to-indigo-700 text-white">
-                  {userName.charAt(0)}
-                </AvatarFallback>
-              </Avatar>
-            </div>
-          </div>
-
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+    <div className="min-h-screen bg-slate-50">
+      {/* ✅ Header mais clean e moderno */}
+      <header className="bg-gradient-to-r from-violet-500 to-purple-600 px-4 pt-8 pb-6 relative overflow-hidden">
+        {/* Elementos decorativos sutis */}
+        <div className="absolute top-0 right-0 w-24 h-24 bg-white/5 rounded-full -translate-y-12 translate-x-12"></div>
+        <div className="absolute bottom-0 left-0 w-16 h-16 bg-white/5 rounded-full translate-y-8 -translate-x-8"></div>
+        
+        <div className="relative z-10">
+          <div className="flex justify-between items-start mb-4">
             <div>
-              <h2 className="text-3xl font-bold text-white">Hello, {userName}</h2>
-              <p className="text-purple-100">Welcome to your order portal</p>
+              <p className="text-violet-100 text-sm font-normal mb-1">
+                Olá,
+              </p>
+              <h1 className="text-white text-xl font-semibold">
+                {userProfile?.name || 'Maria Silva'}
+              </h1>
             </div>
             
-            <div className="w-full md:w-auto relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-purple-200 h-4 w-4" />
-              <Input
-                placeholder="Search orders..."
-                className="pl-9 pr-4 py-2 bg-white/10 backdrop-blur-sm border-white/20 text-white placeholder:text-white/60 focus:bg-white/20 focus:border-white/40 w-full md:w-64 rounded-lg shadow-md"
-                value={searchText}
-                onChange={(e) => setSearchText(e.target.value)}
-              />
-            </div>
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={handleLogout}
+              className="text-white/80 hover:text-white hover:bg-white/10 p-2 rounded-lg"
+            >
+              <LogOut className="h-4 w-4" />
+            </Button>
           </div>
-
-          {/* Order summary cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            <Card className="bg-white/10 backdrop-blur-sm border-transparent hover:bg-white/15 transition-all duration-300 rounded-xl shadow-lg">
-              <CardContent className="p-4 flex items-center justify-between">
-                <div>
-                  <p className="text-xl md:text-2xl font-bold text-white">7</p>
-                  <p className="text-xs md:text-sm text-purple-100">Total Orders</p>
-                </div>
-                <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center animate-pulse shadow-inner">
-                  <Box className="h-5 w-5 text-white" />
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card className="bg-white/10 backdrop-blur-sm border-transparent hover:bg-white/15 transition-all duration-300 rounded-xl shadow-lg">
-              <CardContent className="p-4 flex items-center justify-between">
-                <div>
-                  <p className="text-xl md:text-2xl font-bold text-white">3</p>
-                  <p className="text-xs md:text-sm text-purple-100">In Progress</p>
-                </div>
-                <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center animate-pulse shadow-inner">
-                  <Truck className="h-5 w-5 text-white" />
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card className="bg-white/10 backdrop-blur-sm border-transparent hover:bg-white/15 transition-all duration-300 rounded-xl shadow-lg">
-              <CardContent className="p-4 flex items-center justify-between">
-                <div>
-                  <p className="text-xl md:text-2xl font-bold text-white">4</p>
-                  <p className="text-xs md:text-sm text-purple-100">Completed</p>
-                </div>
-                <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center animate-pulse shadow-inner">
-                  <CheckCircle className="h-5 w-5 text-white" />
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card className="bg-white/10 backdrop-blur-sm border-transparent hover:bg-white/15 transition-all duration-300 rounded-xl shadow-lg">
-              <CardContent className="p-4 flex items-center justify-between">
-                <div>
-                  <p className="text-xl md:text-2xl font-bold text-white">12</p>
-                  <p className="text-xs md:text-sm text-purple-100">Messages</p>
-                </div>
-                <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center animate-pulse shadow-inner">
-                  <MessageSquare className="h-5 w-5 text-white" />
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-
-        {/* Curved divider */}
-        <div className="h-16 bg-gradient-to-b from-purple-700/0 to-white relative">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 320" className="absolute bottom-0 text-white">
-            <path fill="currentColor" fillOpacity="1" d="M0,224L80,213.3C160,203,320,181,480,181.3C640,181,800,203,960,197.3C1120,192,1280,160,1360,144L1440,128L1440,320L1360,320C1280,320,1120,320,960,320C800,320,640,320,480,320C320,320,160,320,80,320L0,320Z"></path>
-          </svg>
+          
+          <p className="text-violet-100/80 text-sm max-w-xs">
+            Acompanhe seus pedidos em tempo real
+          </p>
         </div>
       </header>
 
-      {/* Notification Panel */}
-      {showNotifications && (
-        <div className="absolute top-20 right-4 z-50 w-full max-w-sm bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden animate-slideIn">
-          <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gradient-to-r from-purple-50 to-indigo-50">
-            <h3 className="font-semibold text-purple-900">Notifications</h3>
-            <div className="flex items-center gap-2">
-              {unreadNotifications > 0 && (
-                <button 
-                  className="text-xs text-purple-600 hover:text-purple-800"
-                  onClick={markAllAsRead}
-                >
-                  Mark all as read
-                </button>
-              )}
-              <button 
-                className="text-gray-500 hover:text-gray-700"
-                onClick={() => setShowNotifications(false)}
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-          <ScrollArea className="h-80">
-            <div className="p-2">
-              {notifications.length === 0 ? (
-                <div className="text-center py-8">
-                  <div className="mx-auto w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-3 shadow-inner">
-                    <Bell className="h-6 w-6 text-gray-400" />
-                  </div>
-                  <p className="text-gray-500">No notifications yet</p>
+      {/* ✅ Content area com design mais limpo */}
+      <main className="px-4 py-5 -mt-3 relative z-10">
+        
+        {/* ✅ PROMPT DE NOTIFICAÇÕES - NÃO INTRUSIVO MAS VISÍVEL */}
+        {showNotificationPrompt && notificationStatus === 'default' && (
+          <Card className="mb-6 border-2 border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 shadow-lg">
+            <CardContent className="p-4">
+              <div className="flex items-start space-x-3">
+                <div className="p-2 bg-blue-500 rounded-lg">
+                  <BellIcon className="h-5 w-5 text-white" />
                 </div>
-              ) : (
-                notifications.map(notification => (
-                  <button
-                    key={notification.id}
-                    className={`w-full p-3 mb-1 rounded-lg flex items-start hover:bg-purple-50 transition-colors shadow-sm hover:shadow-md ${
-                      !notification.read ? 'bg-purple-50' : ''
-                    }`}
-                    onClick={() => handleNotificationClick(notification)}
-                  >
-                    <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center mr-3 shadow-inner ${
-                      notification.type === 'message' 
-                        ? 'bg-gradient-to-br from-purple-100 to-purple-200 text-purple-600' 
-                        : 'bg-gradient-to-br from-blue-100 to-blue-200 text-blue-600'
-                    }`}>
-                      {notification.type === 'message' ? (
-                        <MessageSquare className="h-5 w-5" />
+                <div className="flex-1">
+                  <h3 className="font-semibold text-blue-900 mb-1">
+                    Quer receber atualizações dos seus pedidos?
+                  </h3>
+                  <p className="text-blue-700 text-sm mb-3">
+                    Ative as notificações para ser avisado quando seus pedidos forem atualizados, enviados ou entregues.
+                  </p>
+                  <div className="flex space-x-3">
+                    <Button 
+                      onClick={handleEnableNotifications}
+                      disabled={notificationLoading}
+                      className="bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-2"
+                    >
+                      {notificationLoading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Ativando...
+                        </>
                       ) : (
-                        <Package className="h-5 w-5" />
+                        <>
+                          <BellIcon className="h-4 w-4 mr-2" />
+                          Ativar Notificações
+                        </>
                       )}
-                    </div>
-                    <div className="flex-1 text-left">
-                      <div className="flex justify-between items-start">
-                        <h4 className="font-medium text-gray-900">{notification.title}</h4>
-                        {!notification.read && (
-                          <span className="w-2 h-2 rounded-full bg-purple-600 mt-1"></span>
-                        )}
-                      </div>
-                      <p className="text-sm text-gray-600 mt-1">{notification.message}</p>
-                      <p className="text-xs text-gray-400 mt-1">{notification.time}</p>
-                    </div>
-                  </button>
-                ))
-              )}
-            </div>
-          </ScrollArea>
-        </div>
-      )}
-
-      {/* Main content */}
-      <main className="container mx-auto px-4 pb-20 -mt-8 relative z-10">
-        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden transform hover:shadow-2xl transition-all duration-300">
-          <div className="p-6 border-b border-gray-100 bg-gradient-to-r from-purple-50/30 to-indigo-50/30">
-            <div className="flex flex-col sm:flex-row justify-between gap-4 mb-6">
-              <div>
-                <h2 className="text-xl font-bold text-gray-800 flex items-center">
-                  <Package className="h-5 w-5 mr-2 text-purple-600" />
-                  Your Recent Orders
-                </h2>
-                <p className="text-sm text-gray-500">Track your orders and interact with stores</p>
-              </div>
-              
-              <div className="flex flex-wrap gap-2">
-                <Button 
-                  variant={filterStatus === 'all' ? 'default' : 'outline'} 
-                  size="sm"
-                  onClick={() => setFilterStatus('all')}
-                  className={filterStatus === 'all' 
-                    ? 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 shadow-md' 
-                    : 'text-gray-600 border-gray-200 shadow-sm'}
-                >
-                  View All
-                </Button>
-                <Button 
-                  variant={filterStatus === 'pending' ? 'default' : 'outline'} 
-                  size="sm"
-                  onClick={() => setFilterStatus('pending')}
-                  className={filterStatus === 'pending' 
-                    ? 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 shadow-md' 
-                    : 'text-gray-600 border-gray-200 shadow-sm'}
-                >
-                  In Progress
-                </Button>
-                <Button 
-                  variant={filterStatus === 'shipped' ? 'default' : 'outline'} 
-                  size="sm"
-                  onClick={() => setFilterStatus('shipped')}
-                  className={filterStatus === 'shipped' 
-                    ? 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 shadow-md' 
-                    : 'text-gray-600 border-gray-200 shadow-sm'}
-                >
-                  On the Way
-                </Button>
-                <Button 
-                  variant={filterStatus === 'delivered' ? 'default' : 'outline'} 
-                  size="sm"
-                  onClick={() => setFilterStatus('delivered')}
-                  className={filterStatus === 'delivered' 
-                    ? 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 shadow-md' 
-                    : 'text-gray-600 border-gray-200 shadow-sm'}
-                >
-                  Delivered
-                </Button>
-              </div>
-            </div>
-
-            {isLoading ? (
-              <div className="space-y-4">
-                {[1, 2].map((_, index) => (
-                  <div key={index} className="border rounded-lg p-4 animate-pulse">
-                    <div className="flex items-center space-x-4">
-                      <div className="rounded-lg bg-gray-200 h-12 w-12"></div>
-                      <div className="flex-1 space-y-2">
-                        <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                        <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-                      </div>
-                    </div>
-                    <div className="mt-4 h-3 bg-gray-200 rounded"></div>
+                    </Button>
+                    <Button 
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowNotificationPrompt(false)}
+                      className="border-blue-300 text-blue-700 hover:bg-blue-100"
+                    >
+                      Agora Não
+                    </Button>
                   </div>
-                ))}
-              </div>
-            ) : filteredStores.length === 0 ? (
-              <div className="text-center py-12">
-                <div className="mx-auto w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-4 shadow-inner">
-                  <Package className="h-8 w-8 text-gray-400" />
                 </div>
-                <h3 className="text-lg font-medium text-gray-900">No orders found</h3>
-                <p className="mt-1 text-gray-500">No orders match your search or filters.</p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowNotificationPrompt(false)}
+                  className="text-blue-500 hover:text-blue-700 hover:bg-blue-100 p-1"
+                >
+                  <XIcon className="h-4 w-4" />
+                </Button>
               </div>
-            ) : (
-              <div className="space-y-4">
-                {filteredStores.map((store) => (
-                  <Card 
-                    key={store.id}
-                    className="border border-gray-200 hover:border-purple-200 transition-all group cursor-pointer shadow-sm hover:shadow-md transform hover:-translate-y-1 duration-300 rounded-xl overflow-hidden"
-                    onClick={() => navigate(`/customer/orders/${store.id}`)}
-                  >
-                    <div className="flex items-start p-4 gap-4">
-                      {/* Store logo */}
-                      <div 
-                        className="flex-shrink-0 w-14 h-14 rounded-lg flex items-center justify-center text-xl relative shadow-md"
-                        style={{ background: `linear-gradient(135deg, ${store.accent}15, ${store.accent}25)` }}
-                      >
-                        {store.logo}
-                        {store.hasMessages && (
-                          <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white animate-ping shadow-md"></span>
-                        )}
-                      </div>
-                      
-                      {/* Store details */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-1">
-                          <div className="flex items-center">
-                            <h3 className="font-medium text-gray-900">{store.name}</h3>
-                            {store.verified && (
-                              <Badge variant="outline" className="ml-2 text-xs bg-emerald-50 text-emerald-700 border-emerald-200 shadow-sm">
-                                <ShieldCheck className="h-3 w-3 mr-1" />
-                                Verified
-                              </Badge>
-                            )}
-                          </div>
-                          <p className="text-sm text-gray-500">{store.date}</p>
-                        </div>
-                        
-                        <div className="flex items-center justify-between mb-1">
-                          <p className="text-sm text-gray-700">
-                            <span className="font-semibold">{store.orderCode}</span> • {store.products.join(", ")}
-                          </p>
-                        </div>
-                        
-                        <div className="flex items-center justify-between mb-3">
-                          <Badge variant="outline" className={getStatusBg(store.statusCode)}>
-                            {store.status}
-                          </Badge>
-                          
-                          <div className="flex items-center text-xs text-gray-500">
-                            <Clock className="h-3.5 w-3.5 mr-1" />
-                            Estimated: {store.estimated}
-                          </div>
-                        </div>
-                        
-                        <Progress 
-                          value={store.progress} 
-                          className="h-1.5 bg-gray-100 rounded-full overflow-hidden" 
-                          indicatorClassName={
-                            store.statusCode === 1 
-                              ? "bg-gradient-to-r from-amber-500 to-amber-600" 
-                              : store.statusCode === 2 
-                                ? "bg-gradient-to-r from-blue-500 to-blue-600" 
-                                : store.statusCode === 3 
-                                  ? "bg-gradient-to-r from-purple-600 to-indigo-600" 
-                                  : "bg-gradient-to-r from-green-500 to-green-600"
-                          }
-                        />
-                      </div>
-                    </div>
-                    
-                    <div className="bg-gray-50 px-4 py-2 flex justify-end space-x-2 border-t border-gray-100 group-hover:bg-gradient-to-r from-purple-50 to-indigo-50 transition-colors">
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="text-purple-600 hover:text-purple-700 hover:bg-purple-100 text-xs shadow-sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/customer/chat/${store.id}`);
-                        }}
-                      >
-                        <MessageSquare className="h-3.5 w-3.5 mr-1.5" />
-                        Chat
-                      </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="text-gray-600 hover:text-gray-700 hover:bg-gray-100 text-xs shadow-sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/customer/orders/${store.id}`);
-                        }}
-                      >
-                        Details
-                      </Button>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* ✅ FEEDBACK DE STATUS DAS NOTIFICAÇÕES */}
+        {notificationStatus === 'granted' && (
+          <Alert className="mb-6 border-emerald-200 bg-emerald-50">
+            <CheckCircle className="h-4 w-4 text-emerald-600" />
+            <AlertDescription className="text-emerald-800">
+              <strong>🎉 Notificações ativadas!</strong> Você receberá atualizações dos seus pedidos em tempo real.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {notificationStatus === 'denied' && (
+          <Alert className="mb-6 border-amber-200 bg-amber-50">
+            <AlertCircle className="h-4 w-4 text-amber-600" />
+            <AlertDescription className="text-amber-800">
+              <strong>⚠️ Notificações bloqueadas.</strong> Para ativar, vá nas configurações do seu navegador e permita notificações para este site.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Stats cards mais delicados */}
+        <div className="grid grid-cols-4 gap-2.5 mb-6">
+          <div className="bg-white rounded-lg p-3 text-center shadow-sm border border-slate-100">
+            <div className="text-lg font-semibold text-slate-800">{dashboardStats.totalOrders}</div>
+            <div className="text-xs text-slate-500 font-medium">Pedidos</div>
+          </div>
+          <div className="bg-white rounded-lg p-3 text-center shadow-sm border border-slate-100">
+            <div className="text-lg font-semibold text-blue-600">{dashboardStats.inProgress}</div>
+            <div className="text-xs text-slate-500 font-medium">Andamento</div>
+          </div>
+          <div className="bg-white rounded-lg p-3 text-center shadow-sm border border-slate-100">
+            <div className="text-lg font-semibold text-emerald-600">{dashboardStats.completed}</div>
+            <div className="text-xs text-slate-500 font-medium">Finalizados</div>
+          </div>
+          <div className="bg-white rounded-lg p-3 text-center shadow-sm border border-slate-100">
+            <div className="text-lg font-semibold text-violet-600">{dashboardStats.messages}</div>
+            <div className="text-xs text-slate-500 font-medium">Mensagens</div>
           </div>
         </div>
 
-        {/* Help center section */}
-        <div className="mt-10">
-          <Card className="bg-gradient-to-r from-purple-50 to-indigo-50 border-gray-100/80 overflow-hidden transform hover:scale-[1.01] transition-all duration-300 shadow-lg rounded-xl">
-            <CardContent className="p-6">
-              <div className="flex flex-col md:flex-row items-center md:justify-between">
-                <div className="flex items-center mb-4 md:mb-0">
-                  <div className="w-16 h-16 flex-shrink-0 rounded-full bg-gradient-to-br from-purple-100 to-indigo-100 flex items-center justify-center text-2xl mr-6 shadow-inner animate-pulse">
-                    <Headphones className="h-8 w-8 text-purple-600" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-gray-900">Need Help?</h3>
-                    <p className="text-gray-600 mt-1">Support Center available to help with your questions</p>
-                  </div>
-                </div>
-                
-                <div className="flex flex-wrap gap-3 w-full md:w-auto">
+        {/* ✅ Seção Meus Pedidos mais clean */}
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-slate-800 text-lg font-medium">Meus Pedidos</h2>
+          <Button 
+            variant="ghost" 
+            size="sm"
+            onClick={fetchRealCustomerData}
+            className="text-slate-400 hover:text-slate-600 p-2"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+        </div>
+        
+        {/* ✅ Debug info para desenvolvimento */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 text-xs">
+            <p><strong>Debug Info:</strong></p>
+            <p>Customer ID: {customerId}</p>
+            <p>Email: {user?.email}</p>
+            <p>Store ID: {storeId}</p>
+            <p>Notification Status: {notificationStatus}</p>
+          </div>
+        )}
+        
+        {/* ✅ Tratamento de erro mais elegante */}
+        {error && (
+          <Card className="bg-red-50/50 border-red-100 mb-4">
+            <CardContent className="p-4">
+              <div className="flex items-center">
+                <AlertCircle className="h-4 w-4 text-red-500 mr-2 flex-shrink-0" />
+                <div>
+                  <p className="text-red-800 text-sm font-medium">Erro ao carregar dados</p>
+                  <p className="text-red-600 text-xs mt-1">{error}</p>
                   <Button 
-                    className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 flex-1 md:flex-none transform hover:translate-x-1 transition-transform shadow-md"
-                    onClick={() => navigate('/customer/support')}
+                    onClick={fetchRealCustomerData} 
+                    className="mt-2 bg-red-500 hover:bg-red-600 text-white text-xs px-3 py-1.5"
+                    size="sm"
                   >
-                    Start Conversation
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className="bg-white text-purple-600 border-purple-200 hover:bg-purple-50 flex-1 md:flex-none shadow-sm"
-                    onClick={() => navigate('/customer/faq')}
-                  >
-                    View FAQs
+                    <RefreshCw className="h-3 w-3 mr-1" />
+                    Tentar Novamente
                   </Button>
                 </div>
               </div>
             </CardContent>
           </Card>
-        </div>
+        )}
+        
+        {customerOrders.length === 0 ? (
+          <div className="bg-white rounded-xl p-8 text-center shadow-sm border border-slate-100">
+            <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Package className="h-8 w-8 text-slate-400" />
+            </div>
+            <h3 className="font-medium text-slate-800 mb-2">Nenhum pedido encontrado</h3>
+            <p className="text-slate-500 text-sm mb-4">
+              Você ainda não possui pedidos ou eles estão sendo processados
+            </p>
+            <Button onClick={fetchRealCustomerData} variant="outline" size="sm">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Atualizar
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {customerOrders.map((order, index) => (
+              <Card 
+                key={order.id || index}
+                className="bg-white border border-slate-100 shadow-sm hover:shadow-md hover:border-slate-200 transition-all duration-200 cursor-pointer group"
+                onClick={() => navigate(`/customer/orders/${order.id || order.orderId}`)}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-start space-x-3">
+                    {/* ✅ Ícone da loja mais sutil */}
+                    <div className="w-11 h-11 bg-gradient-to-br from-violet-50 to-purple-50 rounded-lg flex items-center justify-center text-lg flex-shrink-0 border border-violet-100">
+                      🏪
+                    </div>
+                    
+                    {/* ✅ Info principal redesenhada */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-2 mb-1">
+                            <h3 className="font-medium text-slate-800 text-sm">
+                              Pedido #{(order.orderId || order.id).toString().slice(-6)}
+                            </h3>
+                            {order.progress >= 100 && (
+                              <div className="w-3 h-3 bg-emerald-500 rounded-full flex items-center justify-center">
+                                <CheckCircle className="w-2 h-2 text-white" />
+                              </div>
+                            )}
+                            {(order.unreadMessages || 0) > 0 && (
+                              <div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></div>
+                            )}
+                          </div>
+                          
+                          <p className="text-slate-600 text-sm font-medium">
+                            {order.productName || order.productDetails?.name || order.product?.name || 'Produto da loja'}
+                          </p>
+                          
+                          {(order.quantity > 1) && (
+                            <p className="text-slate-400 text-xs">
+                              {order.quantity} itens
+                            </p>
+                          )}
+                        </div>
+                        
+                        <div className="text-right flex-shrink-0">
+                          <span className="text-slate-400 text-xs">
+                            {formatDate(order.createdAt || order.orderDate)}
+                          </span>
+                          <ArrowRight className="h-3 w-3 text-slate-400 mt-1 ml-auto group-hover:text-slate-600 transition-colors" />
+                        </div>
+                      </div>
+                      
+                      {/* ✅ Status atual mais delicado */}
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center space-x-2">
+                          <Sparkles className={`h-3 w-3 ${getStatusColor(order)}`} />
+                          <span className={`text-sm font-medium ${getStatusColor(order)}`}>
+                            {getStatusText(order)}
+                          </span>
+                        </div>
+                        <span className="text-slate-500 text-xs font-medium">
+                          {order.progress || 0}%
+                        </span>
+                      </div>
+                      
+                      {/* ✅ BARRA DE PROGRESSO MAIS DELICADA */}
+                      <div className="space-y-2">
+                        {/* Progress bar principal mais sutil */}
+                        <div className="relative">
+                          <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                            <div 
+                              className={`h-2 rounded-full bg-gradient-to-r ${getProgressBarColor(order)} transition-all duration-700 ease-out`}
+                              style={{ width: `${order.progress || 0}%` }}
+                            >
+                              <div className="h-full w-full bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse"></div>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {/* ✅ Timeline mini mais clean */}
+                        {order.customSteps && order.customSteps.length > 0 && (
+                          <div className="flex justify-between items-center pt-2">
+                            {order.customSteps.slice(0, 4).map((step, stepIndex) => {
+                              const StepIcon = getStepIcon(step.name);
+                              return (
+                                <div key={stepIndex} className="flex flex-col items-center">
+                                  <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs border border-white shadow-sm
+                                    ${step.completed 
+                                      ? 'bg-emerald-500 text-white' 
+                                      : step.current 
+                                        ? 'bg-blue-500 text-white' 
+                                        : 'bg-slate-200 text-slate-400'}`}>
+                                    <StepIcon className="h-2.5 w-2.5" />
+                                  </div>
+                                  <span className={`text-xs mt-1 text-center max-w-14 leading-tight
+                                    ${step.completed 
+                                      ? 'text-emerald-600 font-medium' 
+                                      : step.current 
+                                        ? 'text-blue-600 font-medium' 
+                                        : 'text-slate-400'}`}>
+                                    {step.name.length > 6 ? step.name.substring(0, 4) + '...' : step.name}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                        
+                        {/* ✅ Descrição mais sutil */}
+                        <div className="flex items-center justify-between pt-1">
+                          <p className="text-xs text-slate-400">
+                            {order.currentStep?.description || 
+                             (order.customSteps && order.customSteps.find(step => step.current)?.description) ||
+                             'Acompanhe o progresso'}
+                          </p>
+                          
+                          {order.progress < 100 && (
+                            <span className="text-xs text-blue-500 font-medium">
+                              Em andamento
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+        
+        {/* ✅ Padding para bottom navigation */}
+        <div className="h-20"></div>
       </main>
 
-      {/* Navigation bar for mobile and desktop */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 py-2 px-6 z-20 shadow-lg">
-        <div className="flex justify-between items-center max-w-md mx-auto">
+      {/* ✅ Bottom Navigation mais moderna */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200/60 px-4 py-2">
+        <div className="flex justify-center items-center max-w-sm mx-auto">
           <button 
-            className="flex flex-col items-center text-purple-600"
+            className="flex flex-col items-center text-violet-600 p-3"
             onClick={() => navigate('/customer/dashboard')}
           >
-            <Box className="h-6 w-6" />
-            <span className="text-xs mt-1">Orders</span>
+            <Package className="h-5 w-5" />
+            <span className="text-xs mt-1 font-medium">Pedidos</span>
           </button>
           
           <button 
-            className="flex flex-col items-center text-gray-500 hover:text-purple-600 transition-colors"
+            className="flex flex-col items-center text-slate-400 p-3 mx-6 relative"
             onClick={() => navigate('/customer/chat')}
           >
-            <MessageSquare className="h-6 w-6" />
-            <span className="text-xs mt-1">Chat</span>
+            <MessageSquare className="h-5 w-5" />
+            <span className="text-xs mt-1">Mensagens</span>
+            {dashboardStats.messages > 0 && (
+              <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center">
+                <span className="text-xs text-white font-medium">{dashboardStats.messages}</span>
+              </div>
+            )}
           </button>
           
           <button 
-            className="flex flex-col items-center text-gray-500 hover:text-purple-600 transition-colors"
+            className="flex flex-col items-center text-slate-400 p-3"
             onClick={() => navigate('/customer/profile')}
           >
-            <User className="h-6 w-6" />
-            <span className="text-xs mt-1">Profile</span>
+            <User className="h-5 w-5" />
+            <span className="text-xs mt-1">Perfil</span>
           </button>
         </div>
       </div>
-
-      {/* CSS Animations */}
-      <style jsx>{`
-        @keyframes slideIn {
-          from { opacity: 0; transform: translateY(-10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        
-        @keyframes fadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.7; }
-        }
-        
-        .animate-slideIn {
-          animation: slideIn 0.3s ease forwards;
-        }
-        
-        .animate-fadeIn {
-          animation: fadeIn 0.5s ease forwards;
-        }
-        
-        .animate-pulse {
-          animation: pulse 2s infinite;
-        }
-      `}</style>
     </div>
   );
 };

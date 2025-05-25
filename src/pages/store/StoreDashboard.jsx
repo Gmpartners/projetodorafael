@@ -21,6 +21,7 @@ import {
   PulseEffect,
   FloatingParticles
 } from '@/components/ui/animations';
+import NotificationSetupCard from '@/components/notifications/NotificationSetupCard';
 import { 
   BarChart3, 
   TrendingUp, 
@@ -49,55 +50,68 @@ import {
   Target,
   TrendingDownIcon,
   FileTextIcon,
-  BellIcon
+  BellIcon,
+  Loader2,
+  Package2Icon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { apiService } from '@/services/apiService';
 
 const StoreDashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   
-  // Estados para dados em tempo real
+  // Estados para dados reais da API
   const [dashboardStats, setDashboardStats] = useState({
-    revenue: 12450.90,
-    avgOrder: 150.90,
-    totalCustomers: 48,
-    conversionRate: 5.25,
-    todayOrders: 23,
-    completionRate: 87.5,
-    pendingOrders: 8,
-    newMessages: 5
+    revenue: 0,
+    avgOrder: 0,
+    totalCustomers: 0,
+    conversionRate: 0,
+    todayOrders: 0,
+    completionRate: 0,
+    pendingOrders: 0,
+    newMessages: 0
   });
   
-  // Simular carregamento inicial
+  const [orders, setOrders] = useState([]);
+
+  // Carregar dados ao montar componente
   useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 1500);
-    return () => clearInterval(timer);
+    fetchDashboardData();
   }, []);
+
+  const fetchDashboardData = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Carregar dados do dashboard
+      const dashboardData = await apiService.getDashboardOverview();
+      setDashboardStats(dashboardData);
+      
+      // Carregar pedidos da loja
+      const ordersData = await apiService.getStoreOrders('store_current_user');
+      setOrders(Array.isArray(ordersData) ? ordersData : []);
+      
+    } catch (error) {
+      console.error('Erro ao carregar dados do dashboard:', error);
+      // Manter valores zerados em caso de erro
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Quick refresh handler
   const handleRefreshData = useCallback(async () => {
-    setIsLoading(true);
-    // Simular fetch de dados
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    setDashboardStats(prev => ({
-      ...prev,
-      revenue: prev.revenue + Math.random() * 1000,
-      todayOrders: prev.todayOrders + Math.floor(Math.random() * 3),
-      newMessages: Math.floor(Math.random() * 10)
-    }));
-    
-    setIsLoading(false);
+    await fetchDashboardData();
   }, []);
 
-  // Métricas principais - expandidas
+  // Métricas principais - usando dados reais
   const mainStats = useMemo(() => [
     { 
       title: 'Receita Total', 
-      value: dashboardStats.revenue, 
-      change: 20.1, 
+      value: dashboardStats.revenue || 0, 
+      change: dashboardStats.revenueChange || 0, 
       changeLabel: 'vs mês anterior',
       icon: DollarSign, 
       color: 'purple',
@@ -107,8 +121,8 @@ const StoreDashboard = () => {
     },
     { 
       title: 'Média por Pedido', 
-      value: dashboardStats.avgOrder, 
-      change: 12.5, 
+      value: dashboardStats.avgOrder || 0, 
+      change: dashboardStats.avgOrderChange || 0, 
       changeLabel: 'vs mês anterior',
       icon: ShoppingBag, 
       color: 'blue',
@@ -118,8 +132,8 @@ const StoreDashboard = () => {
     },
     { 
       title: 'Total Clientes', 
-      value: dashboardStats.totalCustomers, 
-      change: 5.1, 
+      value: dashboardStats.totalCustomers || 0, 
+      change: dashboardStats.customersChange || 0, 
       changeLabel: 'novos este mês',
       icon: Users, 
       color: 'emerald',
@@ -128,8 +142,8 @@ const StoreDashboard = () => {
     },
     { 
       title: 'Taxa Conversão', 
-      value: dashboardStats.conversionRate, 
-      change: -2.3, 
+      value: dashboardStats.conversionRate || 0, 
+      change: dashboardStats.conversionChange || 0, 
       changeLabel: 'vs mês anterior',
       icon: TrendingUp, 
       color: 'amber',
@@ -139,30 +153,30 @@ const StoreDashboard = () => {
     }
   ], [dashboardStats]);
 
-  // Métricas secundárias
+  // Métricas secundárias - usando dados reais
   const secondaryStats = useMemo(() => [
     {
       title: 'Pedidos Hoje',
-      value: dashboardStats.todayOrders,
+      value: dashboardStats.todayOrders || 0,
       icon: Activity,
       color: 'blue',
-      change: 18.7,
+      change: dashboardStats.todayOrdersChange || 0,
       changeLabel: 'vs ontem',
       trend: 'up'
     },
     {
       title: 'Taxa de Conclusão',
-      value: dashboardStats.completionRate,
+      value: dashboardStats.completionRate || 0,
       suffix: '%',
       icon: Target,
       color: 'emerald',
-      change: 3.2,
+      change: dashboardStats.completionRateChange || 0,
       changeLabel: 'vs semana anterior',
       trend: 'up'
     }
   ], [dashboardStats]);
 
-  // Dados das ações rápidas organizadas
+  // Dados das ações rápidas - SEM badges mockados
   const quickActions = useMemo(() => [
     {
       id: 'orders',
@@ -174,9 +188,23 @@ const StoreDashboard = () => {
       borderColor: 'border-purple-200',
       hoverColor: 'hover:border-purple-400 hover:bg-purple-50',
       textColor: 'text-purple-600',
-      badge: dashboardStats.pendingOrders,
+      badge: dashboardStats.pendingOrders || 0,
       badgeColor: 'bg-red-500',
       onClick: () => setActiveTab('orders')
+    },
+    {
+      id: 'products',
+      title: 'Produtos',
+      description: 'Gerenciar catálogo',
+      icon: Package2Icon,
+      color: 'indigo',
+      bgColor: 'from-indigo-50 to-indigo-100',
+      borderColor: 'border-indigo-200',
+      hoverColor: 'hover:border-indigo-400 hover:bg-indigo-50',
+      textColor: 'text-indigo-600',
+      badge: 0,
+      badgeColor: 'bg-indigo-500',
+      onClick: () => window.location.href = '/store/products'
     },
     {
       id: 'chat',
@@ -188,15 +216,15 @@ const StoreDashboard = () => {
       borderColor: 'border-blue-200',
       hoverColor: 'hover:border-blue-400 hover:bg-blue-50',
       textColor: 'text-blue-600',
-      badge: dashboardStats.newMessages,
+      badge: dashboardStats.newMessages || 0,
       badgeColor: 'bg-blue-500',
       onClick: () => window.location.href = '/store/chats'
     },
     {
-      id: 'settings',
-      title: 'Configurações',
-      description: 'Ajustes da loja',
-      icon: SettingsIcon,
+      id: 'notifications',
+      title: 'Notificações',
+      description: 'Push notifications',
+      icon: BellIcon,
       color: 'emerald',
       bgColor: 'from-emerald-50 to-emerald-100',
       borderColor: 'border-emerald-200',
@@ -204,103 +232,9 @@ const StoreDashboard = () => {
       textColor: 'text-emerald-600',
       badge: 0,
       badgeColor: 'bg-emerald-500',
-      onClick: () => console.log('Configurações')
-    },
-    {
-      id: 'reports',
-      title: 'Relatórios',
-      description: 'Análises e métricas',
-      icon: FileTextIcon,
-      color: 'amber',
-      bgColor: 'from-amber-50 to-amber-100',
-      borderColor: 'border-amber-200',
-      hoverColor: 'hover:border-amber-400 hover:bg-amber-50',
-      textColor: 'text-amber-600',
-      badge: 0,
-      badgeColor: 'bg-amber-500',
-      onClick: () => console.log('Relatórios')
+      onClick: () => window.location.href = '/store/push-notifications'
     }
   ], [dashboardStats.pendingOrders, dashboardStats.newMessages]);
-  
-  const recentOrders = [
-    { 
-      id: 'ORD-1234', 
-      customer: 'Ana Silva', 
-      email: 'ana.silva@email.com',
-      date: '16/05/2025', 
-      total: 129.90, 
-      status: 'processando',
-      avatar: 'https://i.pravatar.cc/150?u=ana',
-      priority: 'high',
-      items: 3
-    },
-    { 
-      id: 'ORD-1235', 
-      customer: 'Carlos Santos', 
-      email: 'carlos.santos@email.com',
-      date: '15/05/2025', 
-      total: 79.90, 
-      status: 'enviado',
-      avatar: 'https://i.pravatar.cc/150?u=carlos',
-      priority: 'medium',
-      items: 1
-    },
-    { 
-      id: 'ORD-1236', 
-      customer: 'Maria Oliveira', 
-      email: 'maria.oliveira@email.com',
-      date: '14/05/2025', 
-      total: 249.50, 
-      status: 'entregue',
-      avatar: 'https://i.pravatar.cc/150?u=maria',
-      priority: 'low',
-      items: 5
-    },
-    { 
-      id: 'ORD-1237', 
-      customer: 'João Costa', 
-      email: 'joao.costa@email.com',
-      date: '13/05/2025', 
-      total: 59.90, 
-      status: 'cancelado',
-      avatar: 'https://i.pravatar.cc/150?u=joao',
-      priority: 'low',
-      items: 2
-    },
-  ];
-  
-  const pendingMessages = [
-    { 
-      id: 1, 
-      orderId: 'ORD-1234', 
-      customer: 'Ana Silva', 
-      message: 'Olá, gostaria de saber quando meu pedido será enviado?', 
-      time: '2h atrás',
-      avatar: 'https://i.pravatar.cc/150?u=ana',
-      priority: 'high',
-      unread: true
-    },
-    { 
-      id: 2, 
-      orderId: 'ORD-1235', 
-      customer: 'Carlos Santos', 
-      message: 'Posso alterar o endereço de entrega?', 
-      time: '3h atrás',
-      avatar: 'https://i.pravatar.cc/150?u=carlos',
-      priority: 'medium',
-      unread: true
-    },
-    { 
-      id: 3, 
-      orderId: 'ORD-1236', 
-      customer: 'Maria Oliveira', 
-      message: 'O produto chegou com um pequeno defeito.', 
-      time: '5h atrás',
-      avatar: 'https://i.pravatar.cc/150?u=maria',
-      priority: 'urgent',
-      unread: false
-    },
-  ];
   
   const getStatusBadge = (status) => {
     const statusConfig = {
@@ -337,77 +271,56 @@ const StoreDashboard = () => {
     );
   };
 
-  const getPriorityBadge = (priority) => {
-    const priorityConfig = {
-      urgent: { label: 'Urgente', className: 'bg-red-100 text-red-700 border-red-200' },
-      high: { label: 'Alta', className: 'bg-orange-100 text-orange-700 border-orange-200' },
-      medium: { label: 'Média', className: 'bg-yellow-100 text-yellow-700 border-yellow-200' },
-      low: { label: 'Baixa', className: 'bg-green-100 text-green-700 border-green-200' }
-    };
-    
-    const config = priorityConfig[priority] || priorityConfig.medium;
-    
-    return (
-      <Badge variant="outline" className={cn("text-xs", config.className)}>
-        {config.label}
-      </Badge>
-    );
-  };
-
   const tableColumns = [
     {
       header: 'Cliente',
-      key: 'customer',
+      key: 'customerName',
       render: (value, row) => (
         <div className="flex items-center space-x-3">
           <Avatar className="h-10 w-10 border-2 border-white shadow-md">
-            <AvatarImage src={row.avatar} className="object-cover" />
             <AvatarFallback className="bg-gradient-to-br from-purple-100 to-purple-200 text-purple-700 font-semibold">
-              {row.customer.split(' ').map(n => n[0]).join('')}
+              {value ? value.split(' ').map(n => n[0]).join('').substring(0, 2) : 'CL'}
             </AvatarFallback>
           </Avatar>
           <div>
-            <p className="font-semibold text-zinc-900">{value}</p>
-            <p className="text-sm text-zinc-500">{row.email}</p>
+            <p className="font-semibold text-zinc-900">{value || 'Cliente'}</p>
+            <p className="text-sm text-zinc-500">{row.customerEmail || 'email@exemplo.com'}</p>
           </div>
         </div>
       )
     },
     {
       header: 'Pedido',
-      key: 'id',
+      key: 'orderId',
       render: (value, row) => (
         <div>
           <p className="font-semibold text-zinc-900">{value}</p>
-          <p className="text-sm text-zinc-500">{row.items} {row.items === 1 ? 'item' : 'itens'}</p>
+          <p className="text-sm text-zinc-500">{row.productName || 'Produto'}</p>
         </div>
       )
     },
     {
       header: 'Data',
-      key: 'date',
+      key: 'orderDate',
       render: (value) => (
-        <span className="text-sm text-zinc-600">{value}</span>
+        <span className="text-sm text-zinc-600">
+          {value ? new Date(value).toLocaleDateString('pt-BR') : 'Data não informada'}
+        </span>
       )
     },
     {
       header: 'Total',
-      key: 'total',
+      key: 'price',
       render: (value) => (
         <span className="font-semibold text-zinc-900">
-          R$ {value.toFixed(2).replace('.', ',')}
+          R$ {(value || 0).toFixed(2).replace('.', ',')}
         </span>
       )
     },
     {
       header: 'Status',
       key: 'status',
-      render: (value) => getStatusBadge(value)
-    },
-    {
-      header: 'Prioridade',
-      key: 'priority',
-      render: (value) => getPriorityBadge(value)
+      render: (value) => getStatusBadge(value || 'processando')
     },
     {
       header: 'Ações',
@@ -428,9 +341,9 @@ const StoreDashboard = () => {
     }
   ];
 
-  const filteredOrders = recentOrders.filter(order => 
-    order.customer.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    order.id.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredOrders = orders.filter(order => 
+    order.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    order.orderId?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -454,7 +367,7 @@ const StoreDashboard = () => {
                       <div className="p-3 rounded-xl bg-gradient-to-br from-purple-100 to-purple-200 shadow-lg">
                         <BarChart3 className="h-6 w-6 text-purple-700" />
                       </div>
-                      {(dashboardStats.pendingOrders > 5 || dashboardStats.newMessages > 3) && (
+                      {(dashboardStats.pendingOrders > 0 || dashboardStats.newMessages > 0) && (
                         <div className="absolute -top-2 -right-2">
                           <PulseEffect color="red">
                             <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center">
@@ -493,7 +406,11 @@ const StoreDashboard = () => {
                     onClick={handleRefreshData}
                     disabled={isLoading}
                   >
-                    <RefreshCcwIcon className={cn("h-4 w-4 mr-2", isLoading && "animate-spin")} />
+                    {isLoading ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <RefreshCcwIcon className="h-4 w-4 mr-2" />
+                    )}
                     Atualizar
                   </Button>
                 </div>
@@ -502,7 +419,12 @@ const StoreDashboard = () => {
           </div>
         </FadeInUp>
 
-        {/* Sistema de Tabs - Apenas 2 tabs */}
+        {/* ✅ COMPONENTE DE NOTIFICAÇÕES COMPACTO - NOVO */}
+        <FadeInUp delay={150}>
+          <NotificationSetupCard compact={true} className="mb-4" />
+        </FadeInUp>
+
+        {/* Sistema de Tabs */}
         <FadeInUp delay={200}>
           <div className="bg-white/80 backdrop-blur-sm rounded-xl border border-white/50 shadow-xl p-3">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -534,19 +456,19 @@ const StoreDashboard = () => {
                 <div className="flex items-center justify-between p-4 bg-gradient-to-r from-emerald-50 to-blue-50 rounded-xl border border-emerald-200/50">
                   <div className="flex items-center space-x-6">
                     <div className="text-center">
-                      <div className="text-2xl font-bold text-emerald-700">{dashboardStats.todayOrders}</div>
+                      <div className="text-2xl font-bold text-emerald-700">{dashboardStats.todayOrders || 0}</div>
                       <div className="text-xs text-emerald-600">Pedidos Hoje</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-2xl font-bold text-blue-700">{dashboardStats.pendingOrders}</div>
+                      <div className="text-2xl font-bold text-blue-700">{dashboardStats.pendingOrders || 0}</div>
                       <div className="text-xs text-blue-600">Pendentes</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-2xl font-bold text-amber-700">{dashboardStats.newMessages}</div>
+                      <div className="text-2xl font-bold text-amber-700">{dashboardStats.newMessages || 0}</div>
                       <div className="text-xs text-amber-600">Mensagens</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-2xl font-bold text-purple-700">{dashboardStats.completionRate}%</div>
+                      <div className="text-2xl font-bold text-purple-700">{dashboardStats.completionRate || 0}%</div>
                       <div className="text-xs text-purple-600">Conclusão</div>
                     </div>
                   </div>
@@ -557,7 +479,11 @@ const StoreDashboard = () => {
                     disabled={isLoading}
                     className="border-emerald-300 hover:bg-emerald-50"
                   >
-                    <RefreshCcwIcon className={cn("h-4 w-4 mr-2", isLoading && "animate-spin")} />
+                    {isLoading ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <RefreshCcwIcon className="h-4 w-4 mr-2" />
+                    )}
                     Atualizar
                   </Button>
                 </div>
@@ -583,7 +509,7 @@ const StoreDashboard = () => {
                   ))}
                 </div>
 
-                {/* Métricas Secundárias - Apenas 2 cards */}
+                {/* Métricas Secundárias */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   {secondaryStats.map((stat, i) => (
                     <FadeInUp key={i} delay={400 + i * 100}>
@@ -605,7 +531,7 @@ const StoreDashboard = () => {
                 
                 {/* Main Content Grid */}
                 <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-                  {/* Ações Rápidas - Layout Melhorado */}
+                  {/* Ações Rápidas */}
                   <FadeInUp delay={600}>
                     <GlassCard className="p-6 border-0 shadow-premium">
                       <div className="flex items-center justify-between mb-6">
@@ -623,7 +549,6 @@ const StoreDashboard = () => {
                         </Badge>
                       </div>
                       
-                      {/* Grid das Ações Melhorado */}
                       <div className="space-y-3">
                         {quickActions.map((action, index) => {
                           const IconComponent = action.icon;
@@ -690,7 +615,7 @@ const StoreDashboard = () => {
                     </GlassCard>
                   </FadeInUp>
                   
-                  {/* Messages Preview */}
+                  {/* Messages Preview - agora limpo */}
                   <FadeInUp delay={800} className="xl:col-span-2">
                     <GlassCard className="p-6 border-0 shadow-premium">
                       <div className="flex justify-between items-center mb-6">
@@ -704,72 +629,28 @@ const StoreDashboard = () => {
                           </div>
                         </div>
                         <PulseEffect color="purple">
-                          <Badge className="bg-purple-600 text-white shadow-md">{dashboardStats.newMessages}</Badge>
+                          <Badge className="bg-purple-600 text-white shadow-md">{dashboardStats.newMessages || 0}</Badge>
                         </PulseEffect>
                       </div>
                       
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {isLoading ? (
-                          <LoadingSkeleton rows={3} showAvatar />
-                        ) : (
-                          pendingMessages.map(message => (
-                            <HoverLift key={message.id}>
-                              <div className="p-4 border border-zinc-200 rounded-xl hover:border-purple-300 transition-all bg-gradient-to-r from-white to-purple-50/30 group">
-                                <div className="flex items-start space-x-3">
-                                  <div className="relative">
-                                    <Avatar className="h-8 w-8 border-2 border-white shadow-md">
-                                      <AvatarImage src={message.avatar} className="object-cover" />
-                                      <AvatarFallback className="bg-gradient-to-br from-purple-100 to-purple-200 text-purple-700 font-semibold text-xs">
-                                        {message.customer.split(' ').map(n => n[0]).join('')}
-                                      </AvatarFallback>
-                                    </Avatar>
-                                    {message.unread && (
-                                      <div className="absolute -top-1 -right-1 w-3 h-3 bg-purple-600 rounded-full border border-white shadow-sm">
-                                        <div className="w-full h-full bg-purple-500 rounded-full animate-ping opacity-75" />
-                                      </div>
-                                    )}
-                                  </div>
-                                  
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center justify-between mb-1">
-                                      <p className="font-semibold text-zinc-900 truncate text-sm">{message.customer}</p>
-                                      <span className="text-xs text-zinc-500">{message.time}</span>
-                                    </div>
-                                    <p className="text-xs text-purple-600 font-medium mb-1">Pedido {message.orderId}</p>
-                                    <p className="text-xs text-zinc-600 line-clamp-2">{message.message}</p>
-                                    
-                                    <div className="mt-2">
-                                      <Button 
-                                        variant="outline" 
-                                        size="sm" 
-                                        className="text-purple-600 border-purple-200 hover:bg-purple-50 w-full group-hover:shadow-md transition-all h-7 text-xs"
-                                      >
-                                        <SendIcon className="h-3 w-3 mr-1" />
-                                        Responder
-                                      </Button>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            </HoverLift>
-                          ))
-                        )}
-                      </div>
-                      
-                      <div className="mt-6 pt-4 border-t border-zinc-100">
-                        <a href="/store/chats">
-                          <Button variant="ghost" className="w-full hover:bg-purple-50 text-purple-600">
-                            Ver Todas as Mensagens
-                            <ArrowUpIcon className="h-4 w-4 ml-2 rotate-45" />
-                          </Button>
-                        </a>
+                      <div className="text-center py-8">
+                        <MessageSquareIcon className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhuma mensagem ainda</h3>
+                        <p className="text-gray-500 mb-4">As mensagens dos clientes aparecerão aqui</p>
+                        <Button 
+                          onClick={() => window.location.href = '/store/chats'}
+                          className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
+                        >
+                          <MessageSquareIcon className="h-4 w-4 mr-2" />
+                          Ir para Chat
+                        </Button>
                       </div>
                     </GlassCard>
                   </FadeInUp>
                 </div>
               </TabsContent>
               
-              {/* Tab: Pedidos - Alinhamento Correto */}
+              {/* Tab: Pedidos */}
               <TabsContent value="orders" className="mt-6">
                 <FadeInUp delay={0}>
                   <GlassCard className="border-0 shadow-premium">
@@ -794,22 +675,6 @@ const StoreDashboard = () => {
                           </Button>
                         </div>
                       </div>
-                      
-                      {/* Filters */}
-                      <div className="flex flex-wrap gap-2">
-                        <Button variant="default" size="sm" className="text-xs bg-blue-600 hover:bg-blue-700">
-                          Todos
-                        </Button>
-                        <Button variant="outline" size="sm" className="text-xs">
-                          Processando ({dashboardStats.pendingOrders})
-                        </Button>
-                        <Button variant="outline" size="sm" className="text-xs">
-                          Enviados
-                        </Button>
-                        <Button variant="outline" size="sm" className="text-xs">
-                          Entregues
-                        </Button>
-                      </div>
                     </div>
                     
                     <div className="p-6">
@@ -820,7 +685,7 @@ const StoreDashboard = () => {
                           <ModernTable
                             columns={tableColumns}
                             data={filteredOrders}
-                            onRowClick={(row) => console.log('Navigate to:', row.id)}
+                            onRowClick={(row) => console.log('Navigate to:', row.orderId)}
                           />
                         </div>
                       ) : (
@@ -831,7 +696,7 @@ const StoreDashboard = () => {
                           action={
                             <Button className="btn-premium">
                               <PackageIcon className="h-4 w-4 mr-2" />
-                              Adicionar Pedido
+                              Ver Produtos
                             </Button>
                           }
                         />

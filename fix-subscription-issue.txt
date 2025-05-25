@@ -1,0 +1,13 @@
+// Fix: Adicionar inscrição automática ao tópico da loja quando cliente ativa notificações
+
+// Em CustomerDashboard.jsx, na função handleEnableNotifications, após registrar o token:
+
+// 3. Inscrever na loja para receber notificações
+try {
+  await apiService.subscribeToStore(storeId);
+  console.log('✅ Inscrito na loja:', storeId);
+} catch (error) {
+  console.log('⚠️ Erro ao inscrever na loja:', error);
+}
+
+// Isso garante que o cliente receba notificações enviadas para "Todos os Inscritos"

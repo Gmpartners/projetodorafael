@@ -1,6 +1,8 @@
-// public/firebase-messaging-sw.js - VERSÃO CORRIGIDA COM FIREBASE 11.8.0
+// public/firebase-messaging-sw.js - VERSÃO CORRIGIDA v2 - SEM LOCALHOST
 importScripts('https://www.gstatic.com/firebasejs/11.8.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/11.8.0/firebase-messaging-compat.js');
+
+const SW_VERSION = 'v2.0.0-no-localhost';
 
 const firebaseConfig = {
   apiKey: "AIzaSyChzG6hDW0hKlkMzFG8oKcWAnRMldGiWro",
@@ -15,20 +17,47 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const messaging = firebase.messaging();
 
-// ✅ HANDLER CORRIGIDO COM VERSÃO ATUALIZADA
+// ✅ HANDLER CORRIGIDO - FORÇA USO DO TÍTULO/BODY CORRETOS
 messaging.onBackgroundMessage((payload) => {
-  console.log('[SW v11.8.0] 📨 Mensagem recebida:', payload);
+  console.log(`[SW ${SW_VERSION}] 📨 Mensagem recebida:`, payload);
   
-  // ✅ EXTRAÇÃO DIRETA COM LOGS DETALHADOS
-  const title = payload.notification?.title || 'Projeto Rafael';
-  const body = payload.notification?.body || 'Nova notificação';
+  // ✅ BUSCAR TÍTULO E BODY EM TODOS OS LUGARES POSSÍVEIS
+  let title = '';
+  let body = '';
   
-  console.log('[SW v11.8.0] 📋 Título extraído:', title);
-  console.log('[SW v11.8.0] 📋 Corpo extraído:', body);
-  console.log('[SW v11.8.0] 📋 Payload completo:', JSON.stringify(payload, null, 2));
+  // Prioridade 1: notification root
+  if (payload.notification) {
+    title = payload.notification.title || '';
+    body = payload.notification.body || '';
+  }
   
-  // ✅ MOSTRAR NOTIFICAÇÃO
-  return self.registration.showNotification(title, {
+  // Prioridade 2: data (se não tiver em notification)
+  if (!title && payload.data) {
+    title = payload.data.title || payload.data.gcm?.notification?.title || '';
+    body = payload.data.body || payload.data.gcm?.notification?.body || '';
+  }
+  
+  // Prioridade 3: webpush
+  if (!title && payload.webpush?.notification) {
+    title = payload.webpush.notification.title || '';
+    body = payload.webpush.notification.body || '';
+  }
+  
+  // Valores padrão (NUNCA usar localhost)
+  if (!title) title = 'Nova notificação - Projeto Rafael';
+  if (!body) body = 'Você tem uma nova atualização';
+  
+  console.log(`[SW ${SW_VERSION}] ✅ Título final:`, title);
+  console.log(`[SW ${SW_VERSION}] ✅ Corpo final:`, body);
+  
+  // ✅ GARANTIR QUE NÃO HÁ LOCALHOST NO TÍTULO/BODY
+  if (title.includes('localhost') || body.includes('localhost')) {
+    console.warn(`[SW ${SW_VERSION}] ⚠️ Detectado localhost, substituindo...`);
+    title = 'Nova notificação - Projeto Rafael';
+    body = 'Você tem uma nova atualização';
+  }
+  
+  const notificationOptions = {
     body: body,
     icon: '/vite.svg',
     badge: '/vite.svg',
@@ -40,31 +69,41 @@ messaging.onBackgroundMessage((payload) => {
       { action: 'view', title: 'Ver Detalhes' },
       { action: 'dismiss', title: 'Dispensar' }
     ]
-  });
+  };
+  
+  return self.registration.showNotification(title, notificationOptions);
 });
 
-// ✅ EVENTOS DO SW
+// ✅ EVENTOS DO SW - FORÇAR ATUALIZAÇÃO
 self.addEventListener('install', (event) => {
-  console.log('[SW v11.8.0] 🔧 Service Worker instalado - Versão Firebase 11.8.0');
-  self.skipWaiting(); // Forçar ativação imediata
+  console.log(`[SW ${SW_VERSION}] 🔧 Service Worker instalado`);
+  // Forçar ativação imediata
+  self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
-  console.log('[SW v11.8.0] ✅ Service Worker ativado - Versão Firebase 11.8.0');
-  // Limpar caches antigos
+  console.log(`[SW ${SW_VERSION}] ✅ Service Worker ativado`);
   event.waitUntil(
     Promise.all([
+      // Tomar controle de todas as páginas imediatamente
       clients.claim(),
-      // Limpar caches antigos se existirem
+      // Limpar TODOS os caches antigos
       caches.keys().then(cacheNames => {
         return Promise.all(
           cacheNames.map(cacheName => {
-            if (cacheName.startsWith('projeto-rafael-')) {
-              console.log('[SW v11.8.0] 🧹 Limpando cache antigo:', cacheName);
-              return caches.delete(cacheName);
-            }
+            console.log(`[SW ${SW_VERSION}] 🧹 Limpando cache:`, cacheName);
+            return caches.delete(cacheName);
           })
         );
+      }),
+      // Notificar clientes sobre atualização
+      clients.matchAll().then(clients => {
+        clients.forEach(client => {
+          client.postMessage({
+            type: 'SW_UPDATED',
+            version: SW_VERSION
+          });
+        });
       })
     ])
   );
@@ -72,25 +111,23 @@ self.addEventListener('activate', (event) => {
 
 // ✅ CLICK HANDLER MELHORADO
 self.addEventListener('notificationclick', (event) => {
-  console.log('[SW v11.8.0] 🖱️ Notificação clicada - Ação:', event.action);
+  console.log(`[SW ${SW_VERSION}] 🖱️ Notificação clicada - Ação:`, event.action);
   event.notification.close();
   
-  let targetUrl = '/customer/dashboard';
+  let targetUrl = 'https://projeto-rafael-53f73.web.app/customer/dashboard';
   
-  // Determinar URL baseado na ação ou dados
   if (event.action === 'view' && event.notification.data) {
     if (event.notification.data.link) {
       targetUrl = event.notification.data.link;
     } else if (event.notification.data.orderId) {
-      targetUrl = `/customer/orders/${event.notification.data.orderId}`;
+      targetUrl = `https://projeto-rafael-53f73.web.app/customer/orders/${event.notification.data.orderId}`;
     } else if (event.notification.data.chatId) {
-      targetUrl = `/customer/chat/${event.notification.data.chatId}`;
+      targetUrl = `https://projeto-rafael-53f73.web.app/customer/chat/${event.notification.data.chatId}`;
     }
   }
   
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      // Se já tem uma janela aberta, focar nela
       for (const client of clientList) {
         if (client.url && 'focus' in client) {
           return client.focus().then(() => {
@@ -98,7 +135,6 @@ self.addEventListener('notificationclick', (event) => {
           });
         }
       }
-      // Se não tem janela aberta, abrir uma nova
       if (clients.openWindow) {
         return clients.openWindow(targetUrl);
       }
@@ -106,23 +142,29 @@ self.addEventListener('notificationclick', (event) => {
   );
 });
 
-// ✅ PUSH EVENT HANDLER (para garantir que funcione mesmo sem onBackgroundMessage)
+// ✅ PUSH EVENT HANDLER - BACKUP
 self.addEventListener('push', (event) => {
-  console.log('[SW v11.8.0] 🔔 Push event recebido');
+  console.log(`[SW ${SW_VERSION}] 🔔 Push event recebido`);
   
   if (!event.data) {
-    console.log('[SW v11.8.0] ⚠️ Push sem dados');
+    console.log(`[SW ${SW_VERSION}] ⚠️ Push sem dados`);
     return;
   }
   
   try {
     const payload = event.data.json();
-    console.log('[SW v11.8.0] 📦 Push payload:', payload);
+    console.log(`[SW ${SW_VERSION}] 📦 Push payload:`, payload);
     
-    // Se onBackgroundMessage não processar, processar aqui
-    if (payload.notification) {
-      const title = payload.notification.title || 'Projeto Rafael';
-      const body = payload.notification.body || 'Nova notificação';
+    // Processar apenas se onBackgroundMessage não processar
+    if (payload.notification && !payload._processed) {
+      let title = payload.notification.title || 'Nova notificação - Projeto Rafael';
+      let body = payload.notification.body || 'Você tem uma nova atualização';
+      
+      // Garantir que não há localhost
+      if (title.includes('localhost') || body.includes('localhost')) {
+        title = 'Nova notificação - Projeto Rafael';
+        body = 'Você tem uma nova atualização';
+      }
       
       event.waitUntil(
         self.registration.showNotification(title, {
@@ -135,27 +177,26 @@ self.addEventListener('push', (event) => {
       );
     }
   } catch (error) {
-    console.error('[SW v11.8.0] ❌ Erro ao processar push:', error);
+    console.error(`[SW ${SW_VERSION}] ❌ Erro ao processar push:`, error);
   }
 });
 
 // ✅ DEBUG HANDLER
 self.addEventListener('message', (event) => {
   if (event.data?.type === 'DEBUG_SW') {
-    console.log('[SW v11.8.0] 🔍 Debug solicitado');
+    console.log(`[SW ${SW_VERSION}] 🔍 Debug solicitado`);
     event.ports[0]?.postMessage({
       status: 'ok',
-      version: 'v11.8.0-firebase',
+      version: SW_VERSION,
       firebase: '11.8.0',
       timestamp: new Date().toISOString()
     });
   }
   
-  // Forçar atualização do SW se solicitado
   if (event.data?.type === 'SKIP_WAITING') {
-    console.log('[SW v11.8.0] ⏩ Skip waiting solicitado');
+    console.log(`[SW ${SW_VERSION}] ⏩ Skip waiting solicitado`);
     self.skipWaiting();
   }
 });
 
-console.log('[SW v11.8.0] 📍 Service Worker carregado - Firebase 11.8.0');
+console.log(`[SW ${SW_VERSION}] 📍 Service Worker carregado - SEM LOCALHOST`);
