@@ -57,7 +57,10 @@ import {
   Loader2,
   PlayIcon,
   PauseIcon,
-  MoreVerticalIcon
+  MoreVerticalIcon,
+  ImageIcon,
+  UploadIcon,
+  LinkIcon
 } from 'lucide-react';
 import MainLayout from '@/components/common/layout/MainLayout';
 import { cn } from '@/lib/utils';
@@ -117,7 +120,6 @@ const NotificationTypeBadge = ({ type }) => {
   );
 };
 
-// ✅ COMPONENTE DE CONFIGURAÇÃO FCM - INTEGRADO COM BACKEND REAL
 const DeviceConfigurationCard = () => {
   const { userProfile } = useAuth();
   const [fcmToken, setFcmToken] = useState(null);
@@ -128,7 +130,6 @@ const DeviceConfigurationCard = () => {
   const [tokenData, setTokenData] = useState(notificationService.getStoredTokenData());
   const [myTokens, setMyTokens] = useState([]);
 
-  // Atualizar status do sistema
   useEffect(() => {
     const updateStatus = () => {
       setSystemStatus(notificationService.getSystemStatus());
@@ -141,20 +142,17 @@ const DeviceConfigurationCard = () => {
     return () => clearInterval(interval);
   }, [permissionStatus, fcmToken]);
 
-  // ✅ FUNÇÃO INTEGRADA COM BACKEND REAL
   const handleRequestPermission = async () => {
     setLoading(true);
     try {
       console.log('🔔 Iniciando configuração FCM...');
       
-      // 1. Solicitar permissão e obter token
       const token = await notificationService.requestPermissionAndGetToken();
       console.log('✅ Token FCM obtido:', token.substring(0, 40) + '...');
       
       setFcmToken(token);
       setPermissionStatus('granted');
 
-      // 2. ✅ REGISTRAR TOKEN NO BACKEND REAL
       try {
         console.log('📡 Registrando token no backend...');
         
@@ -168,7 +166,6 @@ const DeviceConfigurationCard = () => {
           timestamp: new Date().toISOString()
         };
 
-        // Chamar API real do backend
         const result = await apiService.registerFCMToken(token, deviceInfo);
         console.log('✅ Token registrado no backend:', result);
         
@@ -176,7 +173,6 @@ const DeviceConfigurationCard = () => {
           description: 'Você receberá notificações push em tempo real'
         });
 
-        // 3. ✅ INSCREVER NA LOJA ATUAL (SE FOR CLIENTE)
         if (userProfile?.role === 'customer') {
           try {
             await apiService.subscribeToStore('E47OkrK3IcNu1Ys8gD4CA29RrHk2');
@@ -186,13 +182,11 @@ const DeviceConfigurationCard = () => {
           }
         }
 
-        // 4. Buscar tokens atualizados
         await handleGetMyTokens();
 
       } catch (backendError) {
         console.error('❌ Erro ao registrar no backend:', backendError);
         
-        // Fallback: salvar localmente se backend falhar
         await notificationService.registerToken(token);
         toast.warning('⚠️ Token salvo localmente', {
           description: 'Backend indisponível. Funcionará quando estiver online.'
@@ -208,7 +202,6 @@ const DeviceConfigurationCard = () => {
     }
   };
 
-  // ✅ TESTE DE NOTIFICAÇÃO REAL VIA BACKEND
   const handleSendTestNotification = async () => {
     if (!fcmToken && !tokenData && myTokens.length === 0) {
       toast.error('Configure as notificações primeiro');
@@ -220,7 +213,6 @@ const DeviceConfigurationCard = () => {
       const token = fcmToken || tokenData?.token || myTokens[0]?.token;
       console.log('🧪 Enviando notificação de teste via backend...');
 
-      // ✅ USAR API REAL DO BACKEND
       const result = await apiService.sendTestNotification(token);
       console.log('✅ Notificação enviada via backend:', result);
       
@@ -231,7 +223,6 @@ const DeviceConfigurationCard = () => {
     } catch (error) {
       console.error('❌ Erro ao enviar teste via backend:', error);
       
-      // Fallback: notificação local
       try {
         const token = fcmToken || tokenData?.token;
         if (token) {
@@ -246,7 +237,6 @@ const DeviceConfigurationCard = () => {
     }
   };
 
-  // ✅ BUSCAR DADOS REAIS DO BACKEND
   const handleGetMyTokens = async () => {
     try {
       const tokens = await apiService.getMyTokens();
@@ -277,7 +267,6 @@ const DeviceConfigurationCard = () => {
     }
   };
 
-  // Carregar tokens ao inicializar
   useEffect(() => {
     if (systemStatus.ready) {
       handleGetMyTokens();
@@ -324,7 +313,6 @@ const DeviceConfigurationCard = () => {
       </div>
 
       <div className="space-y-6">
-        {/* Status do Sistema */}
         <div className="grid grid-cols-2 gap-4">
           <div className="p-3 bg-zinc-50 rounded-lg">
             <div className="flex items-center justify-between">
@@ -363,7 +351,6 @@ const DeviceConfigurationCard = () => {
           </div>
         </div>
 
-        {/* Status da Permissão */}
         <div className="flex items-center justify-between p-4 bg-gradient-to-r from-zinc-50 to-blue-50 rounded-xl border border-zinc-200">
           <div className="flex items-center space-x-3">
             {getPermissionIcon()}
@@ -399,7 +386,6 @@ const DeviceConfigurationCard = () => {
           )}
         </div>
 
-        {/* Informações dos Tokens do Backend */}
         {myTokens.length > 0 && (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
@@ -456,7 +442,6 @@ const DeviceConfigurationCard = () => {
           </div>
         )}
 
-        {/* Informações do Token Local (Fallback) */}
         {tokenData && myTokens.length === 0 && (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
@@ -491,7 +476,6 @@ const DeviceConfigurationCard = () => {
           </div>
         )}
 
-        {/* Controles de Teste */}
         {systemStatus.ready && (
           <div className="pt-4 border-t border-zinc-200">
             <div className="flex gap-3">
@@ -535,7 +519,6 @@ const DeviceConfigurationCard = () => {
           </div>
         )}
 
-        {/* Aviso sobre modo de desenvolvimento */}
         <Alert className="border-blue-200 bg-blue-50/50">
           <AlertTriangleIcon className="h-4 w-4 text-blue-600" />
           <AlertDescription className="text-blue-800">
@@ -544,7 +527,6 @@ const DeviceConfigurationCard = () => {
           </AlertDescription>
         </Alert>
 
-        {/* Mensagem de erro se não suportar */}
         {!notificationService.isSupported() && (
           <Alert className="border-red-200 bg-red-50/50">
             <AlertTriangleIcon className="h-4 w-4 text-red-600" />
@@ -558,7 +540,6 @@ const DeviceConfigurationCard = () => {
   );
 };
 
-// ✅ COMPONENTE DE CRIAÇÃO DE NOTIFICAÇÃO INTEGRADO COM BACKEND
 const CreateNotificationCard = () => {
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
@@ -567,6 +548,121 @@ const CreateNotificationCard = () => {
   const [targetUserId, setTargetUserId] = useState('');
   const [scheduledDate, setScheduledDate] = useState('');
   const [loading, setLoading] = useState(false);
+  const [link, setLink] = useState('');
+
+  const [notificationImage, setNotificationImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+
+  const [notificationLogo, setNotificationLogo] = useState(null);
+  const [logoPreview, setLogoPreview] = useState(null);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+
+  const handleImageSelect = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Apenas arquivos de imagem são permitidos');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Arquivo muito grande. Máximo 5MB');
+      return;
+    }
+
+    setNotificationImage(file);
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setImagePreview(e.target.result);
+    };
+    reader.readAsDataURL(file);
+    
+    toast.success('Imagem selecionada! 📸');
+  };
+
+  const handleRemoveImage = () => {
+    setNotificationImage(null);
+    setImagePreview(null);
+    const imageInput = document.getElementById('notification-image');
+    if (imageInput) imageInput.value = '';
+    toast.success('Imagem removida');
+  };
+
+  const handleLogoSelect = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Apenas arquivos de imagem são permitidos');
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('Logo muito grande. Máximo 2MB');
+      return;
+    }
+
+    setNotificationLogo(file);
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setLogoPreview(e.target.result);
+    };
+    reader.readAsDataURL(file);
+    
+    toast.success('Logo selecionado! 🎯');
+  };
+
+  const handleRemoveLogo = () => {
+    setNotificationLogo(null);
+    setLogoPreview(null);
+    const logoInput = document.getElementById('notification-logo');
+    if (logoInput) logoInput.value = '';
+    toast.success('Logo removido');
+  };
+
+  const uploadNotificationImage = async () => {
+    if (!notificationImage) return null;
+
+    try {
+      setUploadingImage(true);
+      console.log('📤 Fazendo upload da imagem da notificação...');
+      
+      const result = await apiService.uploadBanner(notificationImage);
+      console.log('✅ Imagem da notificação uploadada:', result);
+      
+      return result.data?.imageUrl || result.imageUrl;
+    } catch (error) {
+      console.error('❌ Erro no upload da imagem:', error);
+      toast.error('Erro ao fazer upload da imagem: ' + error.message);
+      return null;
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const uploadNotificationLogo = async () => {
+    if (!notificationLogo) return null;
+
+    try {
+      setUploadingLogo(true);
+      console.log('📤 Fazendo upload do logo da notificação...');
+      
+      const result = await apiService.uploadLogo(notificationLogo);
+      console.log('✅ Logo da notificação uploadado:', result);
+      
+      return result.data?.imageUrl || result.imageUrl;
+    } catch (error) {
+      console.error('❌ Erro no upload do logo:', error);
+      toast.error('Erro ao fazer upload do logo: ' + error.message);
+      return null;
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
 
   const handleSendNotification = async () => {
     if (!title.trim() || !body.trim()) {
@@ -574,22 +670,62 @@ const CreateNotificationCard = () => {
       return;
     }
 
+    if (targetType === 'subscribers' && !scheduledDate) {
+      if (!confirm(`Confirma o envio imediato para TODOS os usuários inscritos?`)) {
+        return;
+      }
+    }
+
     setLoading(true);
     try {
       console.log('📤 Enviando notificação via backend...');
 
-      if (scheduledDate) {
-        // ✅ NOTIFICAÇÃO AGENDADA
-        const notificationData = {
-          title: title.trim(),
-          body: body.trim(),
+      let imageUrl = null;
+      if (notificationImage) {
+        console.log('📤 Fazendo upload da imagem primeiro...');
+        imageUrl = await uploadNotificationImage();
+        if (!imageUrl && notificationImage) {
+          setLoading(false);
+          return;
+        }
+      }
+
+      let logoUrl = null;
+      if (notificationLogo) {
+        console.log('📤 Fazendo upload do logo primeiro...');
+        logoUrl = await uploadNotificationLogo();
+        if (!logoUrl && notificationLogo) {
+          setLoading(false);
+          return;
+        }
+      }
+
+      const baseNotificationData = {
+        title: title.trim(),
+        body: body.trim(),
+        type,
+        data: {
           type,
-          scheduledDate: new Date(scheduledDate).toISOString(),
-          data: {
-            type,
-            timestamp: new Date().toISOString(),
-            source: 'manual_creation'
-          }
+          timestamp: new Date().toISOString(),
+          source: 'manual_creation',
+          ...(link && { link: link.trim() }),
+          ...(imageUrl && { imageUrl }),
+          ...(logoUrl && { logoUrl })
+        }
+      };
+
+      if (imageUrl) {
+        baseNotificationData.image = imageUrl;
+      }
+
+      if (logoUrl) {
+        baseNotificationData.icon = logoUrl;
+      }
+
+      if (scheduledDate) {
+        const notificationData = {
+          ...baseNotificationData,
+          scheduledDate: new Date(scheduledDate).toISOString()
         };
 
         const result = await apiService.createNotification(notificationData);
@@ -599,17 +735,10 @@ const CreateNotificationCard = () => {
           description: `Será enviada em ${new Date(scheduledDate).toLocaleString()}`
         });
       } else {
-        // ✅ NOTIFICAÇÃO IMEDIATA
         const notificationData = {
-          title: title.trim(),
-          body: body.trim(),
+          ...baseNotificationData,
           target: targetType,
-          targetId: targetUserId || undefined,
-          data: {
-            type,
-            timestamp: new Date().toISOString(),
-            source: 'manual_creation'
-          }
+          targetId: targetUserId || undefined
         };
 
         const result = await apiService.sendImmediateNotification(notificationData);
@@ -620,11 +749,13 @@ const CreateNotificationCard = () => {
         });
       }
       
-      // Limpar formulário
       setTitle('');
       setBody('');
       setTargetUserId('');
       setScheduledDate('');
+      setLink('');
+      handleRemoveImage();
+      handleRemoveLogo();
       
     } catch (error) {
       console.error('❌ Erro ao enviar notificação:', error);
@@ -641,13 +772,98 @@ const CreateNotificationCard = () => {
           <PlusIcon className="h-6 w-6 text-purple-700" />
         </div>
         <div>
-          <h3 className="text-xl font-bold text-zinc-900">Criar Notificação</h3>
-          <p className="text-zinc-600">Envie uma notificação personalizada via backend</p>
+          <h3 className="text-xl font-bold text-zinc-900">Criar Notificação Personalizada</h3>
+          <p className="text-zinc-600">Envie uma notificação com texto, imagens e link</p>
         </div>
       </div>
 
       <div className="space-y-6">
-        {/* Tipo de Notificação */}
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="notification-logo">Logo/Ícone (Opcional)</Label>
+            <div className="relative border-2 border-dashed border-zinc-300 rounded-lg p-4 hover:border-purple-400 transition-colors h-32">
+              {logoPreview ? (
+                <div className="relative h-full flex items-center justify-center">
+                  <img 
+                    src={logoPreview} 
+                    alt="Preview do logo"
+                    className="max-h-full max-w-full object-contain"
+                  />
+                  <Button
+                    type="button"
+                    onClick={handleRemoveLogo}
+                    size="sm"
+                    variant="destructive"
+                    className="absolute top-0 right-0"
+                  >
+                    <TrashIcon className="h-3 w-3" />
+                  </Button>
+                </div>
+              ) : (
+                <label htmlFor="notification-logo" className="cursor-pointer h-full flex flex-col items-center justify-center">
+                  <div className="text-center">
+                    <div className="w-12 h-12 mx-auto mb-2 bg-zinc-100 rounded-lg flex items-center justify-center">
+                      <ImageIcon className="h-6 w-6 text-zinc-400" />
+                    </div>
+                    <p className="text-xs text-zinc-600">Ícone da notificação</p>
+                    <p className="text-xs text-zinc-400">Máx. 2MB</p>
+                  </div>
+                </label>
+              )}
+              {!logoPreview && (
+                <input
+                  id="notification-logo"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleLogoSelect}
+                  className="hidden"
+                />
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="notification-image">Imagem Grande (Opcional)</Label>
+            <div className="relative border-2 border-dashed border-zinc-300 rounded-lg p-4 hover:border-purple-400 transition-colors h-32">
+              {imagePreview ? (
+                <div className="relative h-full">
+                  <img 
+                    src={imagePreview} 
+                    alt="Preview da imagem"
+                    className="w-full h-full object-cover rounded"
+                  />
+                  <Button
+                    type="button"
+                    onClick={handleRemoveImage}
+                    size="sm"
+                    variant="destructive"
+                    className="absolute top-0 right-0"
+                  >
+                    <TrashIcon className="h-3 w-3" />
+                  </Button>
+                </div>
+              ) : (
+                <label htmlFor="notification-image" className="cursor-pointer h-full flex flex-col items-center justify-center">
+                  <div className="text-center">
+                    <ImageIcon className="h-8 w-8 text-zinc-400 mx-auto mb-2" />
+                    <p className="text-xs text-zinc-600">Banner expandível</p>
+                    <p className="text-xs text-zinc-400">PNG, JPG ou WebP • Máx. 5MB</p>
+                  </div>
+                </label>
+              )}
+              {!imagePreview && (
+                <input
+                  id="notification-image"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageSelect}
+                  className="hidden"
+                />
+              )}
+            </div>
+          </div>
+        </div>
+
         <div className="space-y-2">
           <Label htmlFor="type">Tipo de Notificação</Label>
           <Select value={type} onValueChange={setType}>
@@ -664,7 +880,6 @@ const CreateNotificationCard = () => {
           </Select>
         </div>
 
-        {/* Destinatário */}
         <div className="space-y-2">
           <Label htmlFor="target">Destinatário</Label>
           <Select value={targetType} onValueChange={setTargetType}>
@@ -678,7 +893,6 @@ const CreateNotificationCard = () => {
           </Select>
         </div>
 
-        {/* ID do Usuário (se específico) */}
         {targetType === 'user' && (
           <div className="space-y-2">
             <Label htmlFor="targetUserId">ID do Usuário</Label>
@@ -691,9 +905,16 @@ const CreateNotificationCard = () => {
           </div>
         )}
 
-        {/* Título */}
         <div className="space-y-2">
-          <Label htmlFor="title">Título da Notificação</Label>
+          <div className="flex justify-between items-center">
+            <Label htmlFor="title">Título da Notificação</Label>
+            <span className={cn(
+              "text-xs",
+              title.length > 40 ? "text-red-500 font-semibold" : "text-zinc-500"
+            )}>
+              {title.length}/50 {title.length > 40 && "⚠️"}
+            </span>
+          </div>
           <Input
             id="title"
             value={title}
@@ -701,12 +922,18 @@ const CreateNotificationCard = () => {
             placeholder="Ex: Nova promoção disponível!"
             maxLength={50}
           />
-          <p className="text-xs text-zinc-500">{title.length}/50 caracteres</p>
         </div>
 
-        {/* Mensagem */}
         <div className="space-y-2">
-          <Label htmlFor="body">Mensagem</Label>
+          <div className="flex justify-between items-center">
+            <Label htmlFor="body">Mensagem</Label>
+            <span className={cn(
+              "text-xs",
+              body.length > 140 ? "text-red-500 font-semibold" : "text-zinc-500"
+            )}>
+              {body.length}/160 {body.length > 140 && "⚠️"}
+            </span>
+          </div>
           <Textarea
             id="body"
             value={body}
@@ -715,10 +942,25 @@ const CreateNotificationCard = () => {
             rows={4}
             maxLength={160}
           />
-          <p className="text-xs text-zinc-500">{body.length}/160 caracteres</p>
         </div>
 
-        {/* Data de Agendamento (Opcional) */}
+        <div className="space-y-2">
+          <Label htmlFor="link">Link de Destino (Opcional)</Label>
+          <div className="relative">
+            <LinkIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-zinc-400" />
+            <Input
+              id="link"
+              value={link}
+              onChange={(e) => setLink(e.target.value)}
+              placeholder="https://exemplo.com/promocao"
+              className="pl-10"
+            />
+          </div>
+          <p className="text-xs text-zinc-500">
+            Ao clicar na notificação, o usuário será direcionado para este link
+          </p>
+        </div>
+
         <div className="space-y-2">
           <Label htmlFor="scheduledDate">Agendar Envio (Opcional)</Label>
           <Input
@@ -733,8 +975,7 @@ const CreateNotificationCard = () => {
           </p>
         </div>
 
-        {/* Preview */}
-        {(title || body) && (
+        {(title || body || imagePreview || logoPreview || link) && (
           <div className="p-4 bg-gradient-to-r from-zinc-50 to-blue-50 rounded-xl border border-zinc-200">
             <h4 className="text-sm font-semibold text-zinc-700 mb-3 flex items-center">
               <EyeIcon className="h-4 w-4 mr-2" />
@@ -742,20 +983,50 @@ const CreateNotificationCard = () => {
             </h4>
             <div className="bg-white rounded-lg p-4 shadow-sm border">
               <div className="flex items-start space-x-3">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <BellIcon className="h-5 w-5 text-blue-600" />
+                <div className="flex-shrink-0">
+                  {logoPreview ? (
+                    <img src={logoPreview} alt="Logo" className="h-10 w-10 rounded-lg object-cover" />
+                  ) : (
+                    <div className="p-2 bg-blue-100 rounded-lg">
+                      <BellIcon className="h-6 w-6 text-blue-600" />
+                    </div>
+                  )}
                 </div>
-                <div className="flex-1">
-                  <h5 className="font-semibold text-zinc-900 text-sm">
+                <div className="flex-1 min-w-0">
+                  <h5 className="font-semibold text-zinc-900 text-sm truncate">
                     {title || 'Título da notificação'}
                   </h5>
                   <p className="text-sm text-zinc-600 mt-1">
                     {body || 'Mensagem da notificação'}
                   </p>
-                  <div className="flex items-center mt-2 text-xs text-zinc-400">
+                  {imagePreview && (
+                    <div className="mt-2">
+                      <img 
+                        src={imagePreview} 
+                        alt="Preview" 
+                        className="w-full max-w-xs h-32 object-cover rounded border"
+                      />
+                    </div>
+                  )}
+                  {link && (
+                    <div className="mt-2 flex items-center text-xs text-blue-600">
+                      <LinkIcon className="h-3 w-3 mr-1" />
+                      <span className="truncate">{link}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center mt-2 text-xs text-zinc-400 space-x-2">
                     <span>Projeto Rafael</span>
-                    <span className="mx-2">•</span>
+                    <span>•</span>
                     <span>{scheduledDate ? 'Agendada' : 'Agora'}</span>
+                    {(imagePreview || logoPreview) && (
+                      <>
+                        <span>•</span>
+                        <span className="flex items-center">
+                          {logoPreview && '🎯'} 
+                          {imagePreview && '📸'}
+                        </span>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -763,16 +1034,15 @@ const CreateNotificationCard = () => {
           </div>
         )}
 
-        {/* Enviar */}
         <Button 
           onClick={handleSendNotification}
-          disabled={loading || !title.trim() || !body.trim()}
+          disabled={loading || uploadingImage || uploadingLogo || !title.trim() || !body.trim()}
           className="w-full bg-purple-600 hover:bg-purple-700"
         >
-          {loading ? (
+          {loading || uploadingImage || uploadingLogo ? (
             <>
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              {scheduledDate ? 'Agendando...' : 'Enviando...'}
+              {uploadingImage || uploadingLogo ? 'Fazendo upload...' : (scheduledDate ? 'Agendando...' : 'Enviando...')}
             </>
           ) : (
             <>
@@ -787,6 +1057,7 @@ const CreateNotificationCard = () => {
                   Enviar Agora
                 </>
               )}
+              {(imagePreview || logoPreview) && <ImageIcon className="h-4 w-4 ml-2" />}
             </>
           )}
         </Button>
@@ -795,7 +1066,6 @@ const CreateNotificationCard = () => {
   );
 };
 
-// ✅ COMPONENTE DE LISTA DE NOTIFICAÇÕES COM BACKEND REAL
 const NotificationListCard = () => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -843,7 +1113,7 @@ const NotificationListCard = () => {
     try {
       await apiService.deleteNotification(notificationId);
       toast.success('Notificação deletada com sucesso');
-      await loadNotifications(); // Recarregar lista
+      await loadNotifications();
     } catch (error) {
       console.error('Erro ao deletar notificação:', error);
       toast.error('Erro ao deletar notificação');
@@ -856,7 +1126,7 @@ const NotificationListCard = () => {
     try {
       await apiService.cancelNotification(notificationId);
       toast.success('Notificação cancelada com sucesso');
-      await loadNotifications(); // Recarregar lista
+      await loadNotifications();
     } catch (error) {
       console.error('Erro ao cancelar notificação:', error);
       toast.error('Erro ao cancelar notificação');
@@ -901,7 +1171,6 @@ const NotificationListCard = () => {
         </Button>
       </div>
 
-      {/* Filtros */}
       <div className="flex gap-4 mb-6">
         <div className="flex-1">
           <Input
@@ -928,7 +1197,6 @@ const NotificationListCard = () => {
         </Button>
       </div>
 
-      {/* Lista de Notificações */}
       <div className="space-y-4">
         {loading ? (
           <div className="text-center py-8">
@@ -951,6 +1219,23 @@ const NotificationListCard = () => {
                       <h4 className="font-semibold text-zinc-900">{notification.title}</h4>
                       <NotificationStatusBadge status={notification.status} />
                       {notification.type && <NotificationTypeBadge type={notification.type} />}
+                      {(notification.image || notification.data?.imageUrl) && (
+                        <Badge className="bg-purple-100 text-purple-700">
+                          <ImageIcon className="h-3 w-3 mr-1" />
+                          Imagem
+                        </Badge>
+                      )}
+                      {(notification.icon || notification.data?.logoUrl) && (
+                        <Badge className="bg-indigo-100 text-indigo-700">
+                          🎯 Logo
+                        </Badge>
+                      )}
+                      {notification.data?.link && (
+                        <Badge className="bg-blue-100 text-blue-700">
+                          <LinkIcon className="h-3 w-3 mr-1" />
+                          Link
+                        </Badge>
+                      )}
                     </div>
                     
                     <p className="text-zinc-600 text-sm mb-3">{notification.body}</p>
@@ -1018,7 +1303,6 @@ const NotificationManagementPage = () => {
     validTokens: 0
   });
 
-  // ✅ Carregar estatísticas reais do backend
   useEffect(() => {
     fetchNotificationStats();
   }, []);
@@ -1027,11 +1311,9 @@ const NotificationManagementPage = () => {
     try {
       setIsLoading(true);
       
-      // Buscar estatísticas de tokens
       const tokenStats = await apiService.getStoreTokenStats();
       console.log('📊 Estatísticas de tokens:', tokenStats);
       
-      // Buscar notificações para contar
       const notifications = await apiService.getStoreNotifications();
       console.log('📋 Notificações:', notifications);
       
@@ -1055,7 +1337,6 @@ const NotificationManagementPage = () => {
     }
   };
 
-  // Quick actions atualizadas com dados reais
   const quickActions = useMemo(() => [
     {
       id: 'device_config',
@@ -1120,7 +1401,6 @@ const NotificationManagementPage = () => {
       <div className="space-y-6 pb-8">
         <FloatingParticles className="fixed inset-0 z-0" count={8} />
         
-        {/* Header */}
         <FadeInUp delay={0}>
           <div className="relative">
             <GlassCard variant="gradient" className="p-4 border-0 overflow-hidden">
@@ -1180,7 +1460,6 @@ const NotificationManagementPage = () => {
           </div>
         </FadeInUp>
 
-        {/* Tabs */}
         <FadeInUp delay={200}>
           <div className="bg-white/80 backdrop-blur-sm rounded-xl border border-white/50 shadow-xl p-3">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -1216,7 +1495,6 @@ const NotificationManagementPage = () => {
               </TabsList>
               
               <TabsContent value="overview" className="mt-6 space-y-6">
-                {/* Quick Stats - COM DADOS REAIS */}
                 <div className="flex items-center justify-between p-4 bg-gradient-to-r from-emerald-50 to-blue-50 rounded-xl border border-emerald-200/50">
                   <div className="flex items-center space-x-6">
                     <div className="text-center">
@@ -1252,7 +1530,6 @@ const NotificationManagementPage = () => {
                   </Button>
                 </div>
 
-                {/* Performance Cards - COM DADOS REAIS */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   <FadeInUp delay={400}>
                     <Card className="hover-lift border-0 shadow-premium bg-gradient-to-br from-white to-zinc-50/50">
@@ -1310,7 +1587,6 @@ const NotificationManagementPage = () => {
                   </FadeInUp>
                 </div>
 
-                {/* Quick Actions - COM BADGES REAIS */}
                 <FadeInUp delay={700}>
                   <GlassCard className="p-6 border-0 shadow-premium">
                     <div className="flex items-center justify-between mb-6">
