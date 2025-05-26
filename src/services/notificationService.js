@@ -5,6 +5,72 @@ import { messaging } from '@/lib/firebase';
 const VAPID_KEY = import.meta.env.VITE_FCM_VAPID_KEY;
 
 export const notificationService = {
+  // 🆕 FORÇAR ATUALIZAÇÃO DO SERVICE WORKER
+  async forceServiceWorkerUpdate() {
+    try {
+      console.log('🔄 Forçando atualização do Service Worker...');
+      
+      // 1. Desregistrar todos os service workers existentes
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      console.log(`📋 ${registrations.length} Service Workers encontrados`);
+      
+      for (const registration of registrations) {
+        console.log('🗑️ Desregistrando SW:', registration.scope);
+        await registration.unregister();
+      }
+      
+      // 2. Limpar todos os caches
+      const cacheNames = await caches.keys();
+      console.log(`🧹 ${cacheNames.length} caches encontrados`);
+      
+      for (const cacheName of cacheNames) {
+        console.log('🗑️ Deletando cache:', cacheName);
+        await caches.delete(cacheName);
+      }
+      
+      // 3. Aguardar um momento para garantir limpeza
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // 4. Forçar recarregamento da página sem cache
+      console.log('♻️ Recarregando página sem cache...');
+      window.location.reload(true);
+      
+      return { success: true };
+    } catch (error) {
+      console.error('❌ Erro ao forçar atualização do SW:', error);
+      throw error;
+    }
+  },
+
+  // 🆕 VERIFICAR VERSÃO DO SERVICE WORKER
+  async checkServiceWorkerVersion() {
+    try {
+      const registration = await navigator.serviceWorker.getRegistration();
+      if (!registration) {
+        return { version: 'none', status: 'not-registered' };
+      }
+      
+      // Enviar mensagem ao SW para obter versão
+      const messageChannel = new MessageChannel();
+      
+      const versionPromise = new Promise((resolve) => {
+        messageChannel.port1.onmessage = (event) => {
+          resolve(event.data);
+        };
+        
+        // Timeout de 2 segundos
+        setTimeout(() => resolve({ version: 'unknown', status: 'timeout' }), 2000);
+      });
+      
+      registration.active?.postMessage({ type: 'DEBUG_SW' }, [messageChannel.port2]);
+      
+      return await versionPromise;
+    } catch (error) {
+      console.error('❌ Erro ao verificar versão do SW:', error);
+      return { version: 'error', status: error.message };
+    }
+  },
+
   // Solicitar permissão e obter token
   async requestPermissionAndGetToken() {
     try {
@@ -16,6 +82,19 @@ export const notificationService = {
 
       if (!messaging) {
         throw new Error('Firebase Messaging não está disponível');
+      }
+
+      // 🆕 Verificar versão do SW antes de continuar
+      const swVersion = await this.checkServiceWorkerVersion();
+      console.log('📱 Versão atual do SW:', swVersion);
+      
+      if (swVersion.version && swVersion.version.includes('v2.0.0')) {
+        console.warn('⚠️ Service Worker desatualizado detectado!');
+        const forceUpdate = confirm('Uma atualização do sistema de notificações está disponível. Atualizar agora?');
+        if (forceUpdate) {
+          await this.forceServiceWorkerUpdate();
+          return;
+        }
       }
 
       const permission = await Notification.requestPermission();

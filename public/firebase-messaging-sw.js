@@ -1,8 +1,8 @@
-// public/firebase-messaging-sw.js - VERSÃO CORRIGIDA v2 - SEM LOCALHOST
+// public/firebase-messaging-sw.js - VERSÃO 4.0 - CORREÇÃO DE ÍCONES
 importScripts('https://www.gstatic.com/firebasejs/11.8.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/11.8.0/firebase-messaging-compat.js');
 
-const SW_VERSION = 'v2.0.0-no-localhost';
+const SW_VERSION = 'v4.0.0-custom-icons-fixed';
 
 const firebaseConfig = {
   apiKey: "AIzaSyChzG6hDW0hKlkMzFG8oKcWAnRMldGiWro",
@@ -17,77 +17,180 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const messaging = firebase.messaging();
 
-// ✅ HANDLER CORRIGIDO - FORÇA USO DO TÍTULO/BODY CORRETOS
-messaging.onBackgroundMessage((payload) => {
+// 🎯 FUNÇÃO PARA TESTAR SE URL DE IMAGEM É VÁLIDA
+async function testImageLoad(imageUrl) {
+  try {
+    const response = await fetch(imageUrl, { method: 'HEAD', mode: 'cors' });
+    return response.ok;
+  } catch (error) {
+    console.log(`[SW ${SW_VERSION}] ⚠️ Erro ao testar imagem:`, imageUrl, error);
+    return false;
+  }
+}
+
+// ✅ HANDLER CORRIGIDO - PRIORIZA LOGO PERSONALIZADO
+messaging.onBackgroundMessage(async (payload) => {
   console.log(`[SW ${SW_VERSION}] 📨 Mensagem recebida:`, payload);
   
-  // ✅ BUSCAR TÍTULO E BODY EM TODOS OS LUGARES POSSÍVEIS
-  let title = '';
-  let body = '';
+  // ✅ TÍTULO E BODY
+  let title = payload.notification?.title || payload.data?.title || 'Nova notificação - Projeto Rafael';
+  let body = payload.notification?.body || payload.data?.body || 'Você tem uma nova atualização';
   
-  // Prioridade 1: notification root
-  if (payload.notification) {
-    title = payload.notification.title || '';
-    body = payload.notification.body || '';
+  // 🎯 BUSCAR LOGO PERSONALIZADO - PRIORIDADE CORRETA
+  let customIcon = null;
+  
+  // 1. Primeiro: notification.icon (vem do backend)
+  if (payload.notification?.icon && payload.notification.icon.startsWith('https://')) {
+    customIcon = payload.notification.icon;
+    console.log(`[SW ${SW_VERSION}] 🎯 Logo notification.icon:`, customIcon);
+  }
+  // 2. Segundo: data.icon
+  else if (payload.data?.icon && payload.data.icon.startsWith('https://')) {
+    customIcon = payload.data.icon;
+    console.log(`[SW ${SW_VERSION}] 🎯 Logo data.icon:`, customIcon);
+  }
+  // 3. Terceiro: data.logoUrl  
+  else if (payload.data?.logoUrl && payload.data.logoUrl.startsWith('https://')) {
+    customIcon = payload.data.logoUrl;
+    console.log(`[SW ${SW_VERSION}] 🎯 Logo data.logoUrl:`, customIcon);
   }
   
-  // Prioridade 2: data (se não tiver em notification)
-  if (!title && payload.data) {
-    title = payload.data.title || payload.data.gcm?.notification?.title || '';
-    body = payload.data.body || payload.data.gcm?.notification?.body || '';
+  // 📸 BUSCAR IMAGEM GRANDE - PRIORIDADE CORRETA
+  let customImage = null;
+  
+  // 1. Primeiro: notification.image (vem do backend) 
+  if (payload.notification?.image && payload.notification.image.startsWith('https://')) {
+    customImage = payload.notification.image;
+    console.log(`[SW ${SW_VERSION}] 📸 Imagem notification.image:`, customImage);
+  }
+  // 2. Segundo: data.image
+  else if (payload.data?.image && payload.data.image.startsWith('https://')) {
+    customImage = payload.data.image;
+    console.log(`[SW ${SW_VERSION}] 📸 Imagem data.image:`, customImage);
+  }
+  // 3. Terceiro: data.imageUrl
+  else if (payload.data?.imageUrl && payload.data.imageUrl.startsWith('https://')) {
+    customImage = payload.data.imageUrl;
+    console.log(`[SW ${SW_VERSION}] 📸 Imagem data.imageUrl:`, customImage);
   }
   
-  // Prioridade 3: webpush
-  if (!title && payload.webpush?.notification) {
-    title = payload.webpush.notification.title || '';
-    body = payload.webpush.notification.body || '';
+  // 🔗 BUSCAR LINK PERSONALIZADO
+  let customLink = null;
+  if (payload.data?.link && payload.data.link.startsWith('http')) {
+    customLink = payload.data.link;
+    console.log(`[SW ${SW_VERSION}] 🔗 Link encontrado:`, customLink);
   }
   
-  // Valores padrão (NUNCA usar localhost)
-  if (!title) title = 'Nova notificação - Projeto Rafael';
-  if (!body) body = 'Você tem uma nova atualização';
+  // ✅ TESTAR VALIDADE DAS URLs (opcional - pode ser lento)
+  // if (customIcon) {
+  //   const iconValid = await testImageLoad(customIcon);
+  //   if (!iconValid) {
+  //     console.log(`[SW ${SW_VERSION}] ❌ Logo inválido, usando padrão`);
+  //     customIcon = null;
+  //   }
+  // }
   
-  console.log(`[SW ${SW_VERSION}] ✅ Título final:`, title);
-  console.log(`[SW ${SW_VERSION}] ✅ Corpo final:`, body);
+  // 🎨 USAR LOGO PERSONALIZADO OU PADRÃO
+  const finalIcon = customIcon || '/vite.svg';
+  const hasCustomIcon = !!customIcon;
   
-  // ✅ GARANTIR QUE NÃO HÁ LOCALHOST NO TÍTULO/BODY
-  if (title.includes('localhost') || body.includes('localhost')) {
-    console.warn(`[SW ${SW_VERSION}] ⚠️ Detectado localhost, substituindo...`);
-    title = 'Nova notificação - Projeto Rafael';
-    body = 'Você tem uma nova atualização';
-  }
+  console.log(`[SW ${SW_VERSION}] ✅ Configuração final:`, {
+    title,
+    body: body.substring(0, 50) + '...',
+    hasCustomIcon,
+    finalIcon: finalIcon.substring(0, 100) + (finalIcon.length > 100 ? '...' : ''),
+    hasCustomImage: !!customImage,
+    customImage: customImage ? customImage.substring(0, 100) + '...' : null,
+    hasCustomLink: !!customLink
+  });
   
+  // 📱 CONFIGURAR NOTIFICAÇÃO
   const notificationOptions = {
     body: body,
-    icon: '/vite.svg',
-    badge: '/vite.svg',
+    icon: finalIcon,  // 🎯 USAR LOGO PERSONALIZADO
+    badge: hasCustomIcon ? finalIcon : '/vite.svg',
     tag: 'projeto-rafael-' + Date.now(),
     requireInteraction: false,
-    data: payload.data || {},
+    data: {
+      ...payload.data,
+      customLink: customLink  // 🔗 PASSAR LINK PARA O CLICK HANDLER
+    },
     vibrate: [200, 100, 200],
     actions: [
-      { action: 'view', title: 'Ver Detalhes' },
+      { action: 'view', title: 'Abrir' },
       { action: 'dismiss', title: 'Dispensar' }
-    ]
+    ],
+    timestamp: Date.now()
   };
+  
+  // 📸 ADICIONAR IMAGEM GRANDE SE DISPONÍVEL
+  if (customImage) {
+    notificationOptions.image = customImage;
+    console.log(`[SW ${SW_VERSION}] 🎨 Notificação com imagem grande: ${customImage.substring(0, 80)}...`);
+  }
+  
+  console.log(`[SW ${SW_VERSION}] 🚀 Mostrando notificação com logo personalizado:`, hasCustomIcon);
   
   return self.registration.showNotification(title, notificationOptions);
 });
 
+// ✅ CLICK HANDLER CORRIGIDO - USA LINK PERSONALIZADO
+self.addEventListener('notificationclick', (event) => {
+  console.log(`[SW ${SW_VERSION}] 🖱️ Notificação clicada - Ação:`, event.action);
+  event.notification.close();
+  
+  let targetUrl = 'https://projeto-rafael-53f73.web.app/customer/dashboard';
+  
+  // 🔗 PRIORIDADE: Link personalizado do payload
+  if (event.notification.data?.customLink) {
+    targetUrl = event.notification.data.customLink;
+    console.log(`[SW ${SW_VERSION}] 🔗 Usando link personalizado:`, targetUrl);
+  }
+  // 🔗 FALLBACK: Link padrão baseado no tipo
+  else if (event.action === 'view' && event.notification.data) {
+    if (event.notification.data.orderId) {
+      targetUrl = `https://projeto-rafael-53f73.web.app/customer/orders/${event.notification.data.orderId}`;
+    } else if (event.notification.data.chatId) {
+      targetUrl = `https://projeto-rafael-53f73.web.app/customer/chat/${event.notification.data.chatId}`;
+    }
+  }
+  
+  console.log(`[SW ${SW_VERSION}] 🎯 Navegando para:`, targetUrl);
+  
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      // Tentar focar em uma janela existente
+      for (const client of clientList) {
+        if (client.url && 'focus' in client) {
+          console.log(`[SW ${SW_VERSION}] 🔍 Focando janela existente`);
+          return client.focus().then(() => {
+            return client.navigate(targetUrl);
+          });
+        }
+      }
+      // Se não houver janela, abrir uma nova
+      if (clients.openWindow) {
+        console.log(`[SW ${SW_VERSION}] 🆕 Abrindo nova janela`);
+        return clients.openWindow(targetUrl);
+      }
+    }).catch(error => {
+      console.error(`[SW ${SW_VERSION}] ❌ Erro ao navegar:`, error);
+    })
+  );
+});
+
 // ✅ EVENTOS DO SW - FORÇAR ATUALIZAÇÃO
 self.addEventListener('install', (event) => {
-  console.log(`[SW ${SW_VERSION}] 🔧 Service Worker instalado`);
-  // Forçar ativação imediata
+  console.log(`[SW ${SW_VERSION}] 🔧 Service Worker instalado - FORÇANDO ATUALIZAÇÃO`);
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
-  console.log(`[SW ${SW_VERSION}] ✅ Service Worker ativado`);
+  console.log(`[SW ${SW_VERSION}] ✅ Service Worker ativado - VERSÃO COM LOGOS PERSONALIZADOS`);
   event.waitUntil(
     Promise.all([
-      // Tomar controle de todas as páginas imediatamente
       clients.claim(),
-      // Limpar TODOS os caches antigos
+      // Limpar caches antigos
       caches.keys().then(cacheNames => {
         return Promise.all(
           cacheNames.map(cacheName => {
@@ -101,44 +204,12 @@ self.addEventListener('activate', (event) => {
         clients.forEach(client => {
           client.postMessage({
             type: 'SW_UPDATED',
-            version: SW_VERSION
+            version: SW_VERSION,
+            features: ['custom-icons-fixed', 'custom-links-fixed']
           });
         });
       })
     ])
-  );
-});
-
-// ✅ CLICK HANDLER MELHORADO
-self.addEventListener('notificationclick', (event) => {
-  console.log(`[SW ${SW_VERSION}] 🖱️ Notificação clicada - Ação:`, event.action);
-  event.notification.close();
-  
-  let targetUrl = 'https://projeto-rafael-53f73.web.app/customer/dashboard';
-  
-  if (event.action === 'view' && event.notification.data) {
-    if (event.notification.data.link) {
-      targetUrl = event.notification.data.link;
-    } else if (event.notification.data.orderId) {
-      targetUrl = `https://projeto-rafael-53f73.web.app/customer/orders/${event.notification.data.orderId}`;
-    } else if (event.notification.data.chatId) {
-      targetUrl = `https://projeto-rafael-53f73.web.app/customer/chat/${event.notification.data.chatId}`;
-    }
-  }
-  
-  event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      for (const client of clientList) {
-        if (client.url && 'focus' in client) {
-          return client.focus().then(() => {
-            return client.navigate(targetUrl);
-          });
-        }
-      }
-      if (clients.openWindow) {
-        return clients.openWindow(targetUrl);
-      }
-    })
   );
 });
 
@@ -160,20 +231,27 @@ self.addEventListener('push', (event) => {
       let title = payload.notification.title || 'Nova notificação - Projeto Rafael';
       let body = payload.notification.body || 'Você tem uma nova atualização';
       
-      // Garantir que não há localhost
-      if (title.includes('localhost') || body.includes('localhost')) {
-        title = 'Nova notificação - Projeto Rafael';
-        body = 'Você tem uma nova atualização';
+      // 🎯 BUSCAR LOGO PERSONALIZADO (mesma lógica)
+      let customIcon = payload.notification?.icon || payload.data?.icon || payload.data?.logoUrl;
+      let customImage = payload.notification?.image || payload.data?.image || payload.data?.imageUrl;
+      
+      const notificationOptions = {
+        body: body,
+        icon: customIcon || '/vite.svg',
+        badge: customIcon || '/vite.svg',
+        tag: 'push-' + Date.now(),
+        data: payload.data || {}
+      };
+      
+      if (customImage) {
+        notificationOptions.image = customImage;
+        console.log(`[SW ${SW_VERSION}] 🖼️ Push com imagem personalizada`);
       }
       
+      console.log(`[SW ${SW_VERSION}] 🚀 Push com logo personalizado:`, !!customIcon);
+      
       event.waitUntil(
-        self.registration.showNotification(title, {
-          body: body,
-          icon: '/vite.svg',
-          badge: '/vite.svg',
-          tag: 'push-' + Date.now(),
-          data: payload.data || {}
-        })
+        self.registration.showNotification(title, notificationOptions)
       );
     }
   } catch (error) {
@@ -189,6 +267,7 @@ self.addEventListener('message', (event) => {
       status: 'ok',
       version: SW_VERSION,
       firebase: '11.8.0',
+      features: ['custom-icons-prioritized', 'custom-links-working', 'image-support'],
       timestamp: new Date().toISOString()
     });
   }
@@ -199,4 +278,4 @@ self.addEventListener('message', (event) => {
   }
 });
 
-console.log(`[SW ${SW_VERSION}] 📍 Service Worker carregado - SEM LOCALHOST`);
+console.log(`[SW ${SW_VERSION}] 📍 Service Worker carregado - LOGOS PERSONALIZADOS CORRIGIDOS`);
