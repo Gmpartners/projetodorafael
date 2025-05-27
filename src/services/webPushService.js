@@ -6,6 +6,7 @@ class WebPushService {
     this.vapidPublicKey = null;
     this.subscription = null;
     this.isSupported = 'PushManager' in window && 'serviceWorker' in navigator;
+    this.registration = null;
   }
 
   /**
@@ -19,13 +20,13 @@ class WebPushService {
 
     try {
       // Registrar Service Worker
-      const registration = await this.registerServiceWorker();
+      this.registration = await this.registerServiceWorker();
       
       // Obter VAPID key do backend
       await this.fetchVapidKey();
       
       // Verificar subscription existente
-      const existingSubscription = await registration.pushManager.getSubscription();
+      const existingSubscription = await this.registration.pushManager.getSubscription();
       if (existingSubscription) {
         this.subscription = existingSubscription;
         console.log('✅ Subscription existente encontrada');
@@ -45,22 +46,51 @@ class WebPushService {
     try {
       console.log('📦 Registrando Service Worker...');
       
-      const registration = await navigator.serviceWorker.register('/sw.js', {
-        scope: '/'
-      });
+      // Verificar se já existe um registration
+      let registration = await navigator.serviceWorker.getRegistration('/');
       
-      console.log('✅ Service Worker registrado:', registration.scope);
+      if (!registration) {
+        registration = await navigator.serviceWorker.register('/sw.js', {
+          scope: '/'
+        });
+        console.log('✅ Novo Service Worker registrado:', registration.scope);
+      } else {
+        console.log('♻️ Service Worker já registrado:', registration.scope);
+      }
       
-      // Aguardar ativação
+      // Aguardar até o SW estar pronto
+      console.log('⏳ Aguardando Service Worker ficar pronto...');
+      
+      // Se está instalando, aguardar
       if (registration.installing) {
-        console.log('⏳ Service Worker instalando...');
-        await new Promise(resolve => {
-          registration.installing.addEventListener('statechange', e => {
+        await new Promise((resolve) => {
+          registration.installing.addEventListener('statechange', function(e) {
             if (e.target.state === 'activated') {
+              console.log('✅ Service Worker ativado');
               resolve();
             }
           });
         });
+      }
+      
+      // Aguardar o SW estar realmente pronto
+      await navigator.serviceWorker.ready;
+      console.log('🟢 Service Worker está pronto!');
+      
+      // Verificar se tem um SW ativo
+      if (!registration.active) {
+        console.warn('⚠️ Nenhum Service Worker ativo, aguardando...');
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Tentar atualizar
+        await registration.update();
+        
+        // Aguardar novamente
+        await navigator.serviceWorker.ready;
+      }
+      
+      if (registration.active) {
+        console.log('✅ Service Worker ativo:', registration.active.state);
       }
       
       return registration;
@@ -102,8 +132,22 @@ class WebPushService {
         throw new Error('Permissão para notificações negada');
       }
 
-      // Obter registration
-      const registration = await navigator.serviceWorker.ready;
+      // Garantir que temos um registration
+      if (!this.registration) {
+        console.log('🔄 Registration não encontrado, inicializando...');
+        await this.initialize();
+      }
+      
+      // Usar o registration salvo ou obter o atual
+      const registration = this.registration || await navigator.serviceWorker.ready;
+      
+      // Verificar se o SW está ativo
+      if (!registration.active) {
+        console.error('❌ Service Worker não está ativo');
+        throw new Error('Service Worker não está ativo. Recarregue a página.');
+      }
+      
+      console.log('📱 Service Worker ativo, estado:', registration.active.state);
       
       // Verificar se já existe subscription
       let subscription = await registration.pushManager.getSubscription();
@@ -122,6 +166,8 @@ class WebPushService {
         });
         
         console.log('✅ Nova subscription criada');
+      } else {
+        console.log('♻️ Usando subscription existente');
       }
       
       this.subscription = subscription;
@@ -189,7 +235,9 @@ class WebPushService {
         isSubscribed: !!subscription,
         subscription,
         permission: Notification.permission,
-        isSupported: this.isSupported
+        isSupported: this.isSupported,
+        hasActiveServiceWorker: !!(registration && registration.active),
+        serviceWorkerState: registration?.active?.state
       };
     } catch (error) {
       console.error('❌ Erro ao verificar subscription:', error);
@@ -198,6 +246,7 @@ class WebPushService {
         subscription: null,
         permission: 'default',
         isSupported: this.isSupported,
+        hasActiveServiceWorker: false,
         error: error.message
       };
     }
@@ -302,6 +351,7 @@ class WebPushService {
       // Limpar dados locais
       this.vapidPublicKey = null;
       this.subscription = null;
+      this.registration = null;
       
       console.log('🧹 Limpeza concluída');
     } catch (error) {

@@ -12,11 +12,14 @@ export const notificationService = {
         throw new Error('Navegador não suporta Web Push');
       }
       
+      // Aguardar um pouco para garantir que o SW foi registrado pelo App.jsx
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
       // Inicializar Web Push
       const initialized = await webPushService.initialize();
       
       if (!initialized) {
-        throw new Error('Falha ao inicializar Web Push');
+        console.warn('⚠️ Web Push não foi inicializado completamente');
       }
       
       // Verificar status
@@ -49,6 +52,31 @@ export const notificationService = {
     try {
       console.log('🔔 Solicitando permissão para notificações...');
       
+      // Aguardar o SW estar completamente pronto
+      const maxAttempts = 5;
+      let attempts = 0;
+      let swReady = false;
+      
+      while (attempts < maxAttempts && !swReady) {
+        try {
+          const registration = await navigator.serviceWorker.ready;
+          if (registration && registration.active) {
+            swReady = true;
+            console.log('✅ Service Worker pronto!');
+          } else {
+            throw new Error('SW não está ativo ainda');
+          }
+        } catch (error) {
+          attempts++;
+          console.log(`⏳ Tentativa ${attempts}/${maxAttempts} - SW não está pronto, aguardando...`);
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+      
+      if (!swReady) {
+        throw new Error('Service Worker não ficou pronto após várias tentativas');
+      }
+      
       const subscription = await webPushService.subscribe();
       
       console.log('✅ Inscrito com sucesso no Web Push');
@@ -80,6 +108,8 @@ export const notificationService = {
       isSubscribed: status.isSubscribed,
       hasLocalData: !!localData,
       ready: status.isSubscribed && status.permission === 'granted',
+      hasActiveServiceWorker: status.hasActiveServiceWorker,
+      serviceWorkerState: status.serviceWorkerState,
       domain: window.location.hostname,
       protocol: window.location.protocol,
       ...status
