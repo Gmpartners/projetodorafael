@@ -2,7 +2,7 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
-import { getMessaging, isSupported } from 'firebase/messaging';
+import { getFunctions } from 'firebase/functions';
 
 const firebaseConfig = {
   apiKey: "AIzaSyChzG6hDW0hKlkMzFG8oKcWAnRMldGiWro",
@@ -20,8 +20,6 @@ const app = initializeApp(firebaseConfig);
 // Serviços Firebase
 export const auth = getAuth(app);
 export const db = getFirestore(app);
-
-// Messaging (apenas se suportado)
-export const messaging = isSupported() ? getMessaging(app) : null;
+export const functions = getFunctions(app);
 
 export default app;

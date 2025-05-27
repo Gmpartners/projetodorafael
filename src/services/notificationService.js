@@ -1,204 +1,125 @@
 // src/services/notificationService.js
-import { getToken, onMessage } from 'firebase/messaging';
-import { messaging } from '@/lib/firebase';
-
-const VAPID_KEY = import.meta.env.VITE_FCM_VAPID_KEY;
+import webPushService from './webPushService';
 
 export const notificationService = {
-  // 🆕 FORÇAR ATUALIZAÇÃO DO SERVICE WORKER
-  async forceServiceWorkerUpdate() {
+  // 🚀 Inicializar sistema Web Push
+  async initializeNotificationSystem(userRole = 'customer') {
     try {
-      console.log('🔄 Forçando atualização do Service Worker...');
+      console.log('🚀 Inicializando sistema Web Push...');
       
-      // 1. Desregistrar todos os service workers existentes
-      const registrations = await navigator.serviceWorker.getRegistrations();
-      console.log(`📋 ${registrations.length} Service Workers encontrados`);
-      
-      for (const registration of registrations) {
-        console.log('🗑️ Desregistrando SW:', registration.scope);
-        await registration.unregister();
+      // Verificar suporte
+      if (!webPushService.isSupported) {
+        throw new Error('Navegador não suporta Web Push');
       }
       
-      // 2. Limpar todos os caches
-      const cacheNames = await caches.keys();
-      console.log(`🧹 ${cacheNames.length} caches encontrados`);
+      // Inicializar Web Push
+      const initialized = await webPushService.initialize();
       
-      for (const cacheName of cacheNames) {
-        console.log('🗑️ Deletando cache:', cacheName);
-        await caches.delete(cacheName);
+      if (!initialized) {
+        throw new Error('Falha ao inicializar Web Push');
       }
       
-      // 3. Aguardar um momento para garantir limpeza
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Verificar status
+      const status = await this.getSystemStatus();
+      console.log('📋 Status do sistema:', status);
       
-      // 4. Forçar recarregamento da página sem cache
-      console.log('♻️ Recarregando página sem cache...');
-      window.location.reload(true);
+      // Configurar listener para resubscribe se necessário
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.addEventListener('message', event => {
+          if (event.data.type === 'RESUBSCRIBE_NEEDED') {
+            console.log('🔄 Re-subscribe necessário');
+            this.requestPermissionAndSubscribe();
+          }
+        });
+      }
       
-      return { success: true };
+      return {
+        status,
+        initialized: true
+      };
+      
     } catch (error) {
-      console.error('❌ Erro ao forçar atualização do SW:', error);
+      console.error('❌ Erro ao inicializar sistema de notificações:', error);
       throw error;
     }
   },
 
-  // 🆕 VERIFICAR VERSÃO DO SERVICE WORKER
-  async checkServiceWorkerVersion() {
-    try {
-      const registration = await navigator.serviceWorker.getRegistration();
-      if (!registration) {
-        return { version: 'none', status: 'not-registered' };
-      }
-      
-      // Enviar mensagem ao SW para obter versão
-      const messageChannel = new MessageChannel();
-      
-      const versionPromise = new Promise((resolve) => {
-        messageChannel.port1.onmessage = (event) => {
-          resolve(event.data);
-        };
-        
-        // Timeout de 2 segundos
-        setTimeout(() => resolve({ version: 'unknown', status: 'timeout' }), 2000);
-      });
-      
-      registration.active?.postMessage({ type: 'DEBUG_SW' }, [messageChannel.port2]);
-      
-      return await versionPromise;
-    } catch (error) {
-      console.error('❌ Erro ao verificar versão do SW:', error);
-      return { version: 'error', status: error.message };
-    }
-  },
-
-  // Solicitar permissão e obter token
-  async requestPermissionAndGetToken() {
+  // 🔔 Solicitar permissão e fazer subscribe
+  async requestPermissionAndSubscribe() {
     try {
       console.log('🔔 Solicitando permissão para notificações...');
       
-      if (!('Notification' in window)) {
-        throw new Error('Este navegador não suporta notificações');
-      }
-
-      if (!messaging) {
-        throw new Error('Firebase Messaging não está disponível');
-      }
-
-      // 🆕 Verificar versão do SW antes de continuar
-      const swVersion = await this.checkServiceWorkerVersion();
-      console.log('📱 Versão atual do SW:', swVersion);
+      const subscription = await webPushService.subscribe();
       
-      if (swVersion.version && swVersion.version.includes('v2.0.0')) {
-        console.warn('⚠️ Service Worker desatualizado detectado!');
-        const forceUpdate = confirm('Uma atualização do sistema de notificações está disponível. Atualizar agora?');
-        if (forceUpdate) {
-          await this.forceServiceWorkerUpdate();
-          return;
-        }
-      }
-
-      const permission = await Notification.requestPermission();
-      console.log('🔐 Permissão obtida:', permission);
+      console.log('✅ Inscrito com sucesso no Web Push');
       
-      if (permission !== 'granted') {
-        throw new Error('Permissão para notificações negada pelo usuário');
-      }
-
-      const token = await getToken(messaging, { vapidKey: VAPID_KEY });
-      
-      if (!token) {
-        throw new Error('Falha ao gerar token FCM - verifique a configuração do VAPID key');
-      }
-
-      console.log('✅ Token FCM obtido com sucesso:', token.substring(0, 40) + '...');
-      
-      // Salvar token localmente como backup
-      const tokenData = {
-        token,
+      // Salvar estado localmente
+      const subscriptionData = {
+        endpoint: subscription.endpoint,
         timestamp: new Date().toISOString(),
-        userAgent: navigator.userAgent,
-        platform: navigator.platform,
-        registered: true,
-        source: 'requestPermissionAndGetToken'
+        deviceInfo: webPushService.getDeviceInfo()
       };
       
-      localStorage.setItem('fcm_token_data', JSON.stringify(tokenData));
+      localStorage.setItem('webpush_subscription', JSON.stringify(subscriptionData));
       
-      return token;
+      return subscription;
     } catch (error) {
-      console.error('❌ Erro ao obter token FCM:', error);
+      console.error('❌ Erro ao solicitar permissão:', error);
       throw error;
     }
   },
 
-  // Registrar token (versão offline que salva localmente) - MANTIDO PARA COMPATIBILIDADE
-  async registerToken(token) {
+  // 📊 Obter status do sistema
+  async getSystemStatus() {
+    const status = await webPushService.checkSubscription();
+    const localData = this.getStoredSubscriptionData();
+    
+    return {
+      supported: webPushService.isSupported,
+      permission: status.permission,
+      isSubscribed: status.isSubscribed,
+      hasLocalData: !!localData,
+      ready: status.isSubscribed && status.permission === 'granted',
+      domain: window.location.hostname,
+      protocol: window.location.protocol,
+      ...status
+    };
+  },
+
+  // 🧪 Enviar notificação de teste
+  async sendTestNotification() {
     try {
-      console.log('💾 Salvando token localmente como backup...');
+      console.log('🧪 Enviando notificação de teste Web Push...');
       
-      const tokenData = {
-        token,
-        timestamp: new Date().toISOString(),
-        userAgent: navigator.userAgent,
-        platform: navigator.platform,
-        registered: true,
-        source: 'registerToken_offline'
-      };
+      const result = await webPushService.sendTestNotification();
       
-      localStorage.setItem('fcm_token_data', JSON.stringify(tokenData));
-      console.log('✅ Token salvo localmente:', tokenData);
-      
-      return { success: true, message: 'Token registrado localmente como backup' };
+      console.log('✅ Notificação de teste enviada:', result);
+      return result;
     } catch (error) {
-      console.error('❌ Erro ao registrar token localmente:', error);
+      console.error('❌ Erro ao enviar notificação de teste:', error);
       throw error;
     }
   },
 
-  // Configurar listener para foreground messages
-  setupForegroundListener(callback) {
-    if (!messaging) {
-      console.warn('⚠️ Firebase Messaging não disponível para listener');
-      return () => {};
-    }
-
-    console.log('👂 Configurando listener para mensagens em foreground...');
-
-    return onMessage(messaging, (payload) => {
-      console.log('📨 Notificação recebida em foreground:', payload);
-      
-      // Mostrar notificação local se estiver em foreground
-      this.showLocalNotification(payload);
-      
-      if (callback && typeof callback === 'function') {
-        callback(payload);
-      }
-    });
-  },
-
-  // Mostrar notificação local
+  // 📱 Mostrar notificação local (quando app está em foreground)
   showLocalNotification(payload) {
     if (Notification.permission !== 'granted') {
-      console.log('⚠️ Permissão não concedida para mostrar notificação local');
+      console.log('⚠️ Permissão não concedida para mostrar notificação');
       return;
     }
 
     try {
-      const title = payload.notification?.title || payload.data?.title || 'Projeto Rafael';
-      const options = {
-        body: payload.notification?.body || payload.data?.body || 'Nova notificação',
-        icon: payload.notification?.icon || '/favicon.ico',
-        badge: '/favicon.ico',
-        tag: payload.data?.type || 'default',
-        data: payload.data || {},
+      const { title, body, icon, badge, data, actions } = payload;
+      
+      const notification = new Notification(title || 'Nova Notificação', {
+        body: body || 'Você tem uma nova atualização',
+        icon: icon || '/vite.svg',
+        badge: badge || '/vite.svg',
+        tag: `notification-${Date.now()}`,
+        data: data || {},
         requireInteraction: true,
-        actions: [
-          { action: 'view', title: 'Ver detalhes' },
-          { action: 'dismiss', title: 'Dispensar' }
-        ]
-      };
-
-      const notification = new Notification(title, options);
+        actions: actions || []
+      });
 
       // Auto-close após 10 segundos
       setTimeout(() => {
@@ -210,13 +131,8 @@ export const notificationService = {
         console.log('🖱️ Notificação clicada');
         window.focus();
         
-        // Determinar URL baseado no tipo
-        if (payload.data?.link) {
-          window.location.href = payload.data.link;
-        } else if (payload.data?.orderId) {
-          window.location.href = `/customer/orders/${payload.data.orderId}`;
-        } else if (payload.data?.chatId) {
-          window.location.href = `/customer/chat/${payload.data.chatId}`;
+        if (data?.url) {
+          window.location.href = data.url;
         }
         
         notification.close();
@@ -228,7 +144,41 @@ export const notificationService = {
     }
   },
 
-  // Obter status de permissão
+  // 🗑️ Cancelar inscrição
+  async unsubscribe() {
+    try {
+      await webPushService.unsubscribe();
+      localStorage.removeItem('webpush_subscription');
+      console.log('✅ Inscrição cancelada com sucesso');
+      return true;
+    } catch (error) {
+      console.error('❌ Erro ao cancelar inscrição:', error);
+      throw error;
+    }
+  },
+
+  // 💾 Obter dados salvos localmente
+  getStoredSubscriptionData() {
+    try {
+      const data = localStorage.getItem('webpush_subscription');
+      return data ? JSON.parse(data) : null;
+    } catch (error) {
+      console.error('❌ Erro ao recuperar dados salvos:', error);
+      return null;
+    }
+  },
+
+  // 🧹 Limpar dados salvos
+  clearStoredData() {
+    try {
+      localStorage.removeItem('webpush_subscription');
+      console.log('🧹 Dados de notificação limpos');
+    } catch (error) {
+      console.error('❌ Erro ao limpar dados:', error);
+    }
+  },
+
+  // ℹ️ Obter permissão atual
   getPermissionStatus() {
     if (!('Notification' in window)) {
       return 'not-supported';
@@ -236,236 +186,103 @@ export const notificationService = {
     return Notification.permission;
   },
 
-  // Verificar se notificações são suportadas
-  isSupported() {
-    return 'Notification' in window && !!messaging;
-  },
-
-  // Enviar notificação de teste LOCAL (sem backend) - MANTIDO PARA FALLBACK
-  async sendTestNotification(token) {
+  // 🔧 Forçar atualização do Service Worker
+  async forceServiceWorkerUpdate() {
     try {
-      console.log('🧪 Enviando notificação de teste local...');
+      console.log('🔄 Forçando atualização do Service Worker...');
       
-      // Verificar se temos permissão
-      if (Notification.permission !== 'granted') {
-        throw new Error('Permissão para notificações não concedida');
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      
+      for (const registration of registrations) {
+        await registration.unregister();
       }
-
-      // Criar notificação local de teste
-      const notification = new Notification('🧪 Teste de Notificação Local', {
-        body: 'Esta é uma notificação de teste local. O sistema está configurado corretamente!',
-        icon: '/favicon.ico',
-        badge: '/favicon.ico',
-        tag: 'test-notification-local',
-        requireInteraction: false,
-        data: {
-          type: 'test',
-          timestamp: new Date().toISOString(),
-          token: token ? token.substring(0, 20) + '...' : 'No token',
-          source: 'local_test'
-        }
-      });
-
-      // Fechar a notificação após 8 segundos
+      
+      // Limpar caches
+      if ('caches' in window) {
+        const cacheNames = await caches.keys();
+        await Promise.all(cacheNames.map(name => caches.delete(name)));
+      }
+      
+      // Recarregar página
       setTimeout(() => {
-        notification.close();
-      }, 8000);
-
-      // Log para debug
-      console.log('✅ Notificação de teste local criada:', {
-        title: notification.title,
-        timestamp: new Date().toISOString()
-      });
-
-      return { 
-        success: true, 
-        message: 'Notificação de teste local enviada com sucesso!',
-        type: 'local'
-      };
+        window.location.reload(true);
+      }, 1000);
+      
     } catch (error) {
-      console.error('❌ Erro ao enviar notificação de teste local:', error);
+      console.error('❌ Erro ao forçar atualização:', error);
       throw error;
     }
   },
 
-  // Obter dados do token salvos localmente
-  getStoredTokenData() {
+  // 📊 Obter estatísticas detalhadas
+  getDetailedStats() {
+    const storedData = this.getStoredSubscriptionData();
+    const deviceInfo = webPushService.getDeviceInfo();
+    
+    return {
+      system: {
+        supported: webPushService.isSupported,
+        permission: this.getPermissionStatus(),
+        serviceWorker: 'serviceWorker' in navigator
+      },
+      device: deviceInfo,
+      subscription: storedData ? {
+        hasSubscription: true,
+        created: storedData.timestamp,
+        endpoint: storedData.endpoint ? 'exists' : 'missing'
+      } : {
+        hasSubscription: false
+      },
+      browser: {
+        name: deviceInfo.browser,
+        platform: deviceInfo.os,
+        online: navigator.onLine,
+        language: navigator.language
+      }
+    };
+  },
+
+  // 🔄 Verificar e atualizar subscription se necessário
+  async checkAndUpdateSubscription() {
     try {
-      const data = localStorage.getItem('fcm_token_data');
-      return data ? JSON.parse(data) : null;
+      const status = await webPushService.checkSubscription();
+      
+      if (!status.isSubscribed && status.permission === 'granted') {
+        console.log('🔄 Re-inscrevendo no Web Push...');
+        await this.requestPermissionAndSubscribe();
+      }
+      
+      return status;
     } catch (error) {
-      console.error('❌ Erro ao recuperar dados do token:', error);
+      console.error('❌ Erro ao verificar subscription:', error);
       return null;
     }
   },
 
-  // Limpar dados salvos localmente
-  clearStoredData() {
-    try {
-      localStorage.removeItem('fcm_token_data');
-      console.log('🧹 Dados de notificação limpos do localStorage');
-    } catch (error) {
-      console.error('❌ Erro ao limpar dados:', error);
-    }
-  },
-
-  // Simular envio de notificação com payload customizado
+  // 📱 Simular notificação (para testes locais)
   async simulateNotification(title, body, data = {}) {
     try {
-      console.log('🎭 Simulando notificação:', { title, body, data });
+      console.log('🎭 Simulando notificação local...');
       
-      if (Notification.permission !== 'granted') {
-        throw new Error('Permissão para notificações não concedida');
-      }
-
-      const notification = new Notification(title, {
+      this.showLocalNotification({
+        title,
         body,
-        icon: '/favicon.ico',
-        badge: '/favicon.ico',
-        tag: `simulation-${Date.now()}`,
-        requireInteraction: true,
         data: {
           ...data,
           timestamp: new Date().toISOString(),
-          source: 'frontend-simulation'
-        },
-        actions: [
-          { action: 'view', title: 'Ver Detalhes' },
-          { action: 'dismiss', title: 'Dispensar' }
-        ]
+          source: 'local-simulation'
+        }
       });
-
-      // Click handler
-      notification.onclick = () => {
-        console.log('🖱️ Notificação simulada clicada');
-        window.focus();
-        notification.close();
-      };
-
-      // Fechar automaticamente após 12 segundos se não interagir
-      setTimeout(() => {
-        notification.close();
-      }, 12000);
-
+      
       return { 
         success: true, 
-        message: 'Notificação simulada enviada!',
-        notificationId: notification.tag
+        message: 'Notificação simulada enviada!'
       };
     } catch (error) {
       console.error('❌ Erro ao simular notificação:', error);
       throw error;
     }
-  },
-
-  // Verificar status do sistema de notificações
-  getSystemStatus() {
-    const isSupported = this.isSupported();
-    const permission = this.getPermissionStatus();
-    const hasStoredToken = !!this.getStoredTokenData();
-    
-    return {
-      supported: isSupported,
-      permission,
-      hasToken: hasStoredToken,
-      ready: isSupported && permission === 'granted' && hasStoredToken,
-      messaging: !!messaging,
-      vapidKey: !!VAPID_KEY,
-      domain: window.location.hostname
-    };
-  },
-
-  // ✅ NOVA FUNÇÃO: Inicializar sistema completo
-  async initializeNotificationSystem(userRole = 'customer') {
-    try {
-      console.log('🚀 Inicializando sistema de notificações...');
-      
-      const status = this.getSystemStatus();
-      
-      if (!status.supported) {
-        throw new Error('Navegador não suporta notificações push');
-      }
-      
-      if (!status.vapidKey) {
-        throw new Error('VAPID key não configurada');
-      }
-      
-      console.log('📋 Status do sistema:', status);
-      
-      // Configurar listener para mensagens em foreground
-      const unsubscribe = this.setupForegroundListener((payload) => {
-        console.log('📨 Nova notificação recebida:', payload);
-      });
-      
-      return {
-        status,
-        unsubscribe,
-        initialized: true
-      };
-      
-    } catch (error) {
-      console.error('❌ Erro ao inicializar sistema de notificações:', error);
-      throw error;
-    }
-  },
-
-  // ✅ NOVA FUNÇÃO: Obter informações do dispositivo
-  getDeviceInfo() {
-    return {
-      platform: 'web',
-      browser: navigator.userAgent.includes('Chrome') ? 'Chrome' : 
-               navigator.userAgent.includes('Firefox') ? 'Firefox' : 
-               navigator.userAgent.includes('Safari') ? 'Safari' : 
-               navigator.userAgent.includes('Edge') ? 'Edge' : 'Unknown',
-      os: navigator.platform,
-      userAgent: navigator.userAgent,
-      language: navigator.language,
-      cookieEnabled: navigator.cookieEnabled,
-      onLine: navigator.onLine,
-      timestamp: new Date().toISOString()
-    };
-  },
-
-  // ✅ NOVA FUNÇÃO: Testar conectividade
-  async testConnectivity() {
-    try {
-      const response = await fetch('https://www.google.com/favicon.ico', { 
-        method: 'HEAD',
-        cache: 'no-cache'
-      });
-      return response.ok;
-    } catch (error) {
-      console.log('⚠️ Teste de conectividade falhou:', error.message);
-      return false;
-    }
-  },
-
-  // ✅ NOVA FUNÇÃO: Obter estatísticas detalhadas
-  getDetailedStats() {
-    const storedData = this.getStoredTokenData();
-    const systemStatus = this.getSystemStatus();
-    const deviceInfo = this.getDeviceInfo();
-    
-    return {
-      system: systemStatus,
-      device: deviceInfo,
-      token: storedData ? {
-        hasToken: true,
-        created: storedData.timestamp,
-        source: storedData.source || 'unknown'
-      } : {
-        hasToken: false
-      },
-      browser: {
-        name: deviceInfo.browser,
-        platform: deviceInfo.platform,
-        online: deviceInfo.onLine,
-        language: deviceInfo.language
-      },
-      permissions: {
-        notification: systemStatus.permission,
-        supported: systemStatus.supported
-      }
-    };
   }
 };
+
+export default notificationService;

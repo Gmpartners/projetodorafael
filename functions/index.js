@@ -10,6 +10,26 @@
 const {onRequest} = require("firebase-functions/v2/https");
 const logger = require("firebase-functions/logger");
 
+// ✅ IMPORTAR FUNÇÕES FCM
+const {
+  registerFCMToken,
+  getMyTokens,
+  generateNewTokens,
+  deleteTokens,
+  validateTokens,
+  getStoreTokenStats,
+  cleanupOldTokens
+} = require("./src/api/fcmTokens");
+
+// ✅ EXPORTAR FUNÇÕES FCM
+exports.registerFCMToken = registerFCMToken;
+exports.getMyTokens = getMyTokens;
+exports.generateNewTokens = generateNewTokens;
+exports.deleteTokens = deleteTokens;
+exports.validateTokens = validateTokens;
+exports.getStoreTokenStats = getStoreTokenStats;
+exports.cleanupOldTokens = cleanupOldTokens;
+
 // Create and deploy your first functions
 // https://firebase.google.com/docs/functions/get-started
 

@@ -92,6 +92,36 @@
           }, 500);
         }
       }, 1000);
+      
+      // Registrar Service Worker para Web Push
+      if ('serviceWorker' in navigator && 'PushManager' in window) {
+        window.addEventListener('load', async () => {
+          try {
+            // Desregistrar service workers antigos primeiro
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            for (const registration of registrations) {
+              if (registration.scope.includes('firebase-messaging-sw.js')) {
+                await registration.unregister();
+                console.log('🗑️ Service Worker antigo removido');
+              }
+            }
+            
+            // Registrar novo Service Worker
+            const registration = await navigator.serviceWorker.register('/sw.js');
+            console.log('✅ Service Worker Web Push registrado:', registration.scope);
+            
+            // Verificar atualizações
+            registration.addEventListener('updatefound', () => {
+              console.log('🔄 Nova versão do Service Worker disponível');
+            });
+            
+          } catch (error) {
+            console.error('❌ Erro ao registrar Service Worker:', error);
+          }
+        });
+      } else {
+        console.warn('⚠️ Web Push não é suportado neste navegador');
+      }
     </script>
     
     <script type="module" src="/src/main.jsx"></script>

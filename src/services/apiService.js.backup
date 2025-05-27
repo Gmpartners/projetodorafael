@@ -1,4 +1,6 @@
 import axios from 'axios';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '@/lib/firebase';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 const API_KEY = import.meta.env.VITE_API_KEY;
@@ -223,6 +225,43 @@ export const apiService = {
     return response.data.data || response.data;
   },
 
+  async registerFCMToken(token, deviceInfo = {}) {
+    const response = await api.post('/notifications/registerToken', { 
+      token, 
+      deviceInfo: {
+        platform: 'web',
+        browser: navigator.userAgent.includes('Chrome') ? 'Chrome' : 
+                 navigator.userAgent.includes('Firefox') ? 'Firefox' : 
+                 navigator.userAgent.includes('Safari') ? 'Safari' : 'Unknown',
+        os: navigator.platform,
+        userAgent: navigator.userAgent,
+        timestamp: new Date().toISOString(),
+        ...deviceInfo
+      }
+    });
+    return response.data;
+  },
+
+  async sendTestNotification(token) {
+    const response = await api.post('/notifications/sendTestNotification', { token });
+    return response.data;
+  },
+
+  async getMyTokens() {
+    const response = await api.get('/notifications/getMyTokens');
+    return response.data.tokens || [];
+  },
+
+  async subscribeToStore(storeId) {
+    const response = await api.post('/notifications/subscribeToStore', { storeId });
+    return response.data;
+  },
+
+  async unsubscribeFromStore(storeId) {
+    const response = await api.post('/notifications/unsubscribeFromStore', { storeId });
+    return response.data;
+  },
+
   async createNotification(notificationData) {
     const response = await api.post('/notifications/createNotification', notificationData);
     return response.data;
@@ -254,10 +293,117 @@ export const apiService = {
     return response.data;
   },
 
+  async getStoreTokenStats() {
+    const response = await api.get('/notifications/getStoreTokenStats');
+    return response.data.stats || {};
+  },
+
+  async validateToken(token) {
+    const response = await api.post('/notifications/validateToken', { token });
+    return response.data;
+  },
+
+  async registerDeviceToken(token) {
+    return this.registerFCMToken(token);
+  },
+
+  // ✅ NOVAS FUNÇÕES DE GERENCIAMENTO DE TOKENS FCM
+  async generateNewTokens() {
+    try {
+      console.log('🔄 Gerando novos tokens via Cloud Function...');
+      const generateNewTokens = httpsCallable(functions, 'generateNewTokens');
+      const result = await generateNewTokens();
+      console.log('✅ Novos tokens gerados:', result.data);
+      return result.data;
+    } catch (error) {
+      console.error('❌ Erro ao gerar novos tokens:', error);
+      throw error;
+    }
+  },
+
+  async deleteMyTokens(tokenIds = null, deleteAll = false) {
+    try {
+      console.log('🗑️ Apagando tokens via Cloud Function...');
+      const deleteTokens = httpsCallable(functions, 'deleteTokens');
+      const result = await deleteTokens({ tokenIds, deleteAll });
+      console.log('✅ Tokens apagados:', result.data);
+      return result.data;
+    } catch (error) {
+      console.error('❌ Erro ao apagar tokens:', error);
+      throw error;
+    }
+  },
+
+  async validateMyTokens() {
+    try {
+      console.log('🔍 Validando tokens via Cloud Function...');
+      const validateTokens = httpsCallable(functions, 'validateTokens');
+      const result = await validateTokens();
+      console.log('✅ Tokens validados:', result.data);
+      return result.data;
+    } catch (error) {
+      console.error('❌ Erro ao validar tokens:', error);
+      throw error;
+    }
+  },
+
+  async getMyTokensFromBackend() {
+    try {
+      console.log('📱 Obtendo tokens via Cloud Function...');
+      const getMyTokens = httpsCallable(functions, 'getMyTokens');
+      const result = await getMyTokens();
+      console.log('✅ Tokens obtidos:', result.data);
+      return result.data;
+    } catch (error) {
+      console.error('❌ Erro ao obter tokens:', error);
+      throw error;
+    }
+  },
+
+  async registerFCMTokenViaFunction(token, deviceInfo = {}) {
+    try {
+      console.log('📝 Registrando token via Cloud Function...');
+      const registerFCMToken = httpsCallable(functions, 'registerFCMToken');
+      const result = await registerFCMToken({ 
+        token, 
+        deviceInfo: {
+          platform: 'web',
+          browser: navigator.userAgent.includes('Chrome') ? 'Chrome' : 
+                   navigator.userAgent.includes('Firefox') ? 'Firefox' : 
+                   navigator.userAgent.includes('Safari') ? 'Safari' : 'Unknown',
+          os: navigator.platform,
+          userAgent: navigator.userAgent,
+          timestamp: new Date().toISOString(),
+          ...deviceInfo
+        }
+      });
+      console.log('✅ Token registrado via Cloud Function:', result.data);
+      return result.data;
+    } catch (error) {
+      console.error('❌ Erro ao registrar token via Cloud Function:', error);
+      throw error;
+    }
+  },
+
+  async getStoreTokenStatsViaFunction() {
+    try {
+      console.log('📊 Obtendo estatísticas via Cloud Function...');
+      const getStoreTokenStats = httpsCallable(functions, 'getStoreTokenStats');
+      const result = await getStoreTokenStats();
+      console.log('✅ Estatísticas obtidas:', result.data);
+      return result.data;
+    } catch (error) {
+      console.error('❌ Erro ao obter estatísticas:', error);
+      throw error;
+    }
+  },
+
+  // 🔧 CORREÇÃO: Removido headers Content-Type para permitir que o axios adicione o boundary automaticamente
   async uploadLogo(file) {
     const formData = new FormData();
     formData.append('logo', file);
     
+    // Não definir Content-Type - axios detecta FormData e adiciona o boundary correto
     const response = await api.post('/storeImages/uploadLogo', formData);
     return response.data;
   },
@@ -266,6 +412,7 @@ export const apiService = {
     const formData = new FormData();
     formData.append('banner', file);
     
+    // Não definir Content-Type - axios detecta FormData e adiciona o boundary correto
     const response = await api.post('/storeImages/uploadBanner', formData);
     return response.data;
   },
@@ -274,6 +421,7 @@ export const apiService = {
     const formData = new FormData();
     formData.append('favicon', file);
     
+    // Não definir Content-Type - axios detecta FormData e adiciona o boundary correto
     const response = await api.post('/storeImages/uploadFavicon', formData);
     return response.data;
   },
@@ -283,6 +431,7 @@ export const apiService = {
     formData.append('image', file);
     formData.append('imageType', imageType);
     
+    // Não definir Content-Type - axios detecta FormData e adiciona o boundary correto
     const response = await api.post('/storeImages/uploadImage', formData);
     return response.data;
   },
@@ -334,74 +483,5 @@ export const apiService = {
     } catch (error) {
       return null;
     }
-  },
-
-  // ==========================================
-  // 🚀 WEB PUSH APIs - SISTEMA NATIVO PURO
-  // ==========================================
-  
-  async getWebPushVapidKey() {
-    const response = await api.get('/webPush/vapid-key');
-    return response.data;
-  },
-
-  async registerWebPushSubscription(data) {
-    const response = await api.post('/webPush/subscribe', data);
-    return response.data;
-  },
-
-  async subscribeToStoreWebPush(storeId) {
-    const response = await api.post('/webPush/subscribe-store', { storeId });
-    return response.data;
-  },
-
-  async unsubscribeFromStoreWebPush(storeId) {
-    const response = await api.post('/webPush/unsubscribe-store', { storeId });
-    return response.data;
-  },
-
-  async sendWebPushTestNotification() {
-    const response = await api.post('/webPush/test-notification', {
-      title: '🧪 Teste Web Push',
-      body: 'Esta é uma notificação de teste do sistema Web Push nativo!'
-    });
-    return response.data;
-  },
-
-  async getMyWebPushSubscriptions() {
-    const response = await api.get('/webPush/my-subscriptions');
-    return response.data;
-  },
-
-  async validateWebPushSubscription(subscription) {
-    const response = await api.post('/webPush/validate', { subscription });
-    return response.data;
-  },
-
-  async getWebPushStoreStats(storeId) {
-    const response = await api.get(`/webPush/store-stats?storeId=${storeId}`);
-    return response.data;
-  },
-
-  async sendNotificationWithButtons(notificationData) {
-    const response = await api.post('/notifications/sendNotificationWithButtons', notificationData);
-    return response.data;
-  },
-
-  async previewNotification(notificationData) {
-    const response = await api.post('/notifications/previewNotification', notificationData);
-    return response.data;
-  },
-
-  async getButtonTemplates() {
-    const response = await api.get('/notifications/getButtonTemplates');
-    return response.data;
-  },
-
-  async cleanupDuplicateSubscriptions() {
-    const response = await api.post('/notifications/cleanupDuplicateSubscriptions');
-    return response.data;
   }
 };
-
-export default apiService;
