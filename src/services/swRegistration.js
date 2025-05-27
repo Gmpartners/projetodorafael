@@ -1,7 +1,7 @@
 // src/services/swRegistration.js
 export const registerServiceWorker = async () => {
   try {
-    console.log('🔧 Iniciando registro do Service Worker...');
+    console.log('🔧 Iniciando registro do Service Worker Web Push...');
     
     // Verificar se service workers são suportados
     if (!('serviceWorker' in navigator)) {
@@ -13,12 +13,12 @@ export const registerServiceWorker = async () => {
       throw new Error('Notificações não são suportadas neste navegador');
     }
 
-    // Registrar o service worker
-    const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
+    // Registrar o novo service worker Web Push
+    const registration = await navigator.serviceWorker.register('/sw.js', {
       scope: '/'
     });
 
-    console.log('✅ Service Worker registrado com sucesso:', registration);
+    console.log('✅ Service Worker Web Push registrado com sucesso:', registration);
 
     // Aguardar ativação
     await navigator.serviceWorker.ready;
@@ -63,7 +63,7 @@ export const checkServiceWorkerStatus = async () => {
       return { supported: false, registered: false, active: false };
     }
 
-    const registration = await navigator.serviceWorker.getRegistration('/firebase-messaging-sw.js');
+    const registration = await navigator.serviceWorker.getRegistration('/');
     
     return {
       supported: true,
@@ -81,7 +81,7 @@ export const checkServiceWorkerStatus = async () => {
 // Função para forçar atualização do service worker
 export const updateServiceWorker = async () => {
   try {
-    const registration = await navigator.serviceWorker.getRegistration('/firebase-messaging-sw.js');
+    const registration = await navigator.serviceWorker.getRegistration('/');
     
     if (registration) {
       await registration.update();
@@ -100,7 +100,7 @@ export const updateServiceWorker = async () => {
 // Função para desregistrar service worker (útil para debugging)
 export const unregisterServiceWorker = async () => {
   try {
-    const registration = await navigator.serviceWorker.getRegistration('/firebase-messaging-sw.js');
+    const registration = await navigator.serviceWorker.getRegistration('/');
     
     if (registration) {
       const result = await registration.unregister();
@@ -113,5 +113,25 @@ export const unregisterServiceWorker = async () => {
   } catch (error) {
     console.error('❌ Erro ao desregistrar Service Worker:', error);
     throw error;
+  }
+};
+
+// Função para limpar service workers antigos
+export const cleanupOldServiceWorkers = async () => {
+  try {
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    
+    for (const registration of registrations) {
+      // Desregistrar qualquer SW que não seja o novo
+      if (!registration.scope.includes('/sw.js')) {
+        await registration.unregister();
+        console.log('🗑️ Service Worker antigo removido:', registration.scope);
+      }
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('❌ Erro ao limpar SWs antigos:', error);
+    return false;
   }
 };

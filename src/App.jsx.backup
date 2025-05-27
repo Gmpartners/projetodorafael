@@ -5,7 +5,7 @@ import { SidebarProvider } from '@/contexts/SidebarContext';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { CustomerChatProvider } from '@/contexts/CustomerChatContext';
 import { StoreChatProvider } from '@/contexts/StoreChatContext';
-import { cleanupOldServiceWorkers, registerServiceWorker } from '@/services/swRegistration';
+import { registerServiceWorker } from '@/services/swRegistration';
 import './index.css';
 
 // Páginas de autenticação
@@ -387,24 +387,18 @@ function App() {
   useEffect(() => {
     const initializeServiceWorker = async () => {
       try {
-        console.log('🧹 Limpando Service Workers antigos...');
+        console.log('🚀 Inicializando Service Worker para notificações push...');
         
-        // Primeiro limpar todos os SWs antigos
-        await cleanupOldServiceWorkers();
+        // Aguardar um pouco para o DOM estar totalmente carregado
+        await new Promise(resolve => setTimeout(resolve, 1000));
         
-        console.log('🚀 Inicializando novo Service Worker Web Push...');
-        
-        // Aguardar um pouco para garantir limpeza
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // Registrar novo service worker
+        // Registrar service worker
         const registration = await registerServiceWorker();
-        console.log('✅ Service Worker Web Push registrado:', registration);
+        console.log('✅ Service Worker registrado:', registration);
         
         // Salvar registro no localStorage para debug
         localStorage.setItem('sw_registered', 'true');
         localStorage.setItem('sw_registration_time', new Date().toISOString());
-        localStorage.setItem('sw_type', 'web-push');
         
       } catch (error) {
         console.error('❌ Erro ao inicializar Service Worker:', error);
