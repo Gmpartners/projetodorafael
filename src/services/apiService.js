@@ -287,6 +287,12 @@ export const apiService = {
     return response.data;
   },
 
+  // ✅ NOVA FUNÇÃO: Upload específico para imagens de notificação
+  async uploadStoreImage(formData) {
+    const response = await api.post('/storeImages/uploadImage', formData);
+    return response.data;
+  },
+
   async getStoreImages() {
     const response = await api.get('/storeImages/getStoreImages');
     return response.data.data || response.data;
@@ -337,7 +343,7 @@ export const apiService = {
   },
 
   // ==========================================
-  // 🚀 WEB PUSH APIs - SISTEMA NATIVO PURO
+  // 🚀 WEB PUSH APIs v7.0 - SISTEMA COMPLETO
   // ==========================================
   
   async getWebPushVapidKey() {
@@ -365,6 +371,137 @@ export const apiService = {
       title: '🧪 Teste Web Push',
       body: 'Esta é uma notificação de teste do sistema Web Push nativo!'
     });
+    return response.data;
+  },
+
+  // 🆕 v7.0: Teste com URL personalizada
+  async sendWebPushTestWithCustomUrl(customUrl, options = {}) {
+    const response = await api.post('/webPush/test-notification', {
+      title: options.title || '🧪 Teste Web Push v7.0',
+      body: options.body || `Testando URL personalizada: ${customUrl}`,
+      customUrl,
+      storeId: options.storeId,
+      image: options.image,
+      icon: options.icon,
+      ...options
+    });
+    return response.data;
+  },
+
+  // 🆕 v7.0: Envio customizado com URL específica
+  async sendCustomWebPushWithUrl(notificationData, customUrl, targetUserId = null) {
+    // v7.1: Usar a API de notificações modificada (SEM BRANDING AUTOMÁTICO)
+    const response = await api.post('/notifications/sendImmediateNotification', {
+      ...notificationData,
+      target: targetUserId ? 'user' : 'subscribers',
+      targetId: targetUserId,
+      data: {
+        ...(notificationData.data || {}),
+        link: customUrl
+      }
+    });
+    return response.data;
+  },
+    return response.data;
+  },
+
+  // 🆕 v7.0: Teste por tipos específicos
+  async testWebPushByType(type, customUrl = null, options = {}) {
+    const response = await api.post('/webPush/test-types', {
+      type,
+      customUrl,
+      ...options
+    });
+    return response.data;
+  },
+
+  // 🆕 v7.0: Envio para loja com URL personalizada
+  async sendWebPushToStore(storeId, notification, customUrl = null) {
+    // v7.1: Usar a API de notificações modificada (SEM BRANDING AUTOMÁTICO)
+    const response = await api.post('/notifications/sendImmediateNotification', {
+      ...notification,
+      target: 'subscribers',
+      data: {
+        ...(notification.data || {}),
+        link: customUrl
+      }
+    });
+    return response.data;
+  },
+    return response.data;
+  },
+
+  // 🆕 v7.0: Criar payload de e-commerce com URL personalizada
+  async createEcommercePayload(type, data, customOptions = {}) {
+    const response = await api.post('/webPush/create-ecommerce-payload', {
+      type,
+      data,
+      customOptions
+    });
+    return response.data;
+  },
+
+  // 🆕 v7.0: Enviar notificação de status de pedido com URL personalizada
+  async sendOrderStatusNotification(orderId, customerId, status, customUrl = null) {
+    const response = await api.post('/webPush/send-order-status', {
+      orderId,
+      customerId,
+      status,
+      customUrl
+    });
+    return response.data;
+  },
+
+  // 🆕 v7.0: Enviar notificação de chat com URL personalizada
+  async sendChatMessageNotification(message, chatData, customUrl = null) {
+    const response = await api.post('/webPush/send-chat-message', {
+      message,
+      chatData,
+      customUrl
+    });
+    return response.data;
+  },
+
+  // 🆕 v7.0: Enviar notificação customizada com URL e opções avançadas
+  async sendCustomNotificationWithUrl(userId, notification, storeId, customUrl, options = {}) {
+    const response = await api.post('/webPush/send-custom-with-url', {
+      userId,
+      notification,
+      storeId,
+      customUrl,
+      options
+    });
+    return response.data;
+  },
+
+  // 🆕 v7.0: Obter templates de actions por tipo
+  async getActionTemplates(type = null) {
+    const url = type ? `/webPush/action-templates?type=${type}` : '/webPush/action-templates';
+    const response = await api.get(url);
+    return response.data;
+  },
+
+  // 🆕 v7.0: Validar URL personalizada
+  async validateCustomUrl(url) {
+    const response = await api.post('/webPush/validate-url', { url });
+    return response.data;
+  },
+
+  // 🆕 v7.0: Obter estatísticas de URLs
+  async getUrlStats(storeId, dateRange = '7d') {
+    const response = await api.get(`/webPush/url-stats?storeId=${storeId}&range=${dateRange}`);
+    return response.data;
+  },
+
+  // 🆕 v7.0: Testar compatibilidade de actions
+  async testActionCompatibility(actions) {
+    const response = await api.post('/webPush/test-actions', { actions });
+    return response.data;
+  },
+
+  // 🆕 v7.0: Criar notificação com actions inteligentes
+  async createNotificationWithSmartActions(data) {
+    const response = await api.post('/webPush/create-with-smart-actions', data);
     return response.data;
   },
 

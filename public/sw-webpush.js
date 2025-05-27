@@ -1,7 +1,7 @@
 // 🚀 Web Push Service Worker v7.0 - Sistema Completo com URL Personalizada
-// Versão 7.0.1 - Com debug aprimorado para notificações
+// Versão 7.0.0 - Campos configuráveis + Actions inteligentes + Navegação otimizada
 
-const SW_VERSION = 'v7.0.1-web-push-debug';
+const SW_VERSION = 'v7.0.0-web-push-complete';
 const CACHE_NAME = `projeto-rafael-${SW_VERSION}`;
 
 // Assets para cache offline
@@ -83,54 +83,21 @@ self.addEventListener('push', event => {
         customUrl: data?.url
       });
       
-      // DEBUG: Verificar permissão antes de mostrar
-      console.log(`[SW ${SW_VERSION}] 🔐 Permissão atual:`, Notification.permission);
-      
-      // Tentar mostrar a notificação com tratamento de erro aprimorado
-      try {
-        await self.registration.showNotification(
-          title || 'Nova Notificação v7.0',
-          notificationOptions
-        );
-        console.log(`[SW ${SW_VERSION}] ✅ Notificação exibida com sucesso!`);
-      } catch (showError) {
-        console.error(`[SW ${SW_VERSION}] ❌ Erro ao exibir notificação:`, showError);
-        console.error(`[SW ${SW_VERSION}] 📊 Detalhes do erro:`, {
-          name: showError.name,
-          message: showError.message,
-          stack: showError.stack
-        });
-        
-        // Fallback: tentar notificação simplificada
-        try {
-          await self.registration.showNotification(
-            title || 'Notificação',
-            {
-              body: body || 'Nova mensagem',
-              icon: '/vite.svg'
-            }
-          );
-          console.log(`[SW ${SW_VERSION}] ✅ Notificação simplificada exibida`);
-        } catch (fallbackError) {
-          console.error(`[SW ${SW_VERSION}] ❌ Erro no fallback:`, fallbackError);
-        }
-      }
+      await self.registration.showNotification(
+        title || 'Nova Notificação v7.0',
+        notificationOptions
+      );
       
     } catch (error) {
       console.error(`[SW ${SW_VERSION}] ❌ Erro ao processar push v7.0:`, error);
-      console.error(`[SW ${SW_VERSION}] Stack:`, error.stack);
       
       // Fallback notification
-      try {
-        await self.registration.showNotification('Nova Notificação', {
-          body: 'Você recebeu uma nova atualização',
-          icon: '/vite.svg',
-          badge: '/vite.svg',
-          data: { url: '/', version: SW_VERSION }
-        });
-      } catch (fbError) {
-        console.error(`[SW ${SW_VERSION}] ❌ Erro crítico no fallback:`, fbError);
-      }
+      await self.registration.showNotification('Nova Notificação', {
+        body: 'Você recebeu uma nova atualização',
+        icon: '/vite.svg',
+        badge: '/vite.svg',
+        data: { url: '/', version: SW_VERSION }
+      });
     }
   };
   
@@ -315,18 +282,18 @@ self.addEventListener('pushsubscriptionchange', event => {
 
 // 🔧 INSTALL v7.0 - Cache inteligente
 self.addEventListener('install', event => {
-  console.log(`[SW ${SW_VERSION}] 🔧 Instalando v7.0.1...`);
+  console.log(`[SW ${SW_VERSION}] 🔧 Instalando v7.0...`);
   
   const installProcess = async () => {
     try {
       const cache = await caches.open(CACHE_NAME);
       await cache.addAll(STATIC_ASSETS);
-      console.log(`[SW ${SW_VERSION}] ✅ Assets v7.0.1 cacheados`);
+      console.log(`[SW ${SW_VERSION}] ✅ Assets v7.0 cacheados`);
       
       // Forçar ativação imediata
       await self.skipWaiting();
     } catch (error) {
-      console.error(`[SW ${SW_VERSION}] ❌ Erro na instalação v7.0.1:`, error);
+      console.error(`[SW ${SW_VERSION}] ❌ Erro na instalação v7.0:`, error);
     }
   };
   
@@ -335,7 +302,7 @@ self.addEventListener('install', event => {
 
 // ✅ ACTIVATE v7.0 - Limpeza inteligente de caches
 self.addEventListener('activate', event => {
-  console.log(`[SW ${SW_VERSION}] ✅ Ativando v7.0.1...`);
+  console.log(`[SW ${SW_VERSION}] ✅ Ativando v7.0...`);
   
   const activateProcess = async () => {
     try {
@@ -352,7 +319,7 @@ self.addEventListener('activate', event => {
       
       // Tomar controle de todas as páginas
       await self.clients.claim();
-      console.log(`[SW ${SW_VERSION}] ✅ Service Worker v7.0.1 ativo e no controle`);
+      console.log(`[SW ${SW_VERSION}] ✅ Service Worker v7.0 ativo e no controle`);
       
       // Notificar clientes sobre nova versão
       const clients = await self.clients.matchAll();
@@ -365,14 +332,13 @@ self.addEventListener('activate', event => {
             'Actions Inteligentes', 
             'Imagens Grandes',
             'Navegação Otimizada',
-            'Cache Inteligente',
-            'Debug Aprimorado'
+            'Cache Inteligente'
           ]
         });
       });
       
     } catch (error) {
-      console.error(`[SW ${SW_VERSION}] ❌ Erro na ativação v7.0.1:`, error);
+      console.error(`[SW ${SW_VERSION}] ❌ Erro na ativação v7.0:`, error);
     }
   };
   
@@ -454,8 +420,7 @@ self.addEventListener('message', event => {
           actionsInteligentes: true,
           imagensGrandes: true,
           navegacaoOtimizada: true,
-          cacheInteligente: true,
-          debugAprimorado: true
+          cacheInteligente: true
         }
       });
       break;
@@ -467,28 +432,6 @@ self.addEventListener('message', event => {
     case 'CLEAR_CACHE':
       caches.keys().then(names => {
         Promise.all(names.map(name => caches.delete(name)));
-      });
-      break;
-      
-    case 'TEST_NOTIFICATION':
-      // 🆕 Teste direto de notificação
-      console.log(`[SW ${SW_VERSION}] 🧪 Teste direto solicitado`);
-      self.registration.showNotification('🧪 Teste Direto SW v7.0.1', {
-        body: 'Esta notificação foi criada diretamente pelo Service Worker',
-        icon: '/vite.svg',
-        badge: '/vite.svg',
-        tag: 'test-direct-' + Date.now(),
-        requireInteraction: true,
-        data: {
-          url: 'https://projeto-rafael-53f73.web.app',
-          source: 'direct-test'
-        }
-      }).then(() => {
-        console.log(`[SW ${SW_VERSION}] ✅ Teste direto exibido com sucesso`);
-        event.ports[0].postMessage({ success: true });
-      }).catch(error => {
-        console.error(`[SW ${SW_VERSION}] ❌ Erro no teste direto:`, error);
-        event.ports[0].postMessage({ success: false, error: error.message });
       });
       break;
       
@@ -506,12 +449,12 @@ self.addEventListener('message', event => {
 
 // 🚫 ERROR v7.0 - Error handling aprimorado
 self.addEventListener('error', event => {
-  console.error(`[SW ${SW_VERSION}] 💥 Erro no Service Worker v7.0.1:`, event.error);
+  console.error(`[SW ${SW_VERSION}] 💥 Erro no Service Worker v7.0:`, event.error);
 });
 
 self.addEventListener('unhandledrejection', event => {
-  console.error(`[SW ${SW_VERSION}] 💥 Promise rejeitada v7.0.1:`, event.reason);
+  console.error(`[SW ${SW_VERSION}] 💥 Promise rejeitada v7.0:`, event.reason);
 });
 
-console.log(`[SW ${SW_VERSION}] 📍 Web Push Service Worker v7.0.1 carregado com sucesso!`);
-console.log(`[SW ${SW_VERSION}] ✨ Funcionalidades: URL Personalizada, Actions Inteligentes, Imagens Grandes, Navegação Otimizada, Debug Aprimorado`);
+console.log(`[SW ${SW_VERSION}] 📍 Web Push Service Worker v7.0 carregado com sucesso!`);
+console.log(`[SW ${SW_VERSION}] ✨ Funcionalidades: URL Personalizada, Actions Inteligentes, Imagens Grandes, Navegação Otimizada`);

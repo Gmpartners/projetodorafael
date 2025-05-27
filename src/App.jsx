@@ -5,7 +5,7 @@ import { SidebarProvider } from '@/contexts/SidebarContext';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { CustomerChatProvider } from '@/contexts/CustomerChatContext';
 import { StoreChatProvider } from '@/contexts/StoreChatContext';
-import { cleanupOldServiceWorkers, registerServiceWorker } from '@/services/swRegistration';
+import ServiceWorkerManager from '@/components/common/ServiceWorkerManager';
 import './index.css';
 
 // Páginas de autenticação
@@ -29,7 +29,7 @@ const ProfilePage = lazy(() => import('./pages/customer/ProfilePage'));
 const SupportPage = lazy(() => import('./pages/customer/SupportPage'));
 const FAQPage = lazy(() => import('./pages/customer/FAQPage'));
 
-// Componentes de push notifications
+// Componentes de push notifications v7.0
 const NotificationManagementPage = lazy(() => import('./pages/store/push-notifications/NotificationManagementPage'));
 
 // Nova página de produtos
@@ -57,7 +57,7 @@ const PlaceholderPage = ({ title }) => {
           <div className="w-16 h-16 mx-auto bg-purple-100 rounded-full flex items-center justify-center mb-4">
             <span className="text-2xl">🚧</span>
           </div>
-          <h1 className="text-2xl font-bold text-zinc-900 mb-2">Rafael Portal</h1>
+          <h1 className="text-2xl font-bold text-zinc-900 mb-2">Rafael Portal v7.0</h1>
           <p className="text-zinc-600 mb-6">
             Página em construção: <span className="font-medium text-purple-600">{title}</span>
           </p>
@@ -162,267 +162,184 @@ const PublicRoute = ({ children }) => {
 
 function AppContent() {
   return (
-    <Routes>
-      {/* Rotas públicas - SEMPRE acessíveis */}
-      <Route 
-        path="/login" 
-        element={
-          <PublicRoute>
-            <LoginPage />
-          </PublicRoute>
-        } 
-      />
-      <Route 
-        path="/register" 
-        element={
-          <PublicRoute>
-            <RegisterPage />
-          </PublicRoute>
-        } 
-      />
+    <>
+      {/* 🆕 v7.0: Service Worker Manager Global */}
+      <ServiceWorkerManager />
       
-      {/* Rotas de cliente - protegidas */}
-      <Route 
-        path="/customer/dashboard" 
-        element={
-          <ProtectedRoute requiredRole="customer">
-            <CustomerDashboard />
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/customer/orders" 
-        element={
-          <ProtectedRoute requiredRole="customer">
-            <PlaceholderPage title="Pedidos do Cliente" />
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/customer/orders/:orderId" 
-        element={
-          <ProtectedRoute requiredRole="customer">
-            <OrderDetailsCustomer />
-          </ProtectedRoute>
-        } 
-      />
-      
-      {/* Rotas atualizadas de chat do cliente */}
-      <Route 
-        path="/customer/chat" 
-        element={
-          <ProtectedRoute requiredRole="customer">
-            <ChatPage />
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/customer/chat/:id" 
-        element={
-          <ProtectedRoute requiredRole="customer">
-            <ChatPage />
-          </ProtectedRoute>
-        } 
-      />
-      
-      {/* Novas rotas do customer portal */}
-      <Route 
-        path="/customer/profile" 
-        element={
-          <ProtectedRoute requiredRole="customer">
-            <ProfilePage />
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/customer/support" 
-        element={
-          <ProtectedRoute requiredRole="customer">
-            <SupportPage />
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/customer/faq" 
-        element={
-          <ProtectedRoute requiredRole="customer">
-            <FAQPage />
-          </ProtectedRoute>
-        } 
-      />
+      <Routes>
+        {/* Rotas públicas - SEMPRE acessíveis */}
+        <Route 
+          path="/login" 
+          element={
+            <PublicRoute>
+              <LoginPage />
+            </PublicRoute>
+          } 
+        />
+        <Route 
+          path="/register" 
+          element={
+            <PublicRoute>
+              <RegisterPage />
+            </PublicRoute>
+          } 
+        />
+        
+        {/* Rotas de cliente - protegidas */}
+        <Route 
+          path="/customer/dashboard" 
+          element={
+            <ProtectedRoute requiredRole="customer">
+              <CustomerDashboard />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/customer/orders" 
+          element={
+            <ProtectedRoute requiredRole="customer">
+              <PlaceholderPage title="Pedidos do Cliente" />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/customer/orders/:orderId" 
+          element={
+            <ProtectedRoute requiredRole="customer">
+              <OrderDetailsCustomer />
+            </ProtectedRoute>
+          } 
+        />
+        
+        {/* Rotas atualizadas de chat do cliente */}
+        <Route 
+          path="/customer/chat" 
+          element={
+            <ProtectedRoute requiredRole="customer">
+              <ChatPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/customer/chat/:id" 
+          element={
+            <ProtectedRoute requiredRole="customer">
+              <ChatPage />
+            </ProtectedRoute>
+          } 
+        />
+        
+        {/* Novas rotas do customer portal */}
+        <Route 
+          path="/customer/profile" 
+          element={
+            <ProtectedRoute requiredRole="customer">
+              <ProfilePage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/customer/support" 
+          element={
+            <ProtectedRoute requiredRole="customer">
+              <SupportPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/customer/faq" 
+          element={
+            <ProtectedRoute requiredRole="customer">
+              <FAQPage />
+            </ProtectedRoute>
+          } 
+        />
 
-      {/* Rotas de loja - protegidas */}
-      <Route 
-        path="/store/dashboard" 
-        element={
-          <ProtectedRoute requiredRole="store">
-            <StoreDashboard />
-          </ProtectedRoute>
-        } 
-      />
-      
-      {/* Nova rota de produtos */}
-      <Route 
-        path="/store/products" 
-        element={
-          <ProtectedRoute requiredRole="store">
-            <ProductsManagementPage />
-          </ProtectedRoute>
-        } 
-      />
-      
-      <Route 
-        path="/store/orders" 
-        element={
-          <ProtectedRoute requiredRole="store">
-            <PlaceholderPage title="Todos os Pedidos" />
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/store/orders/:orderId" 
-        element={
-          <ProtectedRoute requiredRole="store">
-            <PlaceholderPage title="Detalhes do Pedido" />
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/store/orders/new" 
-        element={
-          <ProtectedRoute requiredRole="store">
-            <PlaceholderPage title="Pedidos Novos" />
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/store/orders/processing" 
-        element={
-          <ProtectedRoute requiredRole="store">
-            <PlaceholderPage title="Pedidos em Processamento" />
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/store/orders/shipped" 
-        element={
-          <ProtectedRoute requiredRole="store">
-            <PlaceholderPage title="Pedidos Enviados" />
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/store/orders/delivered" 
-        element={
-          <ProtectedRoute requiredRole="store">
-            <PlaceholderPage title="Pedidos Entregues" />
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/store/orders/completed" 
-        element={
-          <ProtectedRoute requiredRole="store">
-            <PlaceholderPage title="Pedidos Concluídos" />
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/store/orders/cancelled" 
-        element={
-          <ProtectedRoute requiredRole="store">
-            <PlaceholderPage title="Pedidos Cancelados" />
-          </ProtectedRoute>
-        } 
-      />
-      
-      {/* Rotas atualizadas de chat da loja */}
-      <Route 
-        path="/store/chats" 
-        element={
-          <ProtectedRoute requiredRole="store">
-            <ChatManagementPage />
-          </ProtectedRoute>
-        } 
-      />
-      <Route 
-        path="/store/chat/:orderId?" 
-        element={
-          <ProtectedRoute requiredRole="store">
-            <ChatPage userType="store" />
-          </ProtectedRoute>
-        } 
-      />
+        {/* Rotas de loja - protegidas */}
+        <Route 
+          path="/store/dashboard" 
+          element={
+            <ProtectedRoute requiredRole="store">
+              <StoreDashboard />
+            </ProtectedRoute>
+          } 
+        />
+        
+        {/* Nova rota de produtos */}
+        <Route 
+          path="/store/products" 
+          element={
+            <ProtectedRoute requiredRole="store">
+              <ProductsManagementPage />
+            </ProtectedRoute>
+          } 
+        />
+        
+        <Route 
+          path="/store/orders" 
+          element={
+            <ProtectedRoute requiredRole="store">
+              <PlaceholderPage title="Todos os Pedidos" />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/store/orders/:orderId" 
+          element={
+            <ProtectedRoute requiredRole="store">
+              <PlaceholderPage title="Detalhes do Pedido" />
+            </ProtectedRoute>
+          } 
+        />
+        
+        {/* Rotas atualizadas de chat da loja */}
+        <Route 
+          path="/store/chats" 
+          element={
+            <ProtectedRoute requiredRole="store">
+              <ChatManagementPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/store/chat/:orderId?" 
+          element={
+            <ProtectedRoute requiredRole="store">
+              <ChatPage userType="store" />
+            </ProtectedRoute>
+          } 
+        />
 
-      {/* Nova rota de push notifications da loja */}
-      <Route 
-        path="/store/push-notifications" 
-        element={
-          <ProtectedRoute requiredRole="store">
-            <NotificationManagementPage />
-          </ProtectedRoute>
-        } 
-      />
-      
-      <Route 
-        path="/store/settings" 
-        element={
-          <ProtectedRoute requiredRole="store">
-            <PlaceholderPage title="Configurações" />
-          </ProtectedRoute>
-        } 
-      />
+        {/* 🆕 v7.0: Nova rota de push notifications aprimorada */}
+        <Route 
+          path="/store/push-notifications" 
+          element={
+            <ProtectedRoute requiredRole="store">
+              <NotificationManagementPage />
+            </ProtectedRoute>
+          } 
+        />
+        
+        <Route 
+          path="/store/settings" 
+          element={
+            <ProtectedRoute requiredRole="store">
+              <PlaceholderPage title="Configurações" />
+            </ProtectedRoute>
+          } 
+        />
 
-      {/* Página inicial simples */}
-      <Route path="/" element={<Navigate to="/login" />} />
-      
-      {/* Fallback para rotas não encontradas */}
-      <Route path="*" element={<Navigate to="/login" />} />
-    </Routes>
+        {/* Página inicial simples */}
+        <Route path="/" element={<Navigate to="/login" />} />
+        
+        {/* Fallback para rotas não encontradas */}
+        <Route path="*" element={<Navigate to="/login" />} />
+      </Routes>
+    </>
   );
 }
 
 function App() {
-  // 🚀 REGISTRAR SERVICE WORKER AO INICIALIZAR A APLICAÇÃO
-  useEffect(() => {
-    const initializeServiceWorker = async () => {
-      try {
-        console.log('🧹 Limpando Service Workers antigos...');
-        
-        // Primeiro limpar todos os SWs antigos
-        await cleanupOldServiceWorkers();
-        
-        console.log('🚀 Inicializando novo Service Worker Web Push...');
-        
-        // Aguardar um pouco para garantir limpeza
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // Registrar novo service worker
-        const registration = await registerServiceWorker();
-        console.log('✅ Service Worker Web Push registrado:', registration);
-        
-        // Salvar registro no localStorage para debug
-        localStorage.setItem('sw_registered', 'true');
-        localStorage.setItem('sw_registration_time', new Date().toISOString());
-        localStorage.setItem('sw_type', 'web-push');
-        
-      } catch (error) {
-        console.error('❌ Erro ao inicializar Service Worker:', error);
-        
-        // Salvar erro no localStorage para debug
-        localStorage.setItem('sw_registered', 'false');
-        localStorage.setItem('sw_error', error.message);
-      }
-    };
-
-    // Apenas registrar se estiver em um ambiente que suporte
-    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
-      initializeServiceWorker();
-    } else {
-      console.log('⚠️ Service Workers não suportados neste ambiente');
-    }
-  }, []); // Executar apenas uma vez na inicialização
-
   return (
     <ThemeProvider>
       <SidebarProvider>

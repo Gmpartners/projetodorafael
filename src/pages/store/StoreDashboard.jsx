@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import WebPushSubscription from '@/components/common/WebPushSubscription';
 import { 
   MetricCard, 
   TrendIndicator, 
@@ -21,7 +22,6 @@ import {
   PulseEffect,
   FloatingParticles
 } from '@/components/ui/animations';
-import NotificationSetupCard from '@/components/notifications/NotificationSetupCard';
 import { 
   BarChart3, 
   TrendingUp, 
@@ -52,15 +52,27 @@ import {
   FileTextIcon,
   BellIcon,
   Loader2,
-  Package2Icon
+  Package2Icon,
+  Sparkles,
+  Zap
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { apiService } from '@/services/apiService';
+import webPushService from '@/services/webPushService';
+import { toast } from 'sonner';
 
 const StoreDashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // 🆕 v7.0: Estados para Web Push
+  const [webPushStats, setWebPushStats] = useState({
+    totalSubscriptions: 0,
+    activeSubscriptions: 0,
+    lastNotificationSent: null,
+    status: 'checking'
+  });
   
   // Estados para dados reais da API
   const [dashboardStats, setDashboardStats] = useState({
@@ -79,6 +91,7 @@ const StoreDashboard = () => {
   // Carregar dados ao montar componente
   useEffect(() => {
     fetchDashboardData();
+    fetchWebPushStats(); // 🆕 v7.0
   }, []);
 
   const fetchDashboardData = async () => {
@@ -90,7 +103,7 @@ const StoreDashboard = () => {
       setDashboardStats(dashboardData);
       
       // Carregar pedidos da loja
-      const ordersData = await apiService.getStoreOrders('store_current_user');
+      const ordersData = await apiService.getStoreOrders('E47OkrK3IcNu1Ys8gD4CA29RrHk2');
       setOrders(Array.isArray(ordersData) ? ordersData : []);
       
     } catch (error) {
@@ -101,12 +114,50 @@ const StoreDashboard = () => {
     }
   };
 
+  // 🆕 v7.0: Carregar estatísticas Web Push
+  const fetchWebPushStats = async () => {
+    try {
+      const stats = await apiService.getWebPushStoreStats('E47OkrK3IcNu1Ys8gD4CA29RrHk2');
+      setWebPushStats({
+        totalSubscriptions: stats.totalSubscriptions || 0,
+        activeSubscriptions: stats.activeSubscriptions || 0,
+        lastNotificationSent: stats.lastNotificationSent,
+        status: stats.totalSubscriptions > 0 ? 'active' : 'inactive'
+      });
+    } catch (error) {
+      console.warn('⚠️ Erro ao carregar stats Web Push:', error);
+      setWebPushStats(prev => ({ ...prev, status: 'error' }));
+    }
+  };
+
+  // 🆕 v7.0: Enviar notificação de teste rápida
+  const handleQuickTestNotification = async () => {
+    try {
+      await webPushService.sendTestNotification(
+        'https://projeto-rafael-53f73.web.app/store/dashboard',
+        {
+          title: '🧪 Teste do Dashboard',
+          body: 'Web Push v7.0 funcionando perfeitamente!'
+        }
+      );
+      
+      toast.success('🧪 Teste enviado!', {
+        description: 'Verifique se recebeu a notificação'
+      });
+    } catch (error) {
+      toast.error('❌ Erro no teste', {
+        description: error.message
+      });
+    }
+  };
+
   // Quick refresh handler
   const handleRefreshData = useCallback(async () => {
     await fetchDashboardData();
+    await fetchWebPushStats(); // 🆕 v7.0
   }, []);
 
-  // Métricas principais - usando dados reais
+  // Métricas principais - usando dados reais + Web Push
   const mainStats = useMemo(() => [
     { 
       title: 'Receita Total', 
@@ -141,17 +192,16 @@ const StoreDashboard = () => {
       format: 'number'
     },
     { 
-      title: 'Taxa Conversão', 
-      value: dashboardStats.conversionRate || 0, 
-      change: dashboardStats.conversionChange || 0, 
-      changeLabel: 'vs mês anterior',
-      icon: TrendingUp, 
+      title: 'Web Push v7.0', // 🆕 Nova métrica
+      value: webPushStats.activeSubscriptions || 0, 
+      change: webPushStats.totalSubscriptions - webPushStats.activeSubscriptions || 0, 
+      changeLabel: 'inscritos ativos',
+      icon: Sparkles, 
       color: 'amber',
       trend: 45,
-      suffix: '%',
-      format: 'percentage'
+      format: 'number'
     }
-  ], [dashboardStats]);
+  ], [dashboardStats, webPushStats]);
 
   // Métricas secundárias - usando dados reais
   const secondaryStats = useMemo(() => [
@@ -176,7 +226,7 @@ const StoreDashboard = () => {
     }
   ], [dashboardStats]);
 
-  // Dados das ações rápidas - SEM badges mockados
+  // Dados das ações rápidas - COM Web Push v7.0
   const quickActions = useMemo(() => [
     {
       id: 'orders',
@@ -222,19 +272,19 @@ const StoreDashboard = () => {
     },
     {
       id: 'notifications',
-      title: 'Notificações',
-      description: 'Push notifications',
-      icon: BellIcon,
+      title: 'Web Push v7.0', // 🆕 Atualizado
+      description: 'Sistema completo de notificações',
+      icon: Sparkles, // 🆕 Ícone especial
       color: 'emerald',
       bgColor: 'from-emerald-50 to-emerald-100',
       borderColor: 'border-emerald-200',
       hoverColor: 'hover:border-emerald-400 hover:bg-emerald-50',
       textColor: 'text-emerald-600',
-      badge: 0,
+      badge: webPushStats.activeSubscriptions || 0, // 🆕 Badge com inscritos
       badgeColor: 'bg-emerald-500',
       onClick: () => window.location.href = '/store/push-notifications'
     }
-  ], [dashboardStats.pendingOrders, dashboardStats.newMessages]);
+  ], [dashboardStats.pendingOrders, dashboardStats.newMessages, webPushStats.activeSubscriptions]);
   
   const getStatusBadge = (status) => {
     const statusConfig = {
@@ -347,11 +397,11 @@ const StoreDashboard = () => {
   );
 
   return (
-    <MainLayout userType="store" pageTitle="Dashboard">
+    <MainLayout userType="store" pageTitle="Dashboard v7.0">
       <div className="space-y-6 pb-8">
         <FloatingParticles className="fixed inset-0 z-0" count={8} />
         
-        {/* Header Simplificado */}
+        {/* Header com badge Web Push v7.0 */}
         <FadeInUp delay={0}>
           <div className="relative">
             <GlassCard variant="gradient" className="p-4 border-0 overflow-hidden">
@@ -378,11 +428,20 @@ const StoreDashboard = () => {
                       )}
                     </div>
                     <div>
-                      <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-900 via-purple-800 to-indigo-900 bg-clip-text text-transparent">
-                        Dashboard Executivo
-                      </h1>
+                      <div className="flex items-center space-x-2">
+                        <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-900 via-purple-800 to-indigo-900 bg-clip-text text-transparent">
+                          Dashboard Executivo
+                        </h1>
+                        {/* 🆕 v7.0 Badge */}
+                        {webPushStats.status === 'active' && (
+                          <div className="bg-gradient-to-r from-emerald-500 to-emerald-600 px-3 py-1 rounded-full flex items-center space-x-1 shadow-md">
+                            <Sparkles className="h-3 w-3 text-white" />
+                            <span className="text-xs text-white font-bold">v7.0</span>
+                          </div>
+                        )}
+                      </div>
                       <p className="text-sm text-zinc-600 font-medium">
-                        Visão completa do seu negócio em tempo real
+                        Visão completa com Web Push v7.0 integrado
                       </p>
                     </div>
                   </div>
@@ -399,6 +458,18 @@ const StoreDashboard = () => {
                       className="pl-10 h-10 w-56 border-zinc-200 focus:border-purple-300 focus:ring-purple-200 bg-white/80 backdrop-blur-sm"
                     />
                   </div>
+                  
+                  {/* 🆕 v7.0: Teste rápido de notificação */}
+                  {webPushStats.status === 'active' && (
+                    <Button 
+                      variant="outline"
+                      onClick={handleQuickTestNotification}
+                      className="h-10 px-3 border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                    >
+                      <Zap className="h-4 w-4 mr-1" />
+                      Teste
+                    </Button>
+                  )}
                   
                   {/* Actions */}
                   <Button 
@@ -419,9 +490,39 @@ const StoreDashboard = () => {
           </div>
         </FadeInUp>
 
-        {/* ✅ COMPONENTE DE NOTIFICAÇÕES COMPACTO - NOVO */}
+        {/* 🆕 v7.0: Web Push Subscription Card */}
         <FadeInUp delay={150}>
-          <NotificationSetupCard compact={true} className="mb-4" />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="lg:col-span-2">
+              <WebPushSubscription 
+                userType="store" 
+                showSettings={true}
+                autoInit={true}
+              />
+            </div>
+            <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-xl p-4 border border-emerald-200">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="font-semibold text-emerald-900">Stats v7.0</h4>
+                <Sparkles className="h-4 w-4 text-emerald-600" />
+              </div>
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-emerald-700">Inscritos Ativos:</span>
+                  <span className="font-bold text-emerald-900">{webPushStats.activeSubscriptions}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-emerald-700">Total Inscritos:</span>
+                  <span className="font-bold text-emerald-900">{webPushStats.totalSubscriptions}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-emerald-700">Status:</span>
+                  <Badge className={`text-xs ${webPushStats.status === 'active' ? 'bg-emerald-500' : 'bg-gray-500'}`}>
+                    {webPushStats.status === 'active' ? 'Ativo' : 'Inativo'}
+                  </Badge>
+                </div>
+              </div>
+            </div>
+          </div>
         </FadeInUp>
 
         {/* Sistema de Tabs */}
@@ -452,7 +553,7 @@ const StoreDashboard = () => {
               
               {/* Tab: Visão Geral */}
               <TabsContent value="overview" className="mt-6 space-y-6">
-                {/* Quick Stats Bar */}
+                {/* Quick Stats Bar com Web Push */}
                 <div className="flex items-center justify-between p-4 bg-gradient-to-r from-emerald-50 to-blue-50 rounded-xl border border-emerald-200/50">
                   <div className="flex items-center space-x-6">
                     <div className="text-center">
@@ -468,27 +569,41 @@ const StoreDashboard = () => {
                       <div className="text-xs text-amber-600">Mensagens</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-2xl font-bold text-purple-700">{dashboardStats.completionRate || 0}%</div>
-                      <div className="text-xs text-purple-600">Conclusão</div>
+                      <div className="text-2xl font-bold text-purple-700 flex items-center">
+                        {webPushStats.activeSubscriptions || 0}
+                        <Sparkles className="h-4 w-4 ml-1" />
+                      </div>
+                      <div className="text-xs text-purple-600">Web Push v7.0</div>
                     </div>
                   </div>
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={handleRefreshData}
-                    disabled={isLoading}
-                    className="border-emerald-300 hover:bg-emerald-50"
-                  >
-                    {isLoading ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <RefreshCcwIcon className="h-4 w-4 mr-2" />
-                    )}
-                    Atualizar
-                  </Button>
+                  <div className="flex space-x-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => window.location.href = '/store/push-notifications'}
+                      className="border-purple-300 hover:bg-purple-50 text-purple-700"
+                    >
+                      <Sparkles className="h-4 w-4 mr-2" />
+                      Web Push
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={handleRefreshData}
+                      disabled={isLoading}
+                      className="border-emerald-300 hover:bg-emerald-50"
+                    >
+                      {isLoading ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <RefreshCcwIcon className="h-4 w-4 mr-2" />
+                      )}
+                      Atualizar
+                    </Button>
+                  </div>
                 </div>
 
-                {/* Métricas Principais */}
+                {/* Métricas Principais com Web Push */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   {mainStats.map((stat, i) => (
                     <FadeInUp key={i} delay={i * 100}>
@@ -503,7 +618,10 @@ const StoreDashboard = () => {
                           />
                         }
                         loading={isLoading}
-                        className="hover-lift"
+                        className={cn(
+                          "hover-lift",
+                          stat.icon === Sparkles && "border-2 border-emerald-200 bg-gradient-to-br from-emerald-50 to-emerald-100"
+                        )}
                       />
                     </FadeInUp>
                   ))}
@@ -531,7 +649,7 @@ const StoreDashboard = () => {
                 
                 {/* Main Content Grid */}
                 <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-                  {/* Ações Rápidas */}
+                  {/* Ações Rápidas com Web Push v7.0 */}
                   <FadeInUp delay={600}>
                     <GlassCard className="p-6 border-0 shadow-premium">
                       <div className="flex items-center justify-between mb-6">
@@ -541,7 +659,7 @@ const StoreDashboard = () => {
                           </div>
                           <div>
                             <h3 className="text-lg font-bold text-zinc-900">Ações Rápidas</h3>
-                            <p className="text-sm text-zinc-600">Funcionalidades mais utilizadas</p>
+                            <p className="text-sm text-zinc-600">Funcionalidades v7.0 disponíveis</p>
                           </div>
                         </div>
                         <Badge className="bg-emerald-100 text-emerald-700">
@@ -561,14 +679,16 @@ const StoreDashboard = () => {
                                   "w-full p-4 rounded-xl border-2 transition-all duration-300 group",
                                   "bg-gradient-to-r", action.bgColor,
                                   action.borderColor, action.hoverColor,
-                                  "hover:shadow-md hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-purple-300"
+                                  "hover:shadow-md hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-purple-300",
+                                  action.id === 'notifications' && "ring-2 ring-emerald-300 ring-opacity-50" // 🆕 Destaque especial
                                 )}
                               >
                                 <div className="flex items-center justify-between">
                                   <div className="flex items-center space-x-3">
                                     <div className={cn(
                                       "p-2.5 rounded-lg shadow-sm group-hover:scale-110 transition-transform",
-                                      "bg-white/50 backdrop-blur-sm"
+                                      "bg-white/50 backdrop-blur-sm",
+                                      action.id === 'notifications' && "bg-emerald-200/50" // 🆕 Fundo especial
                                     )}>
                                       <div className="relative">
                                         <IconComponent className={cn("h-5 w-5", action.textColor)} />
@@ -589,6 +709,9 @@ const StoreDashboard = () => {
                                     <div className="text-left">
                                       <h4 className={cn("font-semibold text-sm", action.textColor)}>
                                         {action.title}
+                                        {action.id === 'notifications' && (
+                                          <Sparkles className="inline h-3 w-3 ml-1 text-emerald-500" />
+                                        )}
                                       </h4>
                                       <p className="text-xs text-zinc-600 group-hover:text-zinc-700">
                                         {action.description}
@@ -599,8 +722,9 @@ const StoreDashboard = () => {
                                   {action.badge > 0 && (
                                     <Badge 
                                       className={cn(
-                                        "text-white text-xs px-2 py-1 animate-pulse",
-                                        action.badgeColor
+                                        "text-white text-xs px-2 py-1",
+                                        action.badgeColor,
+                                        action.id === 'notifications' && "animate-pulse"
                                       )}
                                     >
                                       {action.badge}
@@ -615,7 +739,7 @@ const StoreDashboard = () => {
                     </GlassCard>
                   </FadeInUp>
                   
-                  {/* Messages Preview - agora limpo */}
+                  {/* Messages Preview */}
                   <FadeInUp delay={800} className="xl:col-span-2">
                     <GlassCard className="p-6 border-0 shadow-premium">
                       <div className="flex justify-between items-center mb-6">

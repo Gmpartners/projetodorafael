@@ -7,6 +7,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import WebPushSubscription from '@/components/common/WebPushSubscription';
 import { 
   Package, 
   MessageSquare,
@@ -24,7 +25,8 @@ import {
   Loader2
 } from 'lucide-react';
 import { apiService } from '@/services/apiService';
-import { notificationService } from '@/services/notificationService';
+import webPushService from '@/services/webPushService';
+import notificationTemplates from '@/services/notificationTemplates';
 import { toast } from 'sonner';
 
 const CustomerDashboard = () => {
@@ -33,10 +35,9 @@ const CustomerDashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   
-  // ✅ Estados para notificações
-  const [showNotificationPrompt, setShowNotificationPrompt] = useState(false);
-  const [notificationLoading, setNotificationLoading] = useState(false);
-  const [notificationStatus, setNotificationStatus] = useState('unknown');
+  // 🆕 v7.0: Estados para Web Push
+  const [showWebPushCard, setShowWebPushCard] = useState(false);
+  const [webPushStatus, setWebPushStatus] = useState('checking');
   
   // ✅ USAR UID REAL DO USUÁRIO LOGADO
   const storeId = 'E47OkrK3IcNu1Ys8gD4CA29RrHk2';
@@ -51,85 +52,75 @@ const CustomerDashboard = () => {
     messages: 0
   });
 
-  // ✅ VERIFICAR STATUS DE NOTIFICAÇÕES AO CARREGAR
+  // 🆕 v7.0: Verificar status Web Push ao carregar
   useEffect(() => {
-    const checkNotificationStatus = () => {
-      try {
-        const systemStatus = notificationService.getSystemStatus();
-        console.log('🔔 Status do sistema de notificações:', systemStatus);
-        
-        if (!systemStatus.supported) {
-          setNotificationStatus('not-supported');
-        } else if (systemStatus.permission === 'denied') {
-          setNotificationStatus('denied');
-        } else if (systemStatus.permission === 'granted') {
-          setNotificationStatus('granted');
-        } else {
-          // Permissão ainda não foi solicitada
-          setNotificationStatus('default');
-          
-          // ✅ MOSTRAR PROMPT AUTOMATICAMENTE APÓS 3 SEGUNDOS
-          setTimeout(() => {
-            if (systemStatus.supported) {
-              setShowNotificationPrompt(true);
-            }
-          }, 3000);
-        }
-      } catch (error) {
-        console.error('❌ Erro ao verificar status de notificações:', error);
-        setNotificationStatus('error');
-      }
-    };
-
     if (customerId) {
-      checkNotificationStatus();
+      checkWebPushStatus();
       fetchRealCustomerData();
     }
   }, [customerId]);
 
-  // ✅ FUNÇÃO PARA ATIVAR NOTIFICAÇÕES
-  const handleEnableNotifications = async () => {
+  // 🆕 v7.0: Verificar status do Web Push
+  const checkWebPushStatus = async () => {
     try {
-      setNotificationLoading(true);
-      console.log('🔔 Ativando notificações para cliente:', customerId);
+      const status = await webPushService.checkSubscription();
       
-      // 1. Solicitar permissão e obter token
-      const token = await notificationService.requestPermissionAndGetToken();
-      console.log('✅ Token FCM obtido:', token.substring(0, 40) + '...');
-      
-      // 2. Registrar token no backend
-      const deviceInfo = notificationService.getDeviceInfo();
-      await apiService.registerFCMToken(token, deviceInfo);
-      console.log('✅ Token registrado no backend');
-      
-      // 3. Inscrever na loja para receber notificações
-      await apiService.subscribeToStore(storeId);
-      console.log('✅ Inscrito na loja:', storeId);
-      
-      // Atualizar status
-      setNotificationStatus('granted');
-      setShowNotificationPrompt(false);
-      
-      // Sucesso!
-      toast.success('🎉 Notificações ativadas!', {
-        description: 'Você receberá atualizações dos seus pedidos em tempo real'
-      });
-      
-    } catch (error) {
-      console.error('❌ Erro ao ativar notificações:', error);
-      
-      if (error.message.includes('negada')) {
-        setNotificationStatus('denied');
-        toast.error('❌ Permissão negada', {
-          description: 'Você pode ativar nas configurações do navegador'
-        });
+      if (!status.isSupported) {
+        setWebPushStatus('not-supported');
+      } else if (status.permission === 'denied') {
+        setWebPushStatus('denied');
+      } else if (status.permission === 'granted' && status.isSubscribed) {
+        setWebPushStatus('active');
       } else {
-        toast.error('❌ Erro ao ativar notificações', {
-          description: error.message
+        setWebPushStatus('available');
+        // Mostrar cartão de ativação após 3 segundos
+        setTimeout(() => setShowWebPushCard(true), 3000);
+      }
+    } catch (error) {
+      console.error('❌ Erro ao verificar Web Push:', error);
+      setWebPushStatus('error');
+    }
+  };
+
+  // 🆕 v7.0: Ativar Web Push com template personalizado
+  const handleActivateWebPush = async () => {
+    try {
+      await webPushService.initialize();
+      const subscription = await webPushService.subscribe();
+      
+      if (subscription) {
+        // Inscrever na loja
+        await apiService.subscribeToStoreWebPush(storeId);
+        
+        setWebPushStatus('active');
+        setShowWebPushCard(false);
+        
+        // 🆕 v7.0: Enviar notificação de boas-vindas usando template
+        setTimeout(async () => {
+          try {
+            const welcomeTemplate = notificationTemplates.getTemplate('welcome', {
+              customerName: userProfile?.name || 'Cliente',
+              storeName: 'Loja Demo'
+            });
+            
+            await apiService.sendCustomWebPushWithUrl(
+              welcomeTemplate,
+              welcomeTemplate.customUrl,
+              customerId
+            );
+          } catch (e) {
+            console.log('Notificação de boas-vindas falhou:', e);
+          }
+        }, 2000);
+        
+        toast.success('🎉 Web Push v7.0 Ativado!', {
+          description: 'Sistema completo: URL personalizada + Actions inteligentes'
         });
       }
-    } finally {
-      setNotificationLoading(false);
+    } catch (error) {
+      toast.error('❌ Erro ao ativar Web Push', {
+        description: error.message
+      });
     }
   };
 
@@ -137,17 +128,13 @@ const CustomerDashboard = () => {
     try {
       setIsLoading(true);
       setError(null);
-      console.log('🔍 Buscando dados REAIS do customer:', customerId);
-      console.log('👤 User info:', { uid: user?.uid, email: user?.email });
+      console.log('🔍 Buscando dados do customer:', customerId);
       
-      // ✅ BUSCAR PEDIDOS REAIS DO CLIENTE VIA API
       const realOrders = await apiService.getCustomerOrders(customerId);
-      console.log('📋 Pedidos recebidos da API:', realOrders);
+      console.log('📋 Pedidos recebidos:', realOrders);
       
       if (realOrders && realOrders.length > 0) {
-        // ✅ FILTRAR APENAS PEDIDOS COM DADOS REAIS E PROGRESSO
         const validOrders = realOrders.filter(order => {
-          // Manter pedidos que têm productId OU têm custom steps
           const hasProductId = order.productId && order.productId !== 'N/A';
           const hasCustomSteps = order.customSteps && order.customSteps.length > 0;
           const hasProgress = order.progress > 0;
@@ -155,13 +142,11 @@ const CustomerDashboard = () => {
           return hasProductId || hasCustomSteps || hasProgress || order.product?.name;
         });
         
-        console.log(`✅ Pedidos válidos filtrados: ${validOrders.length}/${realOrders.length}`);
+        console.log(`✅ Pedidos válidos: ${validOrders.length}/${realOrders.length}`);
         
-        // ✅ ENRIQUECER PEDIDOS COM DADOS DE PROGRESSO
         const enrichedOrders = await Promise.all(
           validOrders.map(async (order) => {
             try {
-              // Buscar progresso detalhado se não tiver
               if (!order.customSteps || order.customSteps.length === 0) {
                 const progressData = await apiService.getCustomerOrderProgress(order.id, customerId);
                 if (progressData && progressData.customSteps) {
@@ -171,7 +156,6 @@ const CustomerDashboard = () => {
                 }
               }
               
-              // Garantir que tem progresso calculado
               if (!order.progress && order.customSteps) {
                 const completedSteps = order.customSteps.filter(step => step.completed).length;
                 order.progress = Math.round((completedSteps / order.customSteps.length) * 100);
@@ -187,7 +171,6 @@ const CustomerDashboard = () => {
         
         setCustomerOrders(enrichedOrders);
         
-        // ✅ Calcular estatísticas REAIS
         const stats = {
           totalOrders: enrichedOrders.length,
           inProgress: enrichedOrders.filter(order => 
@@ -201,16 +184,14 @@ const CustomerDashboard = () => {
           )
         };
         
-        console.log('📊 Estatísticas calculadas:', stats);
         setDashboardStats(stats);
         
       } else {
-        console.log('📋 Nenhum pedido encontrado para o cliente');
         setCustomerOrders([]);
       }
       
     } catch (error) {
-      console.error('❌ Erro ao carregar dados do cliente:', error);
+      console.error('❌ Erro ao carregar dados:', error);
       setError(`Erro ao carregar seus pedidos: ${error.message}`);
       setCustomerOrders([]);
     } finally {
@@ -282,7 +263,7 @@ const CustomerDashboard = () => {
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-2 border-violet-500 border-t-transparent mx-auto mb-3"></div>
           <p className="text-slate-600 text-sm font-medium">Carregando seus pedidos...</p>
-          <p className="text-xs text-slate-400 mt-1">Cliente: {customerId}</p>
+          <p className="text-xs text-slate-400 mt-1">Web Push v7.0 disponível</p>
         </div>
       </div>
     );
@@ -290,18 +271,25 @@ const CustomerDashboard = () => {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* ✅ Header mais clean e moderno */}
+      {/* Header com badge v7.0 */}
       <header className="bg-gradient-to-r from-violet-500 to-purple-600 px-4 pt-8 pb-6 relative overflow-hidden">
-        {/* Elementos decorativos sutis */}
         <div className="absolute top-0 right-0 w-24 h-24 bg-white/5 rounded-full -translate-y-12 translate-x-12"></div>
         <div className="absolute bottom-0 left-0 w-16 h-16 bg-white/5 rounded-full translate-y-8 -translate-x-8"></div>
         
         <div className="relative z-10">
           <div className="flex justify-between items-start mb-4">
             <div>
-              <p className="text-violet-100 text-sm font-normal mb-1">
-                Olá,
-              </p>
+              <div className="flex items-center space-x-2 mb-1">
+                <p className="text-violet-100 text-sm font-normal">
+                  Olá,
+                </p>
+                {webPushStatus === 'active' && (
+                  <div className="bg-green-500/20 px-2 py-1 rounded-full flex items-center space-x-1">
+                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                    <span className="text-xs text-green-200 font-medium">v7.0</span>
+                  </div>
+                )}
+              </div>
               <h1 className="text-white text-xl font-semibold">
                 {userProfile?.name || 'Maria Silva'}
               </h1>
@@ -323,57 +311,48 @@ const CustomerDashboard = () => {
         </div>
       </header>
 
-      {/* ✅ Content area com design mais limpo */}
       <main className="px-4 py-5 -mt-3 relative z-10">
         
-        {/* ✅ PROMPT DE NOTIFICAÇÕES - NÃO INTRUSIVO MAS VISÍVEL */}
-        {showNotificationPrompt && notificationStatus === 'default' && (
-          <Card className="mb-6 border-2 border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 shadow-lg">
+        {/* 🆕 v7.0: Card de Web Push não intrusivo */}
+        {showWebPushCard && webPushStatus === 'available' && (
+          <Card className="mb-6 border-2 border-purple-200 bg-gradient-to-r from-purple-50 to-violet-50 shadow-lg">
             <CardContent className="p-4">
               <div className="flex items-start space-x-3">
-                <div className="p-2 bg-blue-500 rounded-lg">
-                  <BellIcon className="h-5 w-5 text-white" />
+                <div className="p-2 bg-gradient-to-br from-purple-500 to-violet-600 rounded-lg">
+                  <Sparkles className="h-5 w-5 text-white" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-semibold text-blue-900 mb-1">
-                    Quer receber atualizações dos seus pedidos?
+                  <h3 className="font-semibold text-purple-900 mb-1 flex items-center">
+                    Web Push v7.0 Disponível!
+                    <span className="ml-2 bg-purple-200 text-purple-800 text-xs px-2 py-1 rounded-full">NOVO</span>
                   </h3>
-                  <p className="text-blue-700 text-sm mb-3">
-                    Ative as notificações para ser avisado quando seus pedidos forem atualizados, enviados ou entregues.
+                  <p className="text-purple-700 text-sm mb-3">
+                    Sistema completo com URL personalizada, actions inteligentes e campos configuráveis. 
+                    Receba notificações avançadas sobre seus pedidos!
                   </p>
                   <div className="flex space-x-3">
                     <Button 
-                      onClick={handleEnableNotifications}
-                      disabled={notificationLoading}
-                      className="bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-2"
+                      onClick={handleActivateWebPush}
+                      className="bg-purple-600 hover:bg-purple-700 text-white text-sm px-4 py-2"
                     >
-                      {notificationLoading ? (
-                        <>
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Ativando...
-                        </>
-                      ) : (
-                        <>
-                          <BellIcon className="h-4 w-4 mr-2" />
-                          Ativar Notificações
-                        </>
-                      )}
+                      <Sparkles className="h-4 w-4 mr-2" />
+                      Ativar v7.0
                     </Button>
                     <Button 
                       variant="outline"
                       size="sm"
-                      onClick={() => setShowNotificationPrompt(false)}
-                      className="border-blue-300 text-blue-700 hover:bg-blue-100"
+                      onClick={() => setShowWebPushCard(false)}
+                      className="border-purple-300 text-purple-700 hover:bg-purple-100"
                     >
-                      Agora Não
+                      Depois
                     </Button>
                   </div>
                 </div>
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setShowNotificationPrompt(false)}
-                  className="text-blue-500 hover:text-blue-700 hover:bg-blue-100 p-1"
+                  onClick={() => setShowWebPushCard(false)}
+                  className="text-purple-500 hover:text-purple-700 hover:bg-purple-100 p-1"
                 >
                   <XIcon className="h-4 w-4" />
                 </Button>
@@ -382,26 +361,29 @@ const CustomerDashboard = () => {
           </Card>
         )}
 
-        {/* ✅ FEEDBACK DE STATUS DAS NOTIFICAÇÕES */}
-        {notificationStatus === 'granted' && (
+        {/* Status do Web Push v7.0 */}
+        {webPushStatus === 'active' && (
           <Alert className="mb-6 border-emerald-200 bg-emerald-50">
             <CheckCircle className="h-4 w-4 text-emerald-600" />
-            <AlertDescription className="text-emerald-800">
-              <strong>🎉 Notificações ativadas!</strong> Você receberá atualizações dos seus pedidos em tempo real.
+            <AlertDescription className="text-emerald-800 flex items-center justify-between">
+              <span>
+                <strong>🎉 Web Push v7.0 Ativo!</strong> Sistema completo funcionando.
+              </span>
+              <Sparkles className="h-4 w-4 text-emerald-600" />
             </AlertDescription>
           </Alert>
         )}
 
-        {notificationStatus === 'denied' && (
+        {webPushStatus === 'denied' && (
           <Alert className="mb-6 border-amber-200 bg-amber-50">
             <AlertCircle className="h-4 w-4 text-amber-600" />
             <AlertDescription className="text-amber-800">
-              <strong>⚠️ Notificações bloqueadas.</strong> Para ativar, vá nas configurações do seu navegador e permita notificações para este site.
+              <strong>⚠️ Web Push bloqueado.</strong> Ative nas configurações do navegador para usar v7.0.
             </AlertDescription>
           </Alert>
         )}
 
-        {/* Stats cards mais delicados */}
+        {/* Stats cards */}
         <div className="grid grid-cols-4 gap-2.5 mb-6">
           <div className="bg-white rounded-lg p-3 text-center shadow-sm border border-slate-100">
             <div className="text-lg font-semibold text-slate-800">{dashboardStats.totalOrders}</div>
@@ -421,7 +403,16 @@ const CustomerDashboard = () => {
           </div>
         </div>
 
-        {/* ✅ Seção Meus Pedidos mais clean */}
+        {/* Web Push Subscription Component - Compact */}
+        <div className="mb-6">
+          <WebPushSubscription 
+            userType="customer" 
+            compact={true}
+            autoInit={false}
+          />
+        </div>
+
+        {/* Seção Meus Pedidos */}
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-slate-800 text-lg font-medium">Meus Pedidos</h2>
           <Button 
@@ -434,18 +425,17 @@ const CustomerDashboard = () => {
           </Button>
         </div>
         
-        {/* ✅ Debug info para desenvolvimento */}
+        {/* Debug info para desenvolvimento */}
         {process.env.NODE_ENV === 'development' && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 text-xs">
-            <p><strong>Debug Info:</strong></p>
+            <p><strong>Debug Info v7.0:</strong></p>
             <p>Customer ID: {customerId}</p>
-            <p>Email: {user?.email}</p>
+            <p>Web Push Status: {webPushStatus}</p>
             <p>Store ID: {storeId}</p>
-            <p>Notification Status: {notificationStatus}</p>
           </div>
         )}
         
-        {/* ✅ Tratamento de erro mais elegante */}
+        {/* Tratamento de erro */}
         {error && (
           <Card className="bg-red-50/50 border-red-100 mb-4">
             <CardContent className="p-4">
@@ -492,12 +482,10 @@ const CustomerDashboard = () => {
               >
                 <CardContent className="p-4">
                   <div className="flex items-start space-x-3">
-                    {/* ✅ Ícone da loja mais sutil */}
                     <div className="w-11 h-11 bg-gradient-to-br from-violet-50 to-purple-50 rounded-lg flex items-center justify-center text-lg flex-shrink-0 border border-violet-100">
                       🏪
                     </div>
                     
-                    {/* ✅ Info principal redesenhada */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex-1">
@@ -534,7 +522,6 @@ const CustomerDashboard = () => {
                         </div>
                       </div>
                       
-                      {/* ✅ Status atual mais delicado */}
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center space-x-2">
                           <Sparkles className={`h-3 w-3 ${getStatusColor(order)}`} />
@@ -547,9 +534,7 @@ const CustomerDashboard = () => {
                         </span>
                       </div>
                       
-                      {/* ✅ BARRA DE PROGRESSO MAIS DELICADA */}
                       <div className="space-y-2">
-                        {/* Progress bar principal mais sutil */}
                         <div className="relative">
                           <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
                             <div 
@@ -561,7 +546,6 @@ const CustomerDashboard = () => {
                           </div>
                         </div>
                         
-                        {/* ✅ Timeline mini mais clean */}
                         {order.customSteps && order.customSteps.length > 0 && (
                           <div className="flex justify-between items-center pt-2">
                             {order.customSteps.slice(0, 4).map((step, stepIndex) => {
@@ -590,7 +574,6 @@ const CustomerDashboard = () => {
                           </div>
                         )}
                         
-                        {/* ✅ Descrição mais sutil */}
                         <div className="flex items-center justify-between pt-1">
                           <p className="text-xs text-slate-400">
                             {order.currentStep?.description || 
@@ -613,11 +596,10 @@ const CustomerDashboard = () => {
           </div>
         )}
         
-        {/* ✅ Padding para bottom navigation */}
         <div className="h-20"></div>
       </main>
 
-      {/* ✅ Bottom Navigation mais moderna */}
+      {/* Bottom Navigation */}
       <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200/60 px-4 py-2">
         <div className="flex justify-center items-center max-w-sm mx-auto">
           <button 
