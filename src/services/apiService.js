@@ -41,6 +41,18 @@ api.interceptors.response.use(
 );
 
 export const apiService = {
+  // 🆕 NEW: Customer lookup by email (NO AUTH REQUIRED)
+  async lookupCustomerByEmail(email) {
+    const response = await api.get(`/customer/lookup-by-email?email=${encodeURIComponent(email)}`);
+    return response.data;
+  },
+
+  // 🆕 NEW: Get order progress by email (NO AUTH REQUIRED)
+  async getOrderProgressByEmail(orderId, email) {
+    const response = await api.get(`/customer/orders/${orderId}/progress-by-email?email=${encodeURIComponent(email)}`);
+    return response.data;
+  },
+
   async registerCustomer(customerData) {
     const response = await api.post('/auth/registerCustomer', customerData);
     return response.data;

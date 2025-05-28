@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   Card,
   CardContent,
@@ -33,115 +32,101 @@ import { apiService } from '@/services/apiService';
 const OrderDetailsCustomer = () => {
   const { orderId } = useParams();
   const navigate = useNavigate();
-  const { userProfile, user } = useAuth();
+  const location = useLocation();
   const [isLoading, setIsLoading] = useState(true);
   const [orderDetails, setOrderDetails] = useState(null);
   const [error, setError] = useState(null);
 
-  // ✅ USAR UID REAL DO USUÁRIO LOGADO
-  const customerId = user?.uid || userProfile?.uid || '0HeRINZTlvOM5raS8J4AkITanWP2';
+  // Get customer email from localStorage or state
+  const customerEmail = location.state?.customerEmail || localStorage.getItem('customerEmail');
   const storeId = 'E47OkrK3IcNu1Ys8gD4CA29RrHk2';
 
   useEffect(() => {
-    if (customerId && orderId) {
-      fetchRealOrderDetails();
+    if (!customerEmail) {
+      // Redirect to lookup if no email
+      navigate('/customer/lookup');
+      return;
     }
-  }, [orderId, customerId]);
 
-  const fetchRealOrderDetails = async () => {
+    if (orderId) {
+      fetchOrderDetails();
+    }
+  }, [orderId, customerEmail, navigate]);
+
+  const fetchOrderDetails = async () => {
     try {
       setIsLoading(true);
       setError(null);
-      console.log('🔍 Buscando detalhes REAIS do pedido:', orderId);
+      console.log('🔍 Fetching order details:', orderId, 'for email:', customerEmail);
 
-      // ✅ BUSCAR DADOS REAIS DO PEDIDO VIA API
-      const realOrder = await apiService.getOrder(orderId);
+      // Get order progress by email (no auth required)
+      const progressData = await apiService.getOrderProgressByEmail(orderId, customerEmail);
       
-      if (!realOrder) {
-        throw new Error(`Pedido ${orderId} não encontrado`);
+      if (progressData.success && progressData.data) {
+        const orderData = progressData.data;
+        console.log('✅ Order details loaded:', orderData);
+        setOrderDetails(orderData.orderDetails);
+      } else {
+        throw new Error('Order not found or access denied');
       }
-
-      // ✅ BUSCAR PROGRESSO CUSTOMIZADO REAL DA LOJA
-      let orderWithProgress = { ...realOrder };
-      
-      try {
-        const progressData = await apiService.getCustomerOrderProgress(orderId, customerId);
-        if (progressData) {
-          orderWithProgress = {
-            ...orderWithProgress,
-            customSteps: progressData.customSteps || realOrder.customSteps || [],
-            progress: progressData.progress || realOrder.progress || 0,
-            currentStep: progressData.currentStep || realOrder.currentStep || {}
-          };
-        }
-      } catch (progressError) {
-        console.log('⚠️ Usando dados de progresso do próprio pedido');
-        // Usar dados do próprio pedido se API de progresso falhar
-        if (realOrder.customSteps && realOrder.customSteps.length > 0) {
-          const completedSteps = realOrder.customSteps.filter(step => step.completed).length;
-          orderWithProgress.progress = Math.round((completedSteps / realOrder.customSteps.length) * 100);
-        }
-      }
-
-      console.log('✅ Pedido REAL carregado:', orderWithProgress);
-      setOrderDetails(orderWithProgress);
 
     } catch (error) {
-      console.error('❌ Erro ao carregar detalhes do pedido:', error);
-      setError(error.message);
+      console.error('❌ Error loading order details:', error);
+      
+      if (error.response?.status === 403) {
+        setError('You do not have access to this order');
+      } else if (error.response?.status === 404) {
+        setError('Order not found');
+      } else {
+        setError(error.message || 'Failed to load order details');
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
-  // ✅ FUNÇÃO PARA ABRIR CHAT COM A LOJA
+  // Open chat with store
   const handleOpenChat = async () => {
     try {
-      console.log('💬 Abrindo chat para o pedido:', {
+      console.log('💬 Opening chat for order:', {
         orderId: orderId,
-        customerId: customerId,
+        customerEmail: customerEmail,
         storeId: storeId
       });
 
-      // Criar/obter chat do pedido via API
-      const chatData = await apiService.getOrderChat(orderId, customerId, storeId);
+      // Navigate to chat with customer email
+      navigate(`/customer/chat`, {
+        state: {
+          orderId: orderId,
+          customerEmail: customerEmail,
+          orderDetails: orderDetails
+        }
+      });
       
-      if (chatData && chatData.id) {
-        // Navegar para a página de chat específica
-        navigate(`/customer/chat/${chatData.id}`, {
-          state: {
-            orderId: orderId,
-            orderDetails: orderDetails,
-            chatId: chatData.id
-          }
-        });
-      } else {
-        throw new Error('Não foi possível criar o chat');
-      }
     } catch (error) {
-      console.error('❌ Erro ao abrir chat:', error);
-      alert('Erro ao abrir chat. Tente novamente.');
+      console.error('❌ Error opening chat:', error);
+      alert('Failed to open chat. Please try again.');
     }
   };
 
   const formatCurrency = (value) => {
-    return new Intl.NumberFormat('pt-BR', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'BRL'
+      currency: 'USD'
     }).format(value || 0);
   };
 
   const formatDate = (dateString) => {
-    if (!dateString) return 'Data não disponível';
+    if (!dateString) return 'Date not available';
     try {
       const date = dateString.seconds ? new Date(dateString.seconds * 1000) : new Date(dateString);
-      return date.toLocaleDateString('pt-BR', {
+      return date.toLocaleDateString('en-US', {
         day: '2-digit',
         month: 'long',
         year: 'numeric'
       });
     } catch {
-      return 'Data não disponível';
+      return 'Date not available';
     }
   };
 
@@ -149,7 +134,7 @@ const OrderDetailsCustomer = () => {
     if (!dateString) return 'N/A';
     try {
       const date = dateString.seconds ? new Date(dateString.seconds * 1000) : new Date(dateString);
-      return date.toLocaleDateString('pt-BR', {
+      return date.toLocaleDateString('en-US', {
         day: '2-digit',
         month: 'short',
         hour: '2-digit',
@@ -163,10 +148,10 @@ const OrderDetailsCustomer = () => {
   const getStepIcon = (stepName) => {
     if (!stepName) return Clock;
     const name = stepName.toLowerCase();
-    if (name.includes('confirmado') || name.includes('recebido')) return CheckCircle;
-    if (name.includes('preparando') || name.includes('separando')) return Package;
-    if (name.includes('enviado') || name.includes('transito')) return Truck;
-    if (name.includes('entregue')) return CheckCircle;
+    if (name.includes('confirmed') || name.includes('received')) return CheckCircle;
+    if (name.includes('preparing') || name.includes('packing')) return Package;
+    if (name.includes('shipped') || name.includes('transit')) return Truck;
+    if (name.includes('delivered')) return CheckCircle;
     return Clock;
   };
 
@@ -188,9 +173,9 @@ const OrderDetailsCustomer = () => {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin text-violet-600 mx-auto mb-3" />
-          <p className="text-slate-600 text-sm font-medium">Carregando detalhes...</p>
-          <p className="text-xs text-slate-400 mt-1">Pedido: {orderId}</p>
+          <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-3" />
+          <p className="text-slate-600 text-sm font-medium">Loading order details...</p>
+          <p className="text-xs text-slate-400 mt-1">Order: {orderId}</p>
         </div>
       </div>
     );
@@ -202,16 +187,16 @@ const OrderDetailsCustomer = () => {
         <Card className="w-full max-w-md">
           <CardContent className="p-6 text-center">
             <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-slate-900 mb-2">Pedido não encontrado</h3>
-            <p className="text-slate-500 mb-4 text-sm">{error || 'Este pedido não existe ou você não tem acesso a ele.'}</p>
+            <h3 className="text-lg font-semibold text-slate-900 mb-2">Order not found</h3>
+            <p className="text-slate-500 mb-4 text-sm">{error || 'This order does not exist or you do not have access to it.'}</p>
             <div className="space-y-2">
-              <Button onClick={() => navigate('/customer/dashboard')} className="w-full bg-violet-600 hover:bg-violet-700">
+              <Button onClick={() => navigate('/customer/dashboard')} className="w-full bg-blue-600 hover:bg-blue-700">
                 <ArrowLeft className="h-4 w-4 mr-2" />
-                Voltar aos Pedidos
+                Back to Orders
               </Button>
-              <Button onClick={fetchRealOrderDetails} variant="outline" className="w-full">
+              <Button onClick={fetchOrderDetails} variant="outline" className="w-full">
                 <Loader2 className="h-4 w-4 mr-2" />
-                Tentar Novamente
+                Try Again
               </Button>
             </div>
           </CardContent>
@@ -222,8 +207,8 @@ const OrderDetailsCustomer = () => {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* ✅ Header mais clean */}
-      <header className="bg-gradient-to-r from-violet-500 to-purple-600 px-4 pt-8 pb-6 relative overflow-hidden">
+      {/* Header */}
+      <header className="bg-gradient-to-r from-blue-500 to-indigo-600 px-4 pt-8 pb-6 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-24 h-24 bg-white/5 rounded-full -translate-y-12 translate-x-12"></div>
         <div className="absolute bottom-0 left-0 w-16 h-16 bg-white/5 rounded-full translate-y-8 -translate-x-8"></div>
         
@@ -237,7 +222,7 @@ const OrderDetailsCustomer = () => {
             >
               <ArrowLeft className="h-4 w-4" />
             </Button>
-            <h1 className="text-white text-lg font-medium">Detalhes do Pedido</h1>
+            <h1 className="text-white text-lg font-medium">Order Details</h1>
           </div>
           
           <div className="flex items-center justify-between">
@@ -248,16 +233,16 @@ const OrderDetailsCustomer = () => {
               <div>
                 <div className="flex items-center">
                   <h2 className="text-white text-lg font-medium mr-2">
-                    {orderDetails.storeName || 'Loja GM Partners'}
+                    {orderDetails.storeName || 'Store'}
                   </h2>
                   <div className="w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center">
                     <CheckCircle className="w-2.5 h-2.5 text-white" />
                   </div>
                 </div>
                 <div className="flex items-center mt-1">
-                  <span className="text-violet-200 text-sm">
+                  <span className="text-blue-200 text-sm">
                     <Clock className="h-3 w-3 inline mr-1" />
-                    Pedido #{(orderDetails.orderId || orderDetails.id).toString().slice(-6)}
+                    Order #{(orderDetails.orderId || orderDetails.id).toString().slice(-6)}
                   </span>
                 </div>
               </div>
@@ -266,32 +251,31 @@ const OrderDetailsCustomer = () => {
         </div>
       </header>
 
-      {/* ✅ Content redesenhado */}
+      {/* Content */}
       <main className="px-4 py-5 -mt-3 relative z-10">
-        {/* ✅ Card principal do pedido mais clean */}
+        {/* Main order card */}
         <Card className="bg-white shadow-sm mb-6 border border-slate-100">
           <CardContent className="p-5">
             <div className="flex justify-between items-center mb-4">
               <div>
-                <h3 className="text-violet-600 font-medium text-lg">
-                  Pedido #{(orderDetails.orderId || orderDetails.id).toString().slice(-6)}
+                <h3 className="text-blue-600 font-medium text-lg">
+                  Order #{(orderDetails.orderId || orderDetails.id).toString().slice(-6)}
                 </h3>
                 <p className="text-slate-500 text-sm">
-                  Criado em {formatDate(orderDetails.createdAt)}
+                  Created on {formatDate(orderDetails.createdAt)}
                 </p>
               </div>
             </div>
             
-            {/* ✅ PROGRESSO PRINCIPAL MAIS DELICADO */}
+            {/* Progress section */}
             <div className="mb-5">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center space-x-2">
                   <Sparkles className={`h-4 w-4 ${getStatusColor(orderDetails.progress || 0)}`} />
                   <span className={`font-medium text-sm ${getStatusColor(orderDetails.progress || 0)}`}>
-                    {orderDetails.progress >= 100 ? 'Pedido Finalizado' : 
+                    {orderDetails.progress >= 100 ? 'Order Completed' : 
                      orderDetails.currentStep?.name || 
-                     (orderDetails.customSteps && orderDetails.customSteps.find(step => step.current)?.name) ||
-                     'Em processamento'}
+                     orderDetails.status || 'Processing'}
                   </span>
                 </div>
                 <span className="text-slate-600 font-medium text-sm">
@@ -299,7 +283,7 @@ const OrderDetailsCustomer = () => {
                 </span>
               </div>
               
-              {/* Barra de progresso principal mais sutil */}
+              {/* Progress bar */}
               <div className="relative mb-3">
                 <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
                   <div 
@@ -330,17 +314,17 @@ const OrderDetailsCustomer = () => {
           </CardContent>
         </Card>
 
-        {/* ✅ CHAT COM A LOJA - SEMPRE VISÍVEL (FUNCIONALIDADE PRINCIPAL) */}
-        <Card className="bg-gradient-to-r from-violet-50 to-purple-50 shadow-sm mb-6 border border-violet-100">
+        {/* Chat with store */}
+        <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 shadow-sm mb-6 border border-blue-100">
           <CardContent className="p-5">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center">
-                <div className="w-10 h-10 bg-violet-500 rounded-full flex items-center justify-center mr-3">
+                <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center mr-3">
                   <MessageCircle className="h-5 w-5 text-white" />
                 </div>
                 <div>
-                  <h3 className="font-medium text-violet-800">Conversar com a Loja</h3>
-                  <p className="text-violet-600 text-sm">Tire dúvidas sobre seu pedido</p>
+                  <h3 className="font-medium text-blue-800">Chat with Store</h3>
+                  <p className="text-blue-600 text-sm">Ask questions about your order</p>
                 </div>
               </div>
               {orderDetails.unreadMessages > 0 && (
@@ -350,14 +334,14 @@ const OrderDetailsCustomer = () => {
               )}
             </div>
             
-            <div className="bg-white/70 p-4 rounded-lg border border-violet-200 mb-4">
+            <div className="bg-white/70 p-4 rounded-lg border border-blue-200 mb-4">
               <div className="flex items-start">
-                <HeadphonesIcon className="h-4 w-4 text-violet-500 mr-2 mt-0.5 flex-shrink-0" />
+                <HeadphonesIcon className="h-4 w-4 text-blue-500 mr-2 mt-0.5 flex-shrink-0" />
                 <div className="text-sm">
-                  <p className="text-violet-700 font-medium mb-1">Suporte disponível</p>
-                  <p className="text-violet-600">
-                    Nossa equipe está pronta para ajudar com dúvidas sobre entrega, 
-                    produto ou qualquer questão relacionada ao seu pedido.
+                  <p className="text-blue-700 font-medium mb-1">Customer Support Available</p>
+                  <p className="text-blue-600">
+                    Our team is ready to help with questions about delivery, 
+                    products, or any issues related to your order.
                   </p>
                 </div>
               </div>
@@ -365,74 +349,73 @@ const OrderDetailsCustomer = () => {
             
             <Button 
               onClick={handleOpenChat}
-              className="w-full bg-violet-600 hover:bg-violet-700 text-white shadow-sm"
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
               size="lg"
             >
               <MessageSquare className="h-4 w-4 mr-2" />
-              Iniciar Conversa
+              Start Conversation
               <Send className="h-4 w-4 ml-2" />
             </Button>
           </CardContent>
         </Card>
 
-        {/* ✅ Detalhes do produto mais clean */}
+        {/* Product details */}
         <Card className="bg-white shadow-sm mb-6 border border-slate-100">
           <CardContent className="p-5">
-            <h3 className="text-slate-800 font-medium mb-4">Produto</h3>
+            <h3 className="text-slate-800 font-medium mb-4">Product</h3>
             
             <div className="flex items-center">
-              <div className="w-16 h-16 rounded-lg bg-gradient-to-br from-violet-50 to-purple-50 flex items-center justify-center text-2xl mr-4 flex-shrink-0 border border-violet-100">
+              <div className="w-16 h-16 rounded-lg bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center text-2xl mr-4 flex-shrink-0 border border-blue-100">
                 📦
               </div>
               <div className="flex-1">
                 <h4 className="font-medium text-slate-800">
-                  {orderDetails.productName || orderDetails.productDetails?.name || orderDetails.product?.name || 'Produto'}
+                  {orderDetails.productName || orderDetails.productDetails?.name || orderDetails.product?.name || 'Product'}
                 </h4>
                 <p className="text-slate-600 text-sm mt-1">
-                  {orderDetails.productDetails?.description || orderDetails.product?.description || 'Produto da loja'}
+                  {orderDetails.productDetails?.description || orderDetails.product?.description || 'Store product'}
                 </p>
                 <div className="flex items-center space-x-4 mt-2">
                   <span className="text-sm text-slate-500">
-                    Qtd: {orderDetails.quantity || orderDetails.order?.quantity || 1}
+                    Qty: {orderDetails.quantity || 1}
                   </span>
                   <span className="text-sm font-medium text-slate-800">
-                    {formatCurrency(orderDetails.totalValue || orderDetails.order?.totalValue || orderDetails.productDetails?.price || 0)}
+                    {formatCurrency(orderDetails.totalValue || orderDetails.productDetails?.price || 0)}
                   </span>
-                  {orderDetails.productId && (
-                    <span className="text-xs text-emerald-600 bg-emerald-50 px-2 py-1 rounded border border-emerald-100">
-                      ID: {orderDetails.productId}
-                    </span>
-                  )}
                 </div>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* ✅ Dados do cliente e endereço - SE EXISTIREM */}
+        {/* Customer and address info (masked) */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          {/* Dados do cliente */}
+          {/* Customer data (masked) */}
           {(orderDetails.customer || orderDetails.customerName) && (
             <Card className="bg-white shadow-sm border border-slate-100">
               <CardContent className="p-5">
                 <div className="flex items-center mb-3">
                   <User className="h-4 w-4 text-slate-500 mr-2" />
-                  <span className="font-medium text-slate-700 text-sm">Dados do Cliente</span>
+                  <span className="font-medium text-slate-700 text-sm">Customer Information</span>
                 </div>
                 <div className="space-y-2">
                   <p className="text-slate-900 font-medium text-sm">
-                    {orderDetails.customer?.name || orderDetails.customerName || userProfile?.name || 'Maria Silva'}
+                    {orderDetails.customer?.name || orderDetails.customerName || 'Customer'}
                   </p>
-                  {(orderDetails.customer?.email || orderDetails.customerEmail) && (
-                    <p className="text-slate-600 text-sm flex items-center">
-                      <Mail className="h-3 w-3 mr-2" />
-                      {orderDetails.customer?.email || orderDetails.customerEmail}
-                    </p>
-                  )}
-                  {(orderDetails.customer?.phone || orderDetails.customerPhone) && (
+                  <p className="text-slate-600 text-sm flex items-center">
+                    <Mail className="h-3 w-3 mr-2" />
+                    {customerEmail}
+                  </p>
+                  {orderDetails.customer?.phone && (
                     <p className="text-slate-600 text-sm flex items-center">
                       <Phone className="h-3 w-3 mr-2" />
-                      {orderDetails.customer?.phone || orderDetails.customerPhone}
+                      {orderDetails.customer.phone}
+                    </p>
+                  )}
+                  {orderDetails.customer?.documentId && (
+                    <p className="text-slate-600 text-sm flex items-center">
+                      <User className="h-3 w-3 mr-2" />
+                      ID: {orderDetails.customer.documentId}
                     </p>
                   )}
                 </div>
@@ -440,60 +423,55 @@ const OrderDetailsCustomer = () => {
             </Card>
           )}
           
-          {/* Endereço de entrega */}
-          {(orderDetails.shippingAddress || orderDetails.shipping?.address) && (
+          {/* Shipping address (masked) */}
+          {orderDetails.shippingAddress && (
             <Card className="bg-white shadow-sm border border-slate-100">
               <CardContent className="p-5">
                 <div className="flex items-center mb-3">
                   <MapPin className="h-4 w-4 text-slate-500 mr-2" />
-                  <span className="font-medium text-slate-700 text-sm">Endereço de Entrega</span>
+                  <span className="font-medium text-slate-700 text-sm">Shipping Address</span>
                 </div>
                 <div className="text-sm text-slate-600 space-y-1">
-                  {(() => {
-                    const address = orderDetails.shippingAddress || orderDetails.shipping?.address;
-                    return (
-                      <>
-                        <p>{address.street}</p>
-                        {address.complement && <p>{address.complement}</p>}
-                        <p>{address.neighborhood}</p>
-                        <p>{address.city} - {address.state}</p>
-                        <p className="font-mono text-xs">{address.zipCode}</p>
-                      </>
-                    );
-                  })()}
+                  <p>{orderDetails.shippingAddress.street}</p>
+                  {orderDetails.shippingAddress.complement && 
+                    <p>{orderDetails.shippingAddress.complement}</p>
+                  }
+                  <p>{orderDetails.shippingAddress.neighborhood}</p>
+                  <p>{orderDetails.shippingAddress.city} - {orderDetails.shippingAddress.state}</p>
+                  <p className="font-mono text-xs">{orderDetails.shippingAddress.zipCode}</p>
                 </div>
               </CardContent>
             </Card>
           )}
         </div>
 
-        {/* ✅ Timeline completa das etapas REAIS */}
-        {orderDetails.customSteps && orderDetails.customSteps.length > 0 && (
+        {/* Timeline of steps */}
+        {orderDetails.steps && orderDetails.steps.length > 0 && (
           <Card className="bg-white shadow-sm mb-6 border border-slate-100">
             <CardContent className="p-5">
-              <h3 className="font-medium text-slate-800 mb-5">Acompanhamento Detalhado</h3>
+              <h3 className="font-medium text-slate-800 mb-5">Order Timeline</h3>
               <div className="space-y-5">
-                {orderDetails.customSteps.map((step, index) => {
+                {orderDetails.steps.map((step, index) => {
                   const StepIcon = getStepIcon(step.name);
-                  const isLast = index === orderDetails.customSteps.length - 1;
+                  const isLast = index === orderDetails.steps.length - 1;
                   
                   return (
                     <div key={step.id || index} className="flex items-start relative">
-                      {/* Linha conectora */}
+                      {/* Connecting line */}
                       {!isLast && (
                         <div className={`absolute left-4 top-8 w-0.5 h-6 
                           ${step.completed ? 'bg-emerald-400' : 'bg-slate-200'}`}>
                         </div>
                       )}
                       
-                      {/* Ícone do step */}
+                      {/* Step icon */}
                       <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mr-3 border-2 border-white shadow-sm
                         ${step.completed ? 'bg-emerald-500' : 
                           step.current ? 'bg-blue-500' : 'bg-slate-300'}`}>
                         <StepIcon className="h-4 w-4 text-white" />
                       </div>
                       
-                      {/* Conteúdo do step */}
+                      {/* Step content */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between mb-2">
                           <h4 className={`font-medium text-sm
@@ -502,7 +480,7 @@ const OrderDetailsCustomer = () => {
                             {step.name}
                             {step.current && (
                               <span className="ml-2 inline-block bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs">
-                                Em andamento
+                                In Progress
                               </span>
                             )}
                           </h4>
@@ -534,11 +512,11 @@ const OrderDetailsCustomer = () => {
           </Card>
         )}
 
-        {/* ✅ Padding para bottom navigation */}
+        {/* Padding for bottom navigation */}
         <div className="h-20"></div>
       </main>
 
-      {/* ✅ Bottom Navigation com destaque para chat */}
+      {/* Bottom Navigation */}
       <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200/60 px-4 py-2">
         <div className="flex justify-center items-center max-w-sm mx-auto">
           <button 
@@ -546,11 +524,11 @@ const OrderDetailsCustomer = () => {
             onClick={() => navigate('/customer/dashboard')}
           >
             <Package className="h-5 w-5" />
-            <span className="text-xs mt-1">Pedidos</span>
+            <span className="text-xs mt-1">Orders</span>
           </button>
           
           <button 
-            className="flex flex-col items-center text-violet-600 p-3 mx-6 relative bg-violet-50 rounded-lg border border-violet-200"
+            className="flex flex-col items-center text-blue-600 p-3 mx-6 relative bg-blue-50 rounded-lg border border-blue-200"
             onClick={handleOpenChat}
           >
             <MessageSquare className="h-5 w-5" />
@@ -564,10 +542,10 @@ const OrderDetailsCustomer = () => {
           
           <button 
             className="flex flex-col items-center text-slate-400 p-3"
-            onClick={() => navigate('/customer/profile')}
+            onClick={() => navigate('/customer/lookup')}
           >
-            <User className="h-5 w-5" />
-            <span className="text-xs mt-1">Perfil</span>
+            <ArrowLeft className="h-5 w-5" />
+            <span className="text-xs mt-1">Back</span>
           </button>
         </div>
       </div>

@@ -15,6 +15,9 @@ const RegisterPage = lazy(() => import('./pages/auth/RegisterPage'));
 // Layout e componentes base
 import MainLayout from './components/common/layout/MainLayout';
 
+// 🆕 NEW: Customer Lookup (Email-based, NO AUTH)
+const CustomerLookup = lazy(() => import('./pages/customer/CustomerLookup'));
+
 // Lazy loading para páginas principais
 const CustomerDashboard = lazy(() => import('./pages/customer/CustomerDashboard'));
 const OrderDetailsCustomer = lazy(() => import('./pages/customer/OrderDetailsCustomer'));
@@ -40,10 +43,10 @@ const LoadingFallback = () => (
   <div className="h-screen flex items-center justify-center bg-zinc-50">
     <div className="flex flex-col items-center space-y-4">
       <div className="relative">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
-        <div className="absolute inset-0 rounded-full border-2 border-purple-200"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="absolute inset-0 rounded-full border-2 border-blue-200"></div>
       </div>
-      <div className="text-sm text-zinc-600 animate-pulse">Carregando...</div>
+      <div className="text-sm text-zinc-600 animate-pulse">Loading...</div>
     </div>
   </div>
 );
@@ -54,19 +57,19 @@ const PlaceholderPage = ({ title }) => {
     <div className="h-screen flex items-center justify-center bg-zinc-50">
       <div className="max-w-md w-full bg-white p-8 rounded-xl shadow-sm border border-zinc-200">
         <div className="text-center">
-          <div className="w-16 h-16 mx-auto bg-purple-100 rounded-full flex items-center justify-center mb-4">
+          <div className="w-16 h-16 mx-auto bg-blue-100 rounded-full flex items-center justify-center mb-4">
             <span className="text-2xl">🚧</span>
           </div>
-          <h1 className="text-2xl font-bold text-zinc-900 mb-2">Rafael Portal v7.0</h1>
+          <h1 className="text-2xl font-bold text-zinc-900 mb-2">Customer Portal</h1>
           <p className="text-zinc-600 mb-6">
-            Página em construção: <span className="font-medium text-purple-600">{title}</span>
+            Page under construction: <span className="font-medium text-blue-600">{title}</span>
           </p>
           <div className="flex justify-center">
             <a 
-              href="/login"
-              className="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition-colors shadow-sm"
+              href="/customer/lookup"
+              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
             >
-              Voltar para Login
+              Back to Order Lookup
             </a>
           </div>
         </div>
@@ -99,7 +102,7 @@ const ChatContextProvider = ({ children }) => {
   return children;
 };
 
-// Componente para proteger rotas autenticadas - SEM redirecionamento por role
+// Componente para proteger rotas autenticadas (ONLY FOR STORES)
 const ProtectedRoute = ({ children, requiredRole = null }) => {
   const { isAuthenticated, userProfile, loading } = useAuth();
 
@@ -110,34 +113,34 @@ const ProtectedRoute = ({ children, requiredRole = null }) => {
   }
 
   if (!isAuthenticated) {
-    console.log('❌ Não autenticado, redirecionando para login');
+    console.log('❌ Not authenticated, redirecting to login');
     return <Navigate to="/login" replace />;
   }
 
   // Se tem role requerido mas não corresponde, mostrar uma mensagem em vez de redirecionar
   if (requiredRole && userProfile?.role && userProfile.role !== requiredRole) {
-    console.log('⚠️ Role incorreto:', userProfile.role, 'esperado:', requiredRole);
+    console.log('⚠️ Wrong role:', userProfile.role, 'expected:', requiredRole);
     return (
       <div className="h-screen flex items-center justify-center bg-zinc-50">
         <div className="max-w-md w-full bg-white p-8 rounded-xl shadow-sm border border-zinc-200 text-center">
           <div className="text-6xl mb-4">🚫</div>
-          <h1 className="text-xl font-bold text-zinc-900 mb-2">Acesso Negado</h1>
+          <h1 className="text-xl font-bold text-zinc-900 mb-2">Access Denied</h1>
           <p className="text-zinc-600 mb-6">
-            Esta página é para {requiredRole === 'store' ? 'lojistas' : 'clientes'}.<br/>
-            Você está logado como {userProfile.role === 'store' ? 'lojista' : 'cliente'}.
+            This page is for {requiredRole === 'store' ? 'store owners' : 'customers'}.<br/>
+            You are logged in as {userProfile.role === 'store' ? 'store owner' : 'customer'}.
           </p>
           <div className="flex gap-3 justify-center">
             <a 
-              href={userProfile.role === 'store' ? '/store/dashboard' : '/customer/dashboard'}
-              className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors shadow-sm"
+              href={userProfile.role === 'store' ? '/store/dashboard' : '/customer/lookup'}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
             >
-              Ir para Meu Dashboard
+              Go to My Dashboard
             </a>
             <a 
               href="/login"
               className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors shadow-sm"
             >
-              Trocar Conta
+              Switch Account
             </a>
           </div>
         </div>
@@ -145,7 +148,7 @@ const ProtectedRoute = ({ children, requiredRole = null }) => {
     );
   }
 
-  console.log('✅ Acesso permitido');
+  console.log('✅ Access granted');
   return children;
 };
 
@@ -167,7 +170,51 @@ function AppContent() {
       <ServiceWorkerManager />
       
       <Routes>
-        {/* Rotas públicas - SEMPRE acessíveis */}
+        {/* 🆕 NEW: Customer Lookup - Email-based entry point (NO AUTH) */}
+        <Route 
+          path="/customer/lookup" 
+          element={
+            <PublicRoute>
+              <CustomerLookup />
+            </PublicRoute>
+          } 
+        />
+
+        {/* 🆕 NEW: Customer routes - Email-based (NO AUTH REQUIRED) */}
+        <Route 
+          path="/customer/dashboard" 
+          element={
+            <PublicRoute>
+              <CustomerDashboard />
+            </PublicRoute>
+          } 
+        />
+        <Route 
+          path="/customer/orders/:orderId" 
+          element={
+            <PublicRoute>
+              <OrderDetailsCustomer />
+            </PublicRoute>
+          } 
+        />
+        <Route 
+          path="/customer/chat" 
+          element={
+            <PublicRoute>
+              <ChatPage />
+            </PublicRoute>
+          } 
+        />
+        <Route 
+          path="/customer/chat/:id" 
+          element={
+            <PublicRoute>
+              <ChatPage />
+            </PublicRoute>
+          } 
+        />
+        
+        {/* Store routes - PROTECTED (Auth required) */}
         <Route 
           path="/login" 
           element={
@@ -184,78 +231,8 @@ function AppContent() {
             </PublicRoute>
           } 
         />
-        
-        {/* Rotas de cliente - protegidas */}
-        <Route 
-          path="/customer/dashboard" 
-          element={
-            <ProtectedRoute requiredRole="customer">
-              <CustomerDashboard />
-            </ProtectedRoute>
-          } 
-        />
-        <Route 
-          path="/customer/orders" 
-          element={
-            <ProtectedRoute requiredRole="customer">
-              <PlaceholderPage title="Pedidos do Cliente" />
-            </ProtectedRoute>
-          } 
-        />
-        <Route 
-          path="/customer/orders/:orderId" 
-          element={
-            <ProtectedRoute requiredRole="customer">
-              <OrderDetailsCustomer />
-            </ProtectedRoute>
-          } 
-        />
-        
-        {/* Rotas atualizadas de chat do cliente */}
-        <Route 
-          path="/customer/chat" 
-          element={
-            <ProtectedRoute requiredRole="customer">
-              <ChatPage />
-            </ProtectedRoute>
-          } 
-        />
-        <Route 
-          path="/customer/chat/:id" 
-          element={
-            <ProtectedRoute requiredRole="customer">
-              <ChatPage />
-            </ProtectedRoute>
-          } 
-        />
-        
-        {/* Novas rotas do customer portal */}
-        <Route 
-          path="/customer/profile" 
-          element={
-            <ProtectedRoute requiredRole="customer">
-              <ProfilePage />
-            </ProtectedRoute>
-          } 
-        />
-        <Route 
-          path="/customer/support" 
-          element={
-            <ProtectedRoute requiredRole="customer">
-              <SupportPage />
-            </ProtectedRoute>
-          } 
-        />
-        <Route 
-          path="/customer/faq" 
-          element={
-            <ProtectedRoute requiredRole="customer">
-              <FAQPage />
-            </ProtectedRoute>
-          } 
-        />
 
-        {/* Rotas de loja - protegidas */}
+        {/* Store dashboard - PROTECTED */}
         <Route 
           path="/store/dashboard" 
           element={
@@ -265,7 +242,7 @@ function AppContent() {
           } 
         />
         
-        {/* Nova rota de produtos */}
+        {/* Store products */}
         <Route 
           path="/store/products" 
           element={
@@ -279,7 +256,7 @@ function AppContent() {
           path="/store/orders" 
           element={
             <ProtectedRoute requiredRole="store">
-              <PlaceholderPage title="Todos os Pedidos" />
+              <PlaceholderPage title="All Orders" />
             </ProtectedRoute>
           } 
         />
@@ -287,12 +264,12 @@ function AppContent() {
           path="/store/orders/:orderId" 
           element={
             <ProtectedRoute requiredRole="store">
-              <PlaceholderPage title="Detalhes do Pedido" />
+              <PlaceholderPage title="Order Details" />
             </ProtectedRoute>
           } 
         />
         
-        {/* Rotas atualizadas de chat da loja */}
+        {/* Store chat routes */}
         <Route 
           path="/store/chats" 
           element={
@@ -310,7 +287,7 @@ function AppContent() {
           } 
         />
 
-        {/* 🆕 v7.0: Nova rota de push notifications aprimorada */}
+        {/* Store notifications */}
         <Route 
           path="/store/push-notifications" 
           element={
@@ -324,16 +301,16 @@ function AppContent() {
           path="/store/settings" 
           element={
             <ProtectedRoute requiredRole="store">
-              <PlaceholderPage title="Configurações" />
+              <PlaceholderPage title="Settings" />
             </ProtectedRoute>
           } 
         />
 
-        {/* Página inicial simples */}
-        <Route path="/" element={<Navigate to="/login" />} />
+        {/* Home route - redirect to customer lookup */}
+        <Route path="/" element={<Navigate to="/customer/lookup" />} />
         
-        {/* Fallback para rotas não encontradas */}
-        <Route path="*" element={<Navigate to="/login" />} />
+        {/* Fallback for unknown routes */}
+        <Route path="*" element={<Navigate to="/customer/lookup" />} />
       </Routes>
     </>
   );

@@ -1,17 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
 import {
   Card,
   CardContent,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import WebPushSubscription from '@/components/common/WebPushSubscription';
 import { 
   Package, 
   MessageSquare,
-  LogOut,
+  ArrowLeft,
   RefreshCw,
   User,
   CheckCircle,
@@ -20,9 +18,10 @@ import {
   AlertCircle,
   ArrowRight,
   Sparkles,
-  BellIcon,
   XIcon,
-  Loader2
+  Mail,
+  Phone,
+  MapPin
 } from 'lucide-react';
 import { apiService } from '@/services/apiService';
 import webPushService from '@/services/webPushService';
@@ -31,17 +30,18 @@ import { toast } from 'sonner';
 
 const CustomerDashboard = () => {
   const navigate = useNavigate();
-  const { logout, userProfile, user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  
+  // Email-based data instead of Firebase Auth
+  const [customerEmail, setCustomerEmail] = useState('');
+  const [customerData, setCustomerData] = useState(null);
   
   // Estados para notificações
   const [showNotificationCard, setShowNotificationCard] = useState(false);
   const [notificationStatus, setNotificationStatus] = useState('checking');
   
-  // ✅ USAR UID REAL DO USUÁRIO LOGADO
   const storeId = 'E47OkrK3IcNu1Ys8gD4CA29RrHk2';
-  const customerId = user?.uid || userProfile?.uid || '0HeRINZTlvOM5raS8J4AkITanWP2';
   
   // Estados para dados REAIS da API
   const [customerOrders, setCustomerOrders] = useState([]);
@@ -52,13 +52,34 @@ const CustomerDashboard = () => {
     messages: 0
   });
 
-  // Verificar status das notificações ao carregar
+  // Load customer data from localStorage
   useEffect(() => {
-    if (customerId) {
-      checkNotificationStatus();
-      fetchRealCustomerData();
+    const storedEmail = localStorage.getItem('customerEmail');
+    const storedData = localStorage.getItem('customerData');
+    
+    if (!storedEmail || !storedData) {
+      // Redirect back to lookup if no data
+      navigate('/customer/lookup');
+      return;
     }
-  }, [customerId]);
+    
+    try {
+      const parsedData = JSON.parse(storedData);
+      setCustomerEmail(storedEmail);
+      setCustomerData(parsedData);
+      
+      if (parsedData.orders) {
+        setCustomerOrders(parsedData.orders);
+        setDashboardStats(parsedData.stats);
+      }
+      
+      setIsLoading(false);
+      checkNotificationStatus();
+    } catch (error) {
+      console.error('Error parsing customer data:', error);
+      navigate('/customer/lookup');
+    }
+  }, [navigate]);
 
   // Verificar status das notificações
   const checkNotificationStatus = async () => {
@@ -73,138 +94,91 @@ const CustomerDashboard = () => {
         setNotificationStatus('active');
       } else {
         setNotificationStatus('available');
-        // Mostrar cartão de ativação após 3 segundos
+        // Show activation card after 3 seconds
         setTimeout(() => setShowNotificationCard(true), 3000);
       }
     } catch (error) {
-      console.error('Erro ao verificar notificação:', error);
+      console.error('Error checking notification status:', error);
       setNotificationStatus('error');
     }
   };
 
-  // Ativar notificações
+  // Activate notifications
   const handleActivateNotifications = async () => {
     try {
       await webPushService.initialize();
       const subscription = await webPushService.subscribe();
       
       if (subscription) {
-        // Inscrever na loja
+        // Subscribe to store
         await apiService.subscribeToStoreWebPush(storeId);
         
         setNotificationStatus('active');
         setShowNotificationCard(false);
         
-        // Enviar notificação de boas-vindas
+        // Send welcome notification
         setTimeout(async () => {
           try {
             const welcomeTemplate = notificationTemplates.getTemplate('welcome', {
-              customerName: userProfile?.name || 'Cliente',
-              storeName: 'Loja Demo'
+              customerName: customerData?.customer?.name || 'Customer',
+              storeName: 'Store'
             });
             
             await apiService.sendCustomWebPushWithUrl(
               welcomeTemplate,
-              welcomeTemplate.customUrl,
-              customerId
+              welcomeTemplate.customUrl
             );
           } catch (e) {
-            console.log('Notificação de boas-vindas falhou:', e);
+            console.log('Welcome notification failed:', e);
           }
         }, 2000);
         
-        toast.success('🎉 Notificações ativadas!', {
-          description: 'Você receberá alertas sobre seus pedidos'
+        toast.success('🎉 Notifications activated!', {
+          description: 'You will receive alerts about your orders'
         });
       }
     } catch (error) {
-      toast.error('❌ Erro ao ativar notificações', {
+      toast.error('❌ Failed to activate notifications', {
         description: error.message
       });
     }
   };
 
-  const fetchRealCustomerData = async () => {
+  const refreshData = async () => {
+    if (!customerEmail) return;
+    
     try {
       setIsLoading(true);
       setError(null);
-      console.log('🔍 Buscando dados do customer:', customerId);
       
-      const realOrders = await apiService.getCustomerOrders(customerId);
-      console.log('📋 Pedidos recebidos:', realOrders);
+      console.log('🔍 Refreshing data for:', customerEmail);
       
-      if (realOrders && realOrders.length > 0) {
-        const validOrders = realOrders.filter(order => {
-          const hasProductId = order.productId && order.productId !== 'N/A';
-          const hasCustomSteps = order.customSteps && order.customSteps.length > 0;
-          const hasProgress = order.progress > 0;
-          
-          return hasProductId || hasCustomSteps || hasProgress || order.product?.name;
-        });
+      const response = await apiService.lookupCustomerByEmail(customerEmail);
+      
+      if (response.success && response.data) {
+        setCustomerData(response.data);
+        setCustomerOrders(response.data.orders);
+        setDashboardStats(response.data.stats);
         
-        console.log(`✅ Pedidos válidos: ${validOrders.length}/${realOrders.length}`);
+        // Update localStorage
+        localStorage.setItem('customerData', JSON.stringify(response.data));
         
-        const enrichedOrders = await Promise.all(
-          validOrders.map(async (order) => {
-            try {
-              if (!order.customSteps || order.customSteps.length === 0) {
-                const progressData = await apiService.getCustomerOrderProgress(order.id, customerId);
-                if (progressData && progressData.customSteps) {
-                  order.customSteps = progressData.customSteps;
-                  order.progress = progressData.progress;
-                  order.currentStep = progressData.currentStep;
-                }
-              }
-              
-              if (!order.progress && order.customSteps) {
-                const completedSteps = order.customSteps.filter(step => step.completed).length;
-                order.progress = Math.round((completedSteps / order.customSteps.length) * 100);
-              }
-              
-              return order;
-            } catch (progressError) {
-              console.log(`⚠️ Erro ao buscar progresso do pedido ${order.id}:`, progressError.message);
-              return order;
-            }
-          })
-        );
-        
-        setCustomerOrders(enrichedOrders);
-        
-        const stats = {
-          totalOrders: enrichedOrders.length,
-          inProgress: enrichedOrders.filter(order => 
-            order.progress < 100 && !['entregue', 'cancelado', 'finalizado'].includes(order.status?.toLowerCase())
-          ).length,
-          completed: enrichedOrders.filter(order => 
-            order.progress >= 100 || ['entregue', 'finalizado'].includes(order.status?.toLowerCase())
-          ).length,
-          messages: enrichedOrders.reduce((sum, order) => 
-            sum + (order.unreadMessages || 0), 0
-          )
-        };
-        
-        setDashboardStats(stats);
-        
-      } else {
-        setCustomerOrders([]);
+        toast.success('✅ Data updated successfully');
       }
-      
     } catch (error) {
-      console.error('❌ Erro ao carregar dados:', error);
-      setError(`Erro ao carregar seus pedidos: ${error.message}`);
-      setCustomerOrders([]);
+      console.error('❌ Error refreshing data:', error);
+      setError('Failed to refresh order data');
+      toast.error('❌ Failed to refresh data');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleLogout = async () => {
-    try {
-      await logout();
-    } catch (error) {
-      console.error('Erro no logout:', error);
-    }
+  const handleBack = () => {
+    // Clear stored data and go back to lookup
+    localStorage.removeItem('customerEmail');
+    localStorage.removeItem('customerData');
+    navigate('/customer/lookup');
   };
 
   const getStatusColor = (order) => {
@@ -222,7 +196,7 @@ const CustomerDashboard = () => {
   };
 
   const getStatusText = (order) => {
-    if (order.progress >= 100) return 'Entregue';
+    if (order.progress >= 100) return 'Delivered';
     if (order.currentStep?.name) return order.currentStep.name;
     if (order.customSteps) {
       const currentStep = order.customSteps.find(step => step.current);
@@ -231,29 +205,29 @@ const CustomerDashboard = () => {
       const nextStep = order.customSteps.find(step => !step.completed);
       if (nextStep) return nextStep.name;
     }
-    return order.status || 'Processando';
+    return order.status || 'Processing';
   };
 
   const formatDate = (dateString) => {
-    if (!dateString) return 'Hoje';
+    if (!dateString) return 'Today';
     try {
       const date = dateString.seconds ? new Date(dateString.seconds * 1000) : new Date(dateString);
-      return date.toLocaleDateString('pt-BR', {
+      return date.toLocaleDateString('en-US', {
         day: '2-digit',
         month: 'short'
       });
     } catch {
-      return 'Hoje';
+      return 'Today';
     }
   };
 
   const getStepIcon = (stepName) => {
     if (!stepName) return Clock;
     const name = stepName.toLowerCase();
-    if (name.includes('confirmado') || name.includes('recebido')) return CheckCircle;
-    if (name.includes('preparando') || name.includes('separando')) return Package;
-    if (name.includes('enviado') || name.includes('transito')) return Truck;
-    if (name.includes('entregue')) return CheckCircle;
+    if (name.includes('confirmed') || name.includes('received')) return CheckCircle;
+    if (name.includes('preparing') || name.includes('packing')) return Package;
+    if (name.includes('shipped') || name.includes('transit')) return Truck;
+    if (name.includes('delivered')) return CheckCircle;
     return Clock;
   };
 
@@ -261,8 +235,8 @@ const CustomerDashboard = () => {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-2 border-violet-500 border-t-transparent mx-auto mb-3"></div>
-          <p className="text-slate-600 text-sm font-medium">Carregando seus pedidos...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-500 border-t-transparent mx-auto mb-3"></div>
+          <p className="text-slate-600 text-sm font-medium">Loading your orders...</p>
         </div>
       </div>
     );
@@ -271,7 +245,7 @@ const CustomerDashboard = () => {
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Header */}
-      <header className="bg-gradient-to-r from-violet-500 to-purple-600 px-4 pt-8 pb-6 relative overflow-hidden">
+      <header className="bg-gradient-to-r from-blue-500 to-indigo-600 px-4 pt-8 pb-6 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-24 h-24 bg-white/5 rounded-full -translate-y-12 translate-x-12"></div>
         <div className="absolute bottom-0 left-0 w-16 h-16 bg-white/5 rounded-full translate-y-8 -translate-x-8"></div>
         
@@ -279,8 +253,8 @@ const CustomerDashboard = () => {
           <div className="flex justify-between items-start mb-4">
             <div>
               <div className="flex items-center space-x-2 mb-1">
-                <p className="text-violet-100 text-sm font-normal">
-                  Olá,
+                <p className="text-blue-100 text-sm font-normal">
+                  Hello,
                 </p>
                 {notificationStatus === 'active' && (
                   <div className="bg-green-500/20 px-2 py-1 rounded-full flex items-center space-x-1">
@@ -290,59 +264,90 @@ const CustomerDashboard = () => {
                 )}
               </div>
               <h1 className="text-white text-xl font-semibold">
-                {userProfile?.name || 'Maria Silva'}
+                {customerData?.customer?.name || 'Customer'}
               </h1>
             </div>
             
             <Button 
               variant="ghost" 
               size="sm"
-              onClick={handleLogout}
+              onClick={handleBack}
               className="text-white/80 hover:text-white hover:bg-white/10 p-2 rounded-lg"
             >
-              <LogOut className="h-4 w-4" />
+              <ArrowLeft className="h-4 w-4" />
             </Button>
           </div>
           
-          <p className="text-violet-100/80 text-sm max-w-xs">
-            Acompanhe seus pedidos em tempo real
+          <p className="text-blue-100/80 text-sm max-w-xs">
+            Track your orders in real-time
           </p>
         </div>
       </header>
 
       <main className="px-4 py-5 -mt-3 relative z-10">
         
-        {/* Card de notificações não intrusivo */}
+        {/* Customer Info Card */}
+        <Card className="mb-6 bg-white shadow-sm border border-slate-200">
+          <CardContent className="p-4">
+            <div className="flex items-start space-x-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                <User className="h-5 w-5 text-white" />
+              </div>
+              <div className="flex-1 space-y-2">
+                <div className="flex items-center space-x-2">
+                  <Mail className="h-4 w-4 text-slate-400" />
+                  <span className="text-sm text-slate-600">{customerEmail}</span>
+                </div>
+                
+                {customerData?.customer?.phone && (
+                  <div className="flex items-center space-x-2">
+                    <Phone className="h-4 w-4 text-slate-400" />
+                    <span className="text-sm text-slate-600">{customerData.customer.phone}</span>
+                  </div>
+                )}
+                
+                {customerData?.customer?.documentId && (
+                  <div className="flex items-center space-x-2">
+                    <User className="h-4 w-4 text-slate-400" />
+                    <span className="text-sm text-slate-600">ID: {customerData.customer.documentId}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        {/* Notification Card */}
         {showNotificationCard && notificationStatus === 'available' && (
-          <Card className="mb-6 border-2 border-purple-200 bg-gradient-to-r from-purple-50 to-violet-50 shadow-lg">
+          <Card className="mb-6 border-2 border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 shadow-lg">
             <CardContent className="p-4">
               <div className="flex items-start space-x-3">
-                <div className="p-2 bg-gradient-to-br from-purple-500 to-violet-600 rounded-lg">
+                <div className="p-2 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg">
                   <Sparkles className="h-5 w-5 text-white" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-semibold text-purple-900 mb-1 flex items-center">
-                    Notificações Disponíveis!
-                    <span className="ml-2 bg-purple-200 text-purple-800 text-xs px-2 py-1 rounded-full">NOVO</span>
+                  <h3 className="font-semibold text-blue-900 mb-1 flex items-center">
+                    Enable Notifications!
+                    <span className="ml-2 bg-blue-200 text-blue-800 text-xs px-2 py-1 rounded-full">NEW</span>
                   </h3>
-                  <p className="text-purple-700 text-sm mb-3">
-                    Receba alertas sobre atualizações dos seus pedidos diretamente no navegador!
+                  <p className="text-blue-700 text-sm mb-3">
+                    Get instant alerts about your order updates directly in your browser!
                   </p>
                   <div className="flex space-x-3">
                     <Button 
                       onClick={handleActivateNotifications}
-                      className="bg-purple-600 hover:bg-purple-700 text-white text-sm px-4 py-2"
+                      className="bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-2"
                     >
                       <Sparkles className="h-4 w-4 mr-2" />
-                      Ativar Notificações
+                      Enable Notifications
                     </Button>
                     <Button 
                       variant="outline"
                       size="sm"
                       onClick={() => setShowNotificationCard(false)}
-                      className="border-purple-300 text-purple-700 hover:bg-purple-100"
+                      className="border-blue-300 text-blue-700 hover:bg-blue-100"
                     >
-                      Depois
+                      Later
                     </Button>
                   </div>
                 </div>
@@ -350,7 +355,7 @@ const CustomerDashboard = () => {
                   variant="ghost"
                   size="sm"
                   onClick={() => setShowNotificationCard(false)}
-                  className="text-purple-500 hover:text-purple-700 hover:bg-purple-100 p-1"
+                  className="text-blue-500 hover:text-blue-700 hover:bg-blue-100 p-1"
                 >
                   <XIcon className="h-4 w-4" />
                 </Button>
@@ -359,13 +364,13 @@ const CustomerDashboard = () => {
           </Card>
         )}
 
-        {/* Status das notificações */}
+        {/* Notification Status */}
         {notificationStatus === 'active' && (
           <Alert className="mb-6 border-emerald-200 bg-emerald-50">
             <CheckCircle className="h-4 w-4 text-emerald-600" />
             <AlertDescription className="text-emerald-800 flex items-center justify-between">
               <span>
-                <strong>🎉 Notificações ativas!</strong> Você receberá alertas sobre seus pedidos.
+                <strong>🎉 Notifications active!</strong> You'll receive alerts about your orders.
               </span>
               <Sparkles className="h-4 w-4 text-emerald-600" />
             </AlertDescription>
@@ -376,7 +381,7 @@ const CustomerDashboard = () => {
           <Alert className="mb-6 border-amber-200 bg-amber-50">
             <AlertCircle className="h-4 w-4 text-amber-600" />
             <AlertDescription className="text-amber-800">
-              <strong>⚠️ Notificações bloqueadas.</strong> Ative nas configurações do navegador para receber alertas.
+              <strong>⚠️ Notifications blocked.</strong> Enable in browser settings to receive alerts.
             </AlertDescription>
           </Alert>
         )}
@@ -385,51 +390,52 @@ const CustomerDashboard = () => {
         <div className="grid grid-cols-4 gap-2.5 mb-6">
           <div className="bg-white rounded-lg p-3 text-center shadow-sm border border-slate-100">
             <div className="text-lg font-semibold text-slate-800">{dashboardStats.totalOrders}</div>
-            <div className="text-xs text-slate-500 font-medium">Pedidos</div>
+            <div className="text-xs text-slate-500 font-medium">Orders</div>
           </div>
           <div className="bg-white rounded-lg p-3 text-center shadow-sm border border-slate-100">
             <div className="text-lg font-semibold text-blue-600">{dashboardStats.inProgress}</div>
-            <div className="text-xs text-slate-500 font-medium">Andamento</div>
+            <div className="text-xs text-slate-500 font-medium">In Progress</div>
           </div>
           <div className="bg-white rounded-lg p-3 text-center shadow-sm border border-slate-100">
             <div className="text-lg font-semibold text-emerald-600">{dashboardStats.completed}</div>
-            <div className="text-xs text-slate-500 font-medium">Finalizados</div>
+            <div className="text-xs text-slate-500 font-medium">Completed</div>
           </div>
           <div className="bg-white rounded-lg p-3 text-center shadow-sm border border-slate-100">
             <div className="text-lg font-semibold text-violet-600">{dashboardStats.messages}</div>
-            <div className="text-xs text-slate-500 font-medium">Mensagens</div>
+            <div className="text-xs text-slate-500 font-medium">Messages</div>
           </div>
         </div>
 
-        {/* Seção Meus Pedidos */}
+        {/* My Orders Section */}
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-slate-800 text-lg font-medium">Meus Pedidos</h2>
+          <h2 className="text-slate-800 text-lg font-medium">My Orders</h2>
           <Button 
             variant="ghost" 
             size="sm"
-            onClick={fetchRealCustomerData}
+            onClick={refreshData}
             className="text-slate-400 hover:text-slate-600 p-2"
+            disabled={isLoading}
           >
-            <RefreshCw className="h-4 w-4" />
+            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
           </Button>
         </div>
         
-        {/* Tratamento de erro */}
+        {/* Error handling */}
         {error && (
           <Card className="bg-red-50/50 border-red-100 mb-4">
             <CardContent className="p-4">
               <div className="flex items-center">
                 <AlertCircle className="h-4 w-4 text-red-500 mr-2 flex-shrink-0" />
                 <div>
-                  <p className="text-red-800 text-sm font-medium">Erro ao carregar dados</p>
+                  <p className="text-red-800 text-sm font-medium">Error loading data</p>
                   <p className="text-red-600 text-xs mt-1">{error}</p>
                   <Button 
-                    onClick={fetchRealCustomerData} 
+                    onClick={refreshData} 
                     className="mt-2 bg-red-500 hover:bg-red-600 text-white text-xs px-3 py-1.5"
                     size="sm"
                   >
                     <RefreshCw className="h-3 w-3 mr-1" />
-                    Tentar Novamente
+                    Try Again
                   </Button>
                 </div>
               </div>
@@ -442,13 +448,13 @@ const CustomerDashboard = () => {
             <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <Package className="h-8 w-8 text-slate-400" />
             </div>
-            <h3 className="font-medium text-slate-800 mb-2">Nenhum pedido encontrado</h3>
+            <h3 className="font-medium text-slate-800 mb-2">No orders found</h3>
             <p className="text-slate-500 text-sm mb-4">
-              Você ainda não possui pedidos ou eles estão sendo processados
+              You don't have any orders yet, or they're being processed
             </p>
-            <Button onClick={fetchRealCustomerData} variant="outline" size="sm">
+            <Button onClick={refreshData} variant="outline" size="sm">
               <RefreshCw className="h-4 w-4 mr-2" />
-              Atualizar
+              Refresh
             </Button>
           </div>
         ) : (
@@ -457,11 +463,11 @@ const CustomerDashboard = () => {
               <Card 
                 key={order.id || index}
                 className="bg-white border border-slate-100 shadow-sm hover:shadow-md hover:border-slate-200 transition-all duration-200 cursor-pointer group"
-                onClick={() => navigate(`/customer/orders/${order.id || order.orderId}`)}
+                onClick={() => navigate(`/customer/orders/${order.id || order.orderId}`, { state: { customerEmail } })}
               >
                 <CardContent className="p-4">
                   <div className="flex items-start space-x-3">
-                    <div className="w-11 h-11 bg-gradient-to-br from-violet-50 to-purple-50 rounded-lg flex items-center justify-center text-lg flex-shrink-0 border border-violet-100">
+                    <div className="w-11 h-11 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg flex items-center justify-center text-lg flex-shrink-0 border border-blue-100">
                       🏪
                     </div>
                     
@@ -470,7 +476,7 @@ const CustomerDashboard = () => {
                         <div className="flex-1">
                           <div className="flex items-center space-x-2 mb-1">
                             <h3 className="font-medium text-slate-800 text-sm">
-                              Pedido #{(order.orderId || order.id).toString().slice(-6)}
+                              Order #{(order.orderId || order.id).toString().slice(-6)}
                             </h3>
                             {order.progress >= 100 && (
                               <div className="w-3 h-3 bg-emerald-500 rounded-full flex items-center justify-center">
@@ -483,12 +489,12 @@ const CustomerDashboard = () => {
                           </div>
                           
                           <p className="text-slate-600 text-sm font-medium">
-                            {order.productName || order.productDetails?.name || order.product?.name || 'Produto da loja'}
+                            {order.productName || order.productDetails?.name || order.product?.name || 'Store Product'}
                           </p>
                           
                           {(order.quantity > 1) && (
                             <p className="text-slate-400 text-xs">
-                              {order.quantity} itens
+                              {order.quantity} items
                             </p>
                           )}
                         </div>
@@ -557,12 +563,12 @@ const CustomerDashboard = () => {
                           <p className="text-xs text-slate-400">
                             {order.currentStep?.description || 
                              (order.customSteps && order.customSteps.find(step => step.current)?.description) ||
-                             'Acompanhe o progresso'}
+                             'Track your progress'}
                           </p>
                           
                           {order.progress < 100 && (
                             <span className="text-xs text-blue-500 font-medium">
-                              Em andamento
+                              In Progress
                             </span>
                           )}
                         </div>
@@ -582,19 +588,19 @@ const CustomerDashboard = () => {
       <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200/60 px-4 py-2">
         <div className="flex justify-center items-center max-w-sm mx-auto">
           <button 
-            className="flex flex-col items-center text-violet-600 p-3"
+            className="flex flex-col items-center text-blue-600 p-3"
             onClick={() => navigate('/customer/dashboard')}
           >
             <Package className="h-5 w-5" />
-            <span className="text-xs mt-1 font-medium">Pedidos</span>
+            <span className="text-xs mt-1 font-medium">Orders</span>
           </button>
           
           <button 
             className="flex flex-col items-center text-slate-400 p-3 mx-6 relative"
-            onClick={() => navigate('/customer/chat')}
+            onClick={() => navigate('/customer/chat', { state: { customerEmail } })}
           >
             <MessageSquare className="h-5 w-5" />
-            <span className="text-xs mt-1">Mensagens</span>
+            <span className="text-xs mt-1">Messages</span>
             {dashboardStats.messages > 0 && (
               <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center">
                 <span className="text-xs text-white font-medium">{dashboardStats.messages}</span>
@@ -604,10 +610,10 @@ const CustomerDashboard = () => {
           
           <button 
             className="flex flex-col items-center text-slate-400 p-3"
-            onClick={() => navigate('/customer/profile')}
+            onClick={handleBack}
           >
-            <User className="h-5 w-5" />
-            <span className="text-xs mt-1">Perfil</span>
+            <ArrowLeft className="h-5 w-5" />
+            <span className="text-xs mt-1">Back</span>
           </button>
         </div>
       </div>
