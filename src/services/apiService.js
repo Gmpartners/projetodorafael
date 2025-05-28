@@ -402,8 +402,6 @@ export const apiService = {
     });
     return response.data;
   },
-    return response.data;
-  },
 
   // 🆕 v7.0: Teste por tipos específicos
   async testWebPushByType(type, customUrl = null, options = {}) {
@@ -426,8 +424,6 @@ export const apiService = {
         link: customUrl
       }
     });
-    return response.data;
-  },
     return response.data;
   },
 

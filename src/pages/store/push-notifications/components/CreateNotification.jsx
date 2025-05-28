@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,11 +18,8 @@ import {
   Loader2,
   Upload,
   Sparkles,
-  Settings,
-  Zap,
-  MousePointer,
-  ExternalLink,
-  CheckCircle
+  X,
+  MousePointer
 } from 'lucide-react';
 import { apiService } from '@/services/apiService';
 import { useAuth } from '@/contexts/AuthContext';
@@ -33,21 +30,18 @@ const CreateNotification = () => {
   const { user, userProfile } = useAuth();
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
-  const [type, setType] = useState('custom');
   const [targetType, setTargetType] = useState('subscribers');
   const [targetUserId, setTargetUserId] = useState('');
   const [scheduledDate, setScheduledDate] = useState('');
   const [loading, setLoading] = useState(false);
   
-  // 🆕 v7.0: Estados para URL personalizada
+  // 🆕 v7.3: Estados para URL personalizada (sem validação via API)
   const [customUrl, setCustomUrl] = useState('');
-  const [urlValid, setUrlValid] = useState(null);
-  const [validatingUrl, setValidatingUrl] = useState(false);
-
-  // 🆕 v7.0: Estados para Actions inteligentes
-  const [enableSmartActions, setEnableSmartActions] = useState(true);
-  const [selectedActions, setSelectedActions] = useState([]);
-  const [availableActions, setAvailableActions] = useState([]);
+  
+  // 🆕 v7.3: Sistema de botões personalizados livre
+  const [customButtons, setCustomButtons] = useState([]);
+  const [newButtonTitle, setNewButtonTitle] = useState('');
+  const [newButtonAction, setNewButtonAction] = useState('');
 
   // Estados para imagens personalizadas
   const [customIcon, setCustomIcon] = useState(null);
@@ -55,109 +49,29 @@ const CreateNotification = () => {
   const [uploadingIcon, setUploadingIcon] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
 
-  // 🆕 v7.0: Estados para configurações avançadas
-  const [requireInteraction, setRequireInteraction] = useState(true);
-  const [vibrationPattern, setVibrationPattern] = useState('default');
-  const [showAdvanced, setShowAdvanced] = useState(false);
-
-  // 🆕 v7.0: Carregar actions disponíveis quando o tipo mudar
-  useEffect(() => {
-    if (enableSmartActions && type) {
-      loadAvailableActions(type);
-    }
-  }, [type, enableSmartActions]);
-
-  // 🆕 v7.0: Validar URL personalizada quando ela mudar
-  useEffect(() => {
-    if (customUrl && customUrl.trim()) {
-      validateUrl(customUrl);
-    } else {
-      setUrlValid(null);
-    }
-  }, [customUrl]);
-
-  // 🆕 v7.0: Carregar actions disponíveis para o tipo
-  const loadAvailableActions = async (notificationType) => {
-    try {
-      const templates = await apiService.getActionTemplates(notificationType);
-      setAvailableActions(templates.actions || []);
-      
-      // Auto-selecionar as 2 primeiras actions se disponíveis
-      if (templates.actions && templates.actions.length > 0) {
-        setSelectedActions(templates.actions.slice(0, 2));
-      }
-    } catch (error) {
-      console.error('❌ Erro ao carregar action templates:', error);
-      
-      // Fallback: Actions padrão baseadas no tipo
-      const defaultActions = getDefaultActionsByType(notificationType);
-      setAvailableActions(defaultActions);
-      setSelectedActions(defaultActions.slice(0, 2));
-    }
-  };
-
-  // 🆕 v7.0: Actions padrão por tipo (fallback)
-  const getDefaultActionsByType = (type) => {
-    const actionMap = {
-      order_status: [
-        { action: 'view_order', title: '📦 Ver Pedido', icon: '📦' },
-        { action: 'track_order', title: '🚚 Rastrear', icon: '🚚' }
-      ],
-      chat_message: [
-        { action: 'reply_chat', title: '💬 Responder', icon: '💬' },
-        { action: 'view_chat', title: '👁️ Ver Chat', icon: '👁️' }
-      ],
-      custom_step: [
-        { action: 'view_progress', title: '📊 Ver Progresso', icon: '📊' },
-        { action: 'view_details', title: '📋 Detalhes', icon: '📋' }
-      ],
-      promotion: [
-        { action: 'view_offer', title: '🛍️ Ver Oferta', icon: '🛍️' },
-        { action: 'shop_now', title: '🛒 Comprar', icon: '🛒' }
-      ],
-      news: [
-        { action: 'read_more', title: '📖 Ler Mais', icon: '📖' },
-        { action: 'share', title: '🔗 Compartilhar', icon: '🔗' }
-      ],
-      feedback: [
-        { action: 'rate_now', title: '⭐ Avaliar', icon: '⭐' },
-        { action: 'write_review', title: '✍️ Comentar', icon: '✍️' }
-      ],
-      custom: [
-        { action: 'open_app', title: '📱 Abrir App', icon: '📱' },
-        { action: 'view_details', title: '👁️ Ver Detalhes', icon: '👁️' }
-      ]
-    };
-    
-    return actionMap[type] || actionMap.custom;
-  };
-
-  // 🆕 v7.0: Validar URL personalizada
-  const validateUrl = async (url) => {
-    if (!url || url.trim().length === 0) {
-      setUrlValid(null);
+  // 🆕 v7.3: Adicionar novo botão personalizado
+  const addCustomButton = () => {
+    if (!newButtonTitle.trim()) {
+      toast.error('Digite o texto do botão');
       return;
     }
 
-    setValidatingUrl(true);
-    
-    try {
-      const result = await apiService.validateCustomUrl(url.trim());
-      setUrlValid(result.valid);
-      
-      if (!result.valid && result.suggestion) {
-        toast.info(`💡 Sugestão: ${result.suggestion}`);
-      }
-    } catch (error) {
-      console.error('❌ Erro ao validar URL:', error);
-      
-      // Validação básica local como fallback
-      const urlPattern = /^(https?:\/\/)?([\w\-\.]+)+([\w\-\._~:/?#[\]@!\$&'\(\)\*\+,;=.]+)?$/;
-      const isValid = urlPattern.test(url.trim());
-      setUrlValid(isValid);
-    } finally {
-      setValidatingUrl(false);
-    }
+    const newButton = {
+      title: newButtonTitle.trim(),
+      action: newButtonAction.trim() || `action_${Date.now()}`, // Gera action automática se não fornecida
+      icon: null // Pode adicionar suporte a ícones depois
+    };
+
+    setCustomButtons([...customButtons, newButton]);
+    setNewButtonTitle('');
+    setNewButtonAction('');
+    toast.success('Botão adicionado!');
+  };
+
+  // 🆕 v7.3: Remover botão personalizado
+  const removeCustomButton = (index) => {
+    setCustomButtons(customButtons.filter((_, i) => i !== index));
+    toast.success('Botão removido');
   };
 
   // Upload de imagem para Firebase Storage
@@ -272,66 +186,6 @@ const CreateNotification = () => {
     if (input) input.click();
   };
 
-  // 🆕 v7.0: Gerar URL automática baseada no tipo
-  const generateSmartUrl = () => {
-    const baseUrl = 'https://projeto-rafael-53f73.web.app';
-    let suggestedUrl = '';
-
-    switch (type) {
-      case 'order_status':
-        suggestedUrl = `${baseUrl}/customer/orders`;
-        break;
-      case 'chat_message':
-        suggestedUrl = `${baseUrl}/customer/chat`;
-        break;
-      case 'promotion':
-        suggestedUrl = `${baseUrl}/customer/offers`;
-        break;
-      case 'news':
-        suggestedUrl = `${baseUrl}/customer/news`;
-        break;
-      case 'feedback':
-        suggestedUrl = `${baseUrl}/customer/feedback`;
-        break;
-      default:
-        suggestedUrl = `${baseUrl}/customer/dashboard`;
-    }
-
-    setCustomUrl(suggestedUrl);
-    toast.success('🎯 URL inteligente gerada!');
-  };
-
-  // 🆕 v7.0: Teste rápido da notificação
-  const handleQuickTest = async () => {
-    if (!title.trim() || !body.trim()) {
-      toast.error('Preencha título e mensagem para testar');
-      return;
-    }
-
-    try {
-      const testData = {
-        title: title.trim(),
-        body: body.trim(),
-        icon: customIcon,
-        image: customImage,
-        customUrl: customUrl || undefined,
-        type
-      };
-
-      await apiService.sendWebPushTestWithCustomUrl(
-        customUrl || 'https://projeto-rafael-53f73.web.app/customer/dashboard',
-        testData
-      );
-      
-      toast.success('🧪 Notificação de teste enviada!', {
-        description: 'Verifique se recebeu a notificação'
-      });
-    } catch (error) {
-      console.error('❌ Erro no teste:', error);
-      toast.error('Erro ao enviar teste: ' + error.message);
-    }
-  };
-
   const handleSendNotification = async () => {
     if (!title.trim() || !body.trim()) {
       toast.error('Preencha título e mensagem');
@@ -346,24 +200,23 @@ const CreateNotification = () => {
 
     setLoading(true);
     try {
-      console.log('📤 Enviando notificação v7.0...');
+      console.log('📤 Enviando notificação v7.3 (simplificada)...');
 
       const baseNotificationData = {
         title: title.trim(),
         body: body.trim(),
-        type,
-        // 🆕 v7.0: URL personalizada
+        type: 'custom',
+        // 🆕 v7.3: URL personalizada sem validação via API
         data: {
-          type,
+          type: 'custom',
           timestamp: new Date().toISOString(),
-          source: 'manual_creation_v7',
-          url: customUrl || 'https://projeto-rafael-53f73.web.app/customer/dashboard'
+          source: 'manual_creation_v7_3',
+          ...(customUrl && { url: customUrl })
         },
-        // 🆕 v7.0: Actions inteligentes
-        actions: enableSmartActions ? selectedActions : [],
-        // 🆕 v7.0: Configurações avançadas
-        requireInteraction,
-        vibrate: getVibrationPattern(vibrationPattern)
+        // 🆕 v7.3: Botões totalmente personalizados
+        ...(customButtons.length > 0 && { actions: customButtons }),
+        requireInteraction: true,
+        vibrate: [200, 100, 200]
       };
 
       // Incluir imagens personalizadas
@@ -382,42 +235,27 @@ const CreateNotification = () => {
         };
 
         const result = await apiService.createNotification(notificationData);
-        console.log('✅ Notificação v7.0 agendada:', result);
+        console.log('✅ Notificação v7.3 agendada:', result);
         
-        toast.success('📅 Notificação v7.0 agendada com sucesso!', {
+        toast.success('📅 Notificação agendada com sucesso!', {
           description: `Será enviada em ${new Date(scheduledDate).toLocaleString()}`
         });
       } else {
-        // 🆕 v7.0: Usar método correto baseado no tipo de destinatário
-        let result;
+        // Envio imediato
+        const result = await apiService.sendImmediateNotification({
+          ...baseNotificationData,
+          target: targetType,
+          ...(targetType === 'user' && targetUserId && { targetId: targetUserId }),
+          data: {
+            ...baseNotificationData.data,
+            ...(customUrl && { link: customUrl })
+          }
+        });
         
-        if (targetType === 'subscribers') {
-          // CORRETO: Enviar para TODOS os inscritos da loja
-          console.log('📢 Enviando para todos os inscritos da loja...');
-          
-          const storeId = userProfile?.uid || user?.uid || localStorage.getItem('storeId');
-          console.log('🔍 Store ID detectado:', storeId);
-          
-          result = await apiService.sendWebPushToStore(
-            storeId,
-            baseNotificationData,
-            customUrl || 'https://projeto-rafael-53f73.web.app/customer/dashboard'
-          );
-        } else {
-          // Enviar para usuário específico
-          console.log('👤 Enviando para usuário específico:', targetUserId);
-          
-          result = await apiService.sendCustomWebPushWithUrl(
-            baseNotificationData,
-            customUrl || 'https://projeto-rafael-53f73.web.app/customer/dashboard',
-            targetUserId
-          );
-        }
+        console.log('✅ Notificação v7.3 enviada:', result);
         
-        console.log('✅ Notificação v7.0 enviada:', result);
-        
-        toast.success('🚀 Notificação v7.0 enviada com sucesso!', {
-          description: `Enviada com URL personalizada e ${selectedActions.length} actions`
+        toast.success('🚀 Notificação enviada com sucesso!', {
+          description: `${customButtons.length} botões personalizados`
         });
       }
       
@@ -425,14 +263,14 @@ const CreateNotification = () => {
       resetForm();
       
     } catch (error) {
-      console.error('❌ Erro ao enviar notificação v7.0:', error);
+      console.error('❌ Erro ao enviar notificação v7.3:', error);
       toast.error('❌ Erro ao enviar notificação: ' + error.message);
     } finally {
       setLoading(false);
     }
   };
 
-  // 🆕 v7.0: Reset do formulário
+  // Reset do formulário
   const resetForm = () => {
     setTitle('');
     setBody('');
@@ -441,27 +279,15 @@ const CreateNotification = () => {
     setCustomUrl('');
     setCustomIcon(null);
     setCustomImage(null);
-    setSelectedActions([]);
-    setUrlValid(null);
+    setCustomButtons([]);
+    setNewButtonTitle('');
+    setNewButtonAction('');
     
     // Limpar inputs de arquivo
     const iconInput = document.getElementById('notification-logo');
     const imageInput = document.getElementById('notification-image');
     if (iconInput) iconInput.value = '';
     if (imageInput) imageInput.value = '';
-  };
-
-  // 🆕 v7.0: Obter padrão de vibração
-  const getVibrationPattern = (pattern) => {
-    const patterns = {
-      default: [200, 100, 200],
-      gentle: [100, 50, 100],
-      strong: [300, 200, 300],
-      pulse: [100, 100, 100, 100, 100],
-      none: []
-    };
-    
-    return patterns[pattern] || patterns.default;
   };
 
   return (
@@ -473,44 +299,24 @@ const CreateNotification = () => {
               <Sparkles className="h-6 w-6 text-purple-700" />
             </div>
             <div>
-              <h3 className="text-xl font-bold text-zinc-900">Criar Notificação v7.0</h3>
-              <p className="text-zinc-600">URL personalizada + Actions inteligentes + Campos configuráveis</p>
+              <h3 className="text-xl font-bold text-zinc-900">Criar Notificação v7.3</h3>
+              <p className="text-zinc-600">Crie notificações com botões totalmente personalizados</p>
             </div>
           </div>
 
           <div className="space-y-6">
-            {/* Form Fields Básicos */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="type">Tipo de Notificação</Label>
-                <Select value={type} onValueChange={setType}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o tipo..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="order_status">📦 Status de Pedido</SelectItem>
-                    <SelectItem value="chat_message">💬 Mensagem de Chat</SelectItem>
-                    <SelectItem value="custom_step">📊 Etapa Personalizada</SelectItem>
-                    <SelectItem value="promotion">🎁 Promoção</SelectItem>
-                    <SelectItem value="news">📢 Novidade</SelectItem>
-                    <SelectItem value="feedback">⭐ Solicitação de Avaliação</SelectItem>
-                    <SelectItem value="custom">💬 Personalizada</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="target">Destinatário</Label>
-                <Select value={targetType} onValueChange={setTargetType}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o destinatário..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="subscribers">👥 Todos os Inscritos</SelectItem>
-                    <SelectItem value="user">👤 Usuário Específico</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            {/* Destinatário */}
+            <div className="space-y-2">
+              <Label htmlFor="target">Destinatário</Label>
+              <Select value={targetType} onValueChange={setTargetType}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o destinatário..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="subscribers">👥 Todos os Inscritos</SelectItem>
+                  <SelectItem value="user">👤 Usuário Específico</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             {targetType === 'user' && (
@@ -525,86 +331,7 @@ const CreateNotification = () => {
               </div>
             )}
 
-            {/* 🆕 v7.0: URL Personalizada */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="customUrl">🎯 URL Personalizada (v7.0)</Label>
-                <Button 
-                  type="button"
-                  variant="outline" 
-                  size="sm"
-                  onClick={generateSmartUrl}
-                  className="text-xs"
-                >
-                  <Zap className="h-3 w-3 mr-1" />
-                  Gerar Inteligente
-                </Button>
-              </div>
-              <div className="relative">
-                <LinkIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-zinc-400" />
-                <Input
-                  id="customUrl"
-                  value={customUrl}
-                  onChange={(e) => setCustomUrl(e.target.value)}
-                  placeholder="https://projeto-rafael-53f73.web.app/customer/dashboard"
-                  className={cn(
-                    "pl-10 pr-10",
-                    urlValid === true && "border-green-500",
-                    urlValid === false && "border-red-500"
-                  )}
-                />
-                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                  {validatingUrl ? (
-                    <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
-                  ) : urlValid === true ? (
-                    <CheckCircle className="h-4 w-4 text-green-500" />
-                  ) : urlValid === false ? (
-                    <ExternalLink className="h-4 w-4 text-red-500" />
-                  ) : null}
-                </div>
-              </div>
-              <p className="text-xs text-zinc-500">
-                {customUrl ? 'Ao clicar na notificação, o usuário será levado para esta URL' : 'Deixe vazio para usar URL padrão do dashboard'}
-              </p>
-            </div>
-
-            {/* 🆕 v7.0: Actions Inteligentes */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label className="text-sm font-semibold">🎯 Actions Inteligentes (v7.0)</Label>
-                <Switch
-                  checked={enableSmartActions}
-                  onCheckedChange={setEnableSmartActions}
-                />
-              </div>
-              
-              {enableSmartActions && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
-                  <p className="text-sm text-blue-800 font-medium">
-                    Actions configuradas automaticamente para tipo: <span className="font-bold">{type}</span>
-                  </p>
-                  
-                  <div className="grid grid-cols-2 gap-2">
-                    {selectedActions.slice(0, 2).map((action, index) => (
-                      <div key={index} className="bg-white rounded-lg p-3 border border-blue-200">
-                        <div className="flex items-center space-x-2">
-                          <span className="text-lg">{action.icon}</span>
-                          <div>
-                            <p className="text-sm font-semibold text-blue-900">{action.title}</p>
-                            <p className="text-xs text-blue-600">{action.action}</p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  
-                  <p className="text-xs text-blue-600">
-                    💡 As actions são configuradas automaticamente baseadas no tipo de notificação
-                  </p>
-                </div>
-              )}
-            </div>
-
+            {/* Título e Mensagem */}
             <div className="space-y-2">
               <div className="flex justify-between items-center">
                 <Label htmlFor="title">Título da Notificação</Label>
@@ -644,6 +371,95 @@ const CreateNotification = () => {
               />
             </div>
 
+            {/* 🆕 v7.3: URL Personalizada (sem validação via API) */}
+            <div className="space-y-2">
+              <Label htmlFor="customUrl">URL Personalizada (Opcional)</Label>
+              <div className="relative">
+                <LinkIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-zinc-400" />
+                <Input
+                  id="customUrl"
+                  value={customUrl}
+                  onChange={(e) => setCustomUrl(e.target.value)}
+                  placeholder="https://exemplo.com/promocao"
+                  className="pl-10"
+                />
+              </div>
+              <p className="text-xs text-zinc-500">
+                Deixe vazio para usar URL padrão do dashboard
+              </p>
+            </div>
+
+            {/* 🆕 v7.3: Sistema de Botões Personalizados */}
+            <div className="space-y-3">
+              <Label className="text-sm font-semibold">🎯 Botões Personalizados</Label>
+              
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
+                <p className="text-sm text-blue-800 font-medium">
+                  Adicione até 2 botões personalizados na notificação
+                </p>
+                
+                {/* Formulário para adicionar novo botão */}
+                <div className="grid grid-cols-12 gap-2">
+                  <div className="col-span-5">
+                    <Input
+                      placeholder="Texto do botão"
+                      value={newButtonTitle}
+                      onChange={(e) => setNewButtonTitle(e.target.value)}
+                      maxLength={20}
+                    />
+                  </div>
+                  <div className="col-span-5">
+                    <Input
+                      placeholder="ID da ação (opcional)"
+                      value={newButtonAction}
+                      onChange={(e) => setNewButtonAction(e.target.value)}
+                      maxLength={20}
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <Button
+                      type="button"
+                      onClick={addCustomButton}
+                      disabled={!newButtonTitle.trim() || customButtons.length >= 2}
+                      className="w-full"
+                    >
+                      <PlusIcon className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+                
+                {/* Lista de botões adicionados */}
+                {customButtons.length > 0 && (
+                  <div className="space-y-2">
+                    {customButtons.map((button, index) => (
+                      <div key={index} className="bg-white rounded-lg p-3 border border-blue-200 flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <MousePointer className="h-4 w-4 text-blue-600" />
+                          <div>
+                            <p className="text-sm font-semibold text-blue-900">{button.title}</p>
+                            <p className="text-xs text-blue-600">Ação: {button.action}</p>
+                          </div>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeCustomButton(index)}
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                <p className="text-xs text-blue-600">
+                  💡 Os botões aparecerão na notificação permitindo ações rápidas
+                </p>
+              </div>
+            </div>
+
             {/* Uploads de Imagem */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -672,9 +488,6 @@ const CreateNotification = () => {
                       >
                         <TrashIcon className="h-3 w-3" />
                       </Button>
-                      <div className="absolute bottom-1 left-1 bg-black/60 text-white text-xs px-2 py-1 rounded">
-                        Logo Personalizado ✨
-                      </div>
                     </div>
                   ) : (
                     <div 
@@ -683,8 +496,8 @@ const CreateNotification = () => {
                     >
                       <div className="text-center">
                         <Upload className="h-8 w-8 text-zinc-400 mx-auto mb-2" />
-                        <p className="text-sm font-medium text-zinc-700">Logo do lado esquerdo</p>
-                        <p className="text-xs text-zinc-500">Clique para personalizar</p>
+                        <p className="text-sm font-medium text-zinc-700">Logo (opcional)</p>
+                        <p className="text-xs text-zinc-500">Clique para adicionar</p>
                       </div>
                     </div>
                   )}
@@ -725,9 +538,6 @@ const CreateNotification = () => {
                       >
                         <TrashIcon className="h-3 w-3" />
                       </Button>
-                      <div className="absolute bottom-1 left-1 bg-black/60 text-white text-xs px-2 py-1 rounded">
-                        Banner Personalizado ✨
-                      </div>
                     </div>
                   ) : (
                     <div 
@@ -736,8 +546,8 @@ const CreateNotification = () => {
                     >
                       <div className="text-center">
                         <Upload className="h-8 w-8 text-zinc-400 mx-auto mb-2" />
-                        <p className="text-sm font-medium text-zinc-700">Banner expandível</p>
-                        <p className="text-xs text-zinc-500">Clique para personalizar</p>
+                        <p className="text-sm font-medium text-zinc-700">Banner (opcional)</p>
+                        <p className="text-xs text-zinc-500">Clique para adicionar</p>
                       </div>
                     </div>
                   )}
@@ -751,53 +561,6 @@ const CreateNotification = () => {
                   />
                 </div>
               </div>
-            </div>
-
-            {/* 🆕 v7.0: Configurações Avançadas */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label className="text-sm font-semibold">⚙️ Configurações Avançadas (v7.0)</Label>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowAdvanced(!showAdvanced)}
-                >
-                  <Settings className="h-4 w-4 mr-1" />
-                  {showAdvanced ? 'Ocultar' : 'Mostrar'}
-                </Button>
-              </div>
-
-              {showAdvanced && (
-                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label className="text-sm font-medium">Requerer Interação</Label>
-                      <p className="text-xs text-gray-600">Notificação não some automaticamente</p>
-                    </div>
-                    <Switch
-                      checked={requireInteraction}
-                      onCheckedChange={setRequireInteraction}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Padrão de Vibração</Label>
-                    <Select value={vibrationPattern} onValueChange={setVibrationPattern}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="default">📳 Padrão</SelectItem>
-                        <SelectItem value="gentle">🔅 Suave</SelectItem>
-                        <SelectItem value="strong">🔆 Forte</SelectItem>
-                        <SelectItem value="pulse">💫 Pulso</SelectItem>
-                        <SelectItem value="none">🔇 Sem Vibração</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              )}
             </div>
 
             <div className="space-y-2">
@@ -814,21 +577,18 @@ const CreateNotification = () => {
               </p>
             </div>
 
-            {/* Preview v7.0 Aprimorado */}
-            {(title || body || customIcon || customImage || customUrl || selectedActions.length > 0) && (
+            {/* Preview v7.3 Simplificado */}
+            {(title || body || customIcon || customImage || customUrl || customButtons.length > 0) && (
               <div className="p-4 bg-gradient-to-r from-zinc-50 to-blue-50 rounded-xl border border-zinc-200">
                 <h4 className="text-sm font-semibold text-zinc-700 mb-3 flex items-center">
                   <EyeIcon className="h-4 w-4 mr-2" />
-                  Preview da Notificação v7.0
+                  Preview da Notificação
                 </h4>
                 <div className="bg-white rounded-lg p-4 shadow-sm border">
                   <div className="flex items-start space-x-3">
                     <div className="flex-shrink-0">
                       {customIcon ? (
-                        <div className="relative">
-                          <img src={customIcon} alt="Logo personalizado" className="h-8 w-8 rounded object-cover" />
-                          <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border border-white"></div>
-                        </div>
+                        <img src={customIcon} alt="Logo" className="h-8 w-8 rounded object-cover" />
                       ) : (
                         <div className="p-1.5 bg-blue-100 rounded">
                           <BellIcon className="h-5 w-5 text-blue-600" />
@@ -857,19 +617,16 @@ const CreateNotification = () => {
                           <span className="truncate">{customUrl}</span>
                         </div>
                       )}
-                      {selectedActions.length > 0 && (
+                      {customButtons.length > 0 && (
                         <div className="mt-2 flex gap-2">
-                          {selectedActions.slice(0, 2).map((action, index) => (
-                            <div key={index} className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded flex items-center">
+                          {customButtons.map((button, index) => (
+                            <div key={index} className="bg-blue-100 text-blue-800 text-xs px-3 py-1.5 rounded-full flex items-center">
                               <MousePointer className="h-3 w-3 mr-1" />
-                              {action.title}
+                              {button.title}
                             </div>
                           ))}
                         </div>
                       )}
-                      <div className="mt-2 flex items-center text-xs text-green-600 font-medium">
-                        ✨ Notificação Web Push v7.0
-                      </div>
                     </div>
                   </div>
                 </div>
@@ -878,16 +635,6 @@ const CreateNotification = () => {
 
             {/* Botões de Ação */}
             <div className="flex gap-3">
-              <Button 
-                onClick={handleQuickTest}
-                variant="outline"
-                disabled={!title.trim() || !body.trim()}
-                className="flex-1"
-              >
-                <EyeIcon className="h-4 w-4 mr-2" />
-                Teste Rápido
-              </Button>
-
               <Button 
                 onClick={handleSendNotification}
                 disabled={loading || !title.trim() || !body.trim() || uploadingIcon || uploadingImage}
@@ -903,12 +650,12 @@ const CreateNotification = () => {
                     {scheduledDate ? (
                       <>
                         <CalendarIcon className="h-4 w-4 mr-2" />
-                        Agendar v7.0
+                        Agendar
                       </>
                     ) : (
                       <>
                         <SendIcon className="h-4 w-4 mr-2" />
-                        Enviar v7.0
+                        Enviar Agora
                       </>
                     )}
                   </>
