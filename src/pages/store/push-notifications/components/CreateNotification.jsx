@@ -454,9 +454,14 @@ const CreateNotification = () => {
                   </div>
                 )}
                 
-                <p className="text-xs text-blue-600">
-                  💡 Os botões aparecerão na notificação permitindo ações rápidas
-                </p>
+                <div className="space-y-1">
+                  <p className="text-xs text-blue-600">
+                    💡 Desktop: Os botões aparecem como ações clicáveis
+                  </p>
+                  <p className="text-xs text-amber-600">
+                    📱 Mobile: Os botões aparecem como texto no corpo da notificação
+                  </p>
+                </div>
               </div>
             </div>
 
