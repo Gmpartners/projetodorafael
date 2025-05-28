@@ -25,6 +25,7 @@ const StoreDashboard = lazy(() => import('./pages/store/StoreDashboard'));
 
 // Novos componentes de chat
 const ChatPage = lazy(() => import('./pages/customer/ChatPage'));
+const ChatListPage = lazy(() => import('./pages/customer/ChatListPage'));
 const ChatManagementPage = lazy(() => import('./pages/store/ChatManagementPage'));
 
 // Novos componentes do customer portal
@@ -76,6 +77,35 @@ const PlaceholderPage = ({ title }) => {
       </div>
     </div>
   );
+};
+
+// 🆕 NOVO: Redirecionamento inteligente baseado no usuário logado
+const SmartRedirect = () => {
+  const { isAuthenticated, userProfile, loading } = useAuth();
+
+  console.log('🎯 SmartRedirect:', { isAuthenticated, role: userProfile?.role, loading });
+
+  if (loading) {
+    return <LoadingFallback />;
+  }
+
+  // Se não está autenticado, mostrar opções ou ir para login
+  if (!isAuthenticated) {
+    console.log('❌ Não autenticado, redirecionando para login');
+    return <Navigate to="/login" replace />;
+  }
+
+  // Se está autenticado, redirecionar baseado no role
+  if (userProfile?.role === 'store') {
+    console.log('🏪 Usuário é loja, redirecionando para store dashboard');
+    return <Navigate to="/store/dashboard" replace />;
+  } else if (userProfile?.role === 'customer') {
+    console.log('👤 Usuário é cliente, redirecionando para customer dashboard');
+    return <Navigate to="/customer/dashboard" replace />;
+  } else {
+    console.log('🤔 Role não identificado, redirecionando para login');
+    return <Navigate to="/login" replace />;
+  }
 };
 
 // 🔥 NOVO: Componente para fornecer Chat Context baseado no role do usuário
@@ -198,6 +228,14 @@ function AppContent() {
           } 
         />
         <Route 
+          path="/customer/chat-list" 
+          element={
+            <PublicRoute>
+              <ChatListPage />
+            </PublicRoute>
+          } 
+        />
+        <Route 
           path="/customer/chat" 
           element={
             <PublicRoute>
@@ -306,11 +344,11 @@ function AppContent() {
           } 
         />
 
-        {/* Home route - redirect to customer lookup */}
-        <Route path="/" element={<Navigate to="/customer/lookup" />} />
+        {/* ✅ CORREÇÃO: Redirecionamento inteligente baseado no usuário */}
+        <Route path="/" element={<SmartRedirect />} />
         
-        {/* Fallback for unknown routes */}
-        <Route path="*" element={<Navigate to="/customer/lookup" />} />
+        {/* Fallback for unknown routes - também usa redirecionamento inteligente */}
+        <Route path="*" element={<SmartRedirect />} />
       </Routes>
     </>
   );

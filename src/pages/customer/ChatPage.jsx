@@ -26,7 +26,7 @@ import {
 import { apiService } from '@/services/apiService';
 
 const ChatPage = () => {
-  const { id: chatId } = useParams();
+  const { id: urlChatId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
   const [isLoading, setIsLoading] = useState(true);
@@ -36,6 +36,8 @@ const ChatPage = () => {
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  // ✅ CORREÇÃO: Estado separado para chatId
+  const [chatId, setChatId] = useState(urlChatId || null);
   const messageEndRef = useRef(null);
   const pollInterval = useRef(null);
   
@@ -46,10 +48,11 @@ const ChatPage = () => {
   const storeId = 'E47OkrK3IcNu1Ys8gD4CA29RrHk2';
 
   console.log('💬 ChatPage: Current state:', {
+    urlChatId,
     chatId,
     customerEmail,
     orderId,
-    chatData: chatData?.id,
+    chatDataId: chatData?.id,
     messagesCount: messages.length
   });
 
@@ -60,22 +63,26 @@ const ChatPage = () => {
       return;
     }
 
-    if (orderId) {
-      // If we have an orderId, create/get chat first
+    if (orderId && !urlChatId) {
+      // If we have an orderId but no chatId, create/get chat first
       createOrGetChat();
-    } else if (chatId) {
+    } else if (urlChatId) {
       // If we have chatId directly, load chat data
+      setChatId(urlChatId);
       loadChatData();
     } else {
       // No chat info, show general chat interface
       setIsLoading(false);
     }
-  }, [chatId, customerEmail, orderId, navigate]);
+  }, [urlChatId, customerEmail, orderId, navigate]);
 
   useEffect(() => {
     if (!chatId || !chatData) return;
 
     console.log('🔄 Starting message polling for chat:', chatId);
+    
+    // Load messages immediately
+    loadMessages(true);
     
     pollInterval.current = setInterval(() => {
       loadMessages(true);
@@ -109,46 +116,48 @@ const ChatPage = () => {
       setError(null);
       console.log('💬 Creating/getting chat for order:', { orderId, customerEmail, storeId });
 
-      // For email-based customers, we need to use email as identifier
-      const fakeCustomerId = `email_${btoa(customerEmail).replace(/[^a-zA-Z0-9]/g, '')}`;
+      // ✅ CORREÇÃO: Usar email diretamente como identificador
+      const customerIdentifier = customerEmail;
       
-      const chat = await apiService.getOrderChat(orderId, fakeCustomerId, storeId);
+      const response = await apiService.getOrderChat(orderId, customerIdentifier, storeId);
+      console.log('✅ API Response:', response);
       
-      if (chat && chat.id) {
-        console.log('✅ Chat created/found:', chat);
+      if (response && response.id) {
+        console.log('✅ Chat created/found:', response);
         
-        // Navigate to the specific chat
-        navigate(`/customer/chat/${chat.id}`, {
-          state: {
-            customerEmail,
-            orderId,
-            customerData
-          },
-          replace: true
-        });
+        // ✅ CORREÇÃO: Definir chatId E chatData
+        setChatId(response.id);
+        
+        const newChatData = {
+          id: response.id,
+          orderId: response.orderId,
+          storeName: response.participants?.storeName || 'Store Support',
+          storeId: response.storeId,
+          customerEmail: response.customerEmail || customerEmail,
+          participants: response.participants,
+          name: response.participants?.storeName || 'Store Support',
+          avatar: `https://ui-avatars.com/api/?name=Store&background=3b82f6&color=fff`,
+          initials: 'ST'
+        };
+        
+        setChatData(newChatData);
+        
+        // ✅ CORREÇÃO: Navegar para URL correta com chatId
+        if (!urlChatId) {
+          navigate(`/customer/chat/${response.id}`, { 
+            replace: true,
+            state: { customerEmail, orderId, customerData }
+          });
+        }
+        
+        setIsLoading(false);
       } else {
         throw new Error('Failed to create chat');
       }
 
     } catch (error) {
       console.error('❌ Error creating/getting chat:', error);
-      
-      // Create a mock chat for demo purposes
-      const mockChat = {
-        id: `chat_${orderId}_${Date.now()}`,
-        orderId: orderId,
-        storeName: 'Store Support',
-        storeId: storeId,
-        customerEmail: customerEmail
-      };
-      
-      setChatData({
-        ...mockChat,
-        name: mockChat.storeName,
-        avatar: `https://ui-avatars.com/api/?name=Store&background=3b82f6&color=fff`,
-        initials: 'ST'
-      });
-      
+      setError('Error creating chat: ' + error.message);
       setIsLoading(false);
     }
   };
@@ -157,28 +166,37 @@ const ChatPage = () => {
     try {
       setIsLoading(true);
       setError(null);
-      console.log('💬 Loading chat data:', { chatId, customerEmail });
+      console.log('💬 Loading chat data:', { chatId: urlChatId, customerEmail });
 
-      // For demo purposes, create mock chat data
-      const mockChat = {
-        id: chatId,
-        orderId: orderId,
-        storeName: 'Store Support',
-        storeId: storeId,
-        customerEmail: customerEmail,
-        participants: {
-          storeName: 'Store Support'
-        }
-      };
-
-      setChatData({
-        ...mockChat,
-        name: mockChat.storeName,
-        avatar: `https://ui-avatars.com/api/?name=Store&background=3b82f6&color=fff`,
-        initials: 'ST'
-      });
-
-      await loadMessages();
+      // Try to get chat details
+      try {
+        const chatDetails = await apiService.getChatDetails(urlChatId, customerEmail);
+        console.log('✅ Chat details loaded:', chatDetails);
+        
+        setChatData({
+          ...chatDetails,
+          name: chatDetails.participants?.storeName || 'Store Support',
+          avatar: `https://ui-avatars.com/api/?name=Store&background=3b82f6&color=fff`,
+          initials: 'ST'
+        });
+      } catch (apiError) {
+        console.log('⚠️ Could not load chat details, using mock data');
+        
+        // Fallback to mock chat data
+        setChatData({
+          id: urlChatId,
+          orderId: orderId,
+          storeName: 'Store Support',
+          storeId: storeId,
+          customerEmail: customerEmail,
+          participants: {
+            storeName: 'Store Support'
+          },
+          name: 'Store Support',
+          avatar: `https://ui-avatars.com/api/?name=Store&background=3b82f6&color=fff`,
+          initials: 'ST'
+        });
+      }
 
     } catch (error) {
       console.error('❌ Error loading chat:', error);
@@ -196,31 +214,11 @@ const ChatPage = () => {
       
       console.log(`📨 ${silent ? 'Updating' : 'Loading'} messages for chat:`, chatId);
       
-      // For demo purposes, load some mock messages
-      const mockMessages = [
-        {
-          id: 'msg-1',
-          text: 'Hello! How can I help you with your order?',
-          senderType: 'store',
-          senderName: 'Store Support',
-          timestamp: new Date(Date.now() - 300000) // 5 minutes ago
-        },
-        {
-          id: 'msg-2', 
-          text: 'Hi! I wanted to check on the status of my order.',
-          senderType: 'customer',
-          senderName: 'You',
-          timestamp: new Date(Date.now() - 240000) // 4 minutes ago
-        },
-        {
-          id: 'msg-3',
-          text: 'Sure! Let me check that for you. Your order is currently being prepared and should be ready for shipping soon.',
-          senderType: 'store',
-          senderName: 'Store Support',
-          timestamp: new Date(Date.now() - 120000) // 2 minutes ago
-        }
-      ];
-
+      if (!chatId) {
+        console.log('⚠️ No chatId available, skipping message load');
+        return;
+      }
+      
       try {
         // Try to get real messages from API
         const realMessages = await apiService.getChatMessages(chatId);
@@ -258,33 +256,32 @@ const ChatPage = () => {
           
           setMessages(processedMessages);
         } else {
-          // Use mock messages if no real messages
-          const processedMockMessages = mockMessages.map((msg, index) => ({
-            id: msg.id || `mock-${index}`,
-            content: msg.text || '',
-            sender: msg.senderType === 'customer' ? 'user' : msg.senderType === 'system' ? 'system' : 'store',
-            senderName: msg.senderName || (msg.senderType === 'customer' ? 'You' : 'Store'),
-            senderType: msg.senderType,
-            time: msg.timestamp,
-            read: true
-          }));
+          console.log('📭 No messages found, showing welcome message');
           
-          setMessages(processedMockMessages);
+          // Show welcome message if no messages
+          setMessages([{
+            id: 'welcome',
+            content: 'Chat iniciado! Envie sua primeira mensagem.',
+            sender: 'system',
+            senderName: 'Sistema',
+            senderType: 'system',
+            time: new Date(),
+            read: true
+          }]);
         }
       } catch (apiError) {
-        console.log('⚠️ API failed, using mock messages');
+        console.log('⚠️ API failed to load messages:', apiError);
         
-        const processedMockMessages = mockMessages.map((msg, index) => ({
-          id: msg.id || `mock-${index}`,
-          content: msg.text || '',
-          sender: msg.senderType === 'customer' ? 'user' : msg.senderType === 'system' ? 'system' : 'store',
-          senderName: msg.senderName || (msg.senderType === 'customer' ? 'You' : 'Store'),
-          senderType: msg.senderType,
-          time: msg.timestamp,
+        // Show error message
+        setMessages([{
+          id: 'error',
+          content: 'Não foi possível carregar mensagens. Tente novamente.',
+          sender: 'system',
+          senderName: 'Sistema',
+          senderType: 'system',
+          time: new Date(),
           read: true
-        }));
-        
-        setMessages(processedMockMessages);
+        }]);
       }
       
     } catch (error) {
@@ -304,7 +301,7 @@ const ChatPage = () => {
     
     try {
       setSending(true);
-      console.log('📤 Sending message:', message);
+      console.log('📤 Sending message:', message, 'to chatId:', chatId);
 
       const messageData = {
         text: message.trim(),
@@ -330,6 +327,7 @@ const ChatPage = () => {
 
       if (chatId) {
         try {
+          console.log('📤 Sending via API to chatId:', chatId);
           await apiService.sendMessage(chatId, messageData);
           console.log('✅ Message sent successfully');
           
@@ -337,17 +335,19 @@ const ChatPage = () => {
             loadMessages(true);
           }, 500);
         } catch (apiError) {
-          console.log('⚠️ API send failed, keeping local message');
+          console.error('❌ API send failed:', apiError);
           
-          // Update temp message to look sent
+          // Update temp message to look sent but mark as local
           setMessages(prev => prev.map(msg => 
-            msg.id.startsWith('temp-') ? { ...msg, id: `sent-${Date.now()}`, read: true } : msg
+            msg.id.startsWith('temp-') ? { ...msg, id: `failed-${Date.now()}`, read: false } : msg
           ));
         }
       } else {
-        // No chatId, just keep local message
+        console.error('❌ No chatId available for sending message');
+        
+        // Update temp message to look local
         setMessages(prev => prev.map(msg => 
-          msg.id.startsWith('temp-') ? { ...msg, id: `local-${Date.now()}`, read: true } : msg
+          msg.id.startsWith('temp-') ? { ...msg, id: `local-${Date.now()}`, read: false } : msg
         ));
       }
       
@@ -410,6 +410,8 @@ const ChatPage = () => {
           <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-3" />
           <p className="text-slate-600 text-sm font-medium">Loading conversation...</p>
           {chatId && <p className="text-xs text-slate-400 mt-1">Chat: {chatId}</p>}
+          {orderId && <p className="text-xs text-slate-400 mt-1">Order: {orderId}</p>}
+          {customerEmail && <p className="text-xs text-slate-400 mt-1">Email: {customerEmail}</p>}
         </div>
       </div>
     );
@@ -457,6 +459,10 @@ const ChatPage = () => {
                 <ArrowLeft className="h-4 w-4" />
               </Button>
               <h1 className="text-white text-lg font-medium">Chat</h1>
+              {/* ✅ CORREÇÃO: Debug info */}
+              <span className="ml-2 text-xs text-white/60">
+                ID: {chatId ? chatId.slice(-6) : 'none'}
+              </span>
             </div>
             
             <Button 
@@ -594,7 +600,7 @@ const ChatPage = () => {
             <div className="flex-1 relative">
               <Input
                 className="pr-12 py-3 min-h-12 text-sm border-slate-200 focus:border-blue-300 focus:ring-blue-200 rounded-xl"
-                placeholder="Type your message..."
+                placeholder={chatId ? "Type your message..." : "Chat not ready..."}
                 value={message}
                 onChange={e => setMessage(e.target.value)}
                 onKeyPress={e => {
@@ -603,16 +609,16 @@ const ChatPage = () => {
                     handleSendMessage();
                   }
                 }}
-                disabled={sending}
+                disabled={sending || !chatId}
               />
             </div>
             
             <Button 
               size="icon" 
-              className={message.trim() && !sending
+              className={message.trim() && !sending && chatId
                 ? "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 h-12 w-12 rounded-xl" 
                 : "bg-slate-300 cursor-not-allowed h-12 w-12 rounded-xl"}
-              disabled={!message.trim() || sending}
+              disabled={!message.trim() || sending || !chatId}
               onClick={handleSendMessage}
             >
               {sending ? (
@@ -622,6 +628,15 @@ const ChatPage = () => {
               )}
             </Button>
           </div>
+          
+          {/* ✅ CORREÇÃO: Debug info */}
+          {!chatId && (
+            <div className="max-w-2xl mx-auto text-center mt-2">
+              <p className="text-xs text-red-500">
+                ⚠️ Chat ID not available. Messages cannot be sent.
+              </p>
+            </div>
+          )}
         </div>
       </main>
     </div>

@@ -597,7 +597,7 @@ const CustomerDashboard = () => {
           
           <button 
             className="flex flex-col items-center text-slate-400 p-3 mx-6 relative"
-            onClick={() => navigate('/customer/chat', { state: { customerEmail } })}
+            onClick={() => navigate('/customer/chat-list', { state: { customerEmail, customerData } })}
           >
             <MessageSquare className="h-5 w-5" />
             <span className="text-xs mt-1">Messages</span>
