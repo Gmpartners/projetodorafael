@@ -37,15 +37,11 @@ export const StoreChatProvider = ({ children }) => {
   const storeId = userProfile?.uid;
   const isStore = userProfile?.role === 'store';
 
-  console.log('🏪 StoreChatContext: storeId =', storeId, 'isStore =', isStore);
-
   useEffect(() => {
     if (!storeId || !isStore) {
-      console.log('⚠️ Loja: Sem storeId ou não é store, pulando listener');
       return;
     }
 
-    console.log('🔥 Loja: Iniciando listener de chats para:', storeId);
     setIsLoading(true);
     setError(null);
 
@@ -59,8 +55,6 @@ export const StoreChatProvider = ({ children }) => {
     const unsubscribe = onSnapshot(
       chatsQuery,
       (snapshot) => {
-        console.log('🏪 Loja: Snapshot recebido, docs:', snapshot.docs.length);
-        
         const chatsList = snapshot.docs.map(doc => {
           const data = doc.data();
           return {
@@ -84,7 +78,6 @@ export const StoreChatProvider = ({ children }) => {
           };
         });
 
-        console.log('✅ Loja: Chats processados:', chatsList);
         setChats(chatsList);
         setIsLoading(false);
         setError(null);
@@ -96,11 +89,10 @@ export const StoreChatProvider = ({ children }) => {
           online: chatsList.filter(chat => chat.online).length
         };
         
-        console.log('📊 Loja: Estatísticas:', newStats);
         setStats(newStats);
       },
       (error) => {
-        console.error('❌ Loja: Erro no listener de chats:', error);
+        console.error('Erro ao carregar conversas:', error);
         setError('Erro ao carregar conversas');
         setIsLoading(false);
       }
@@ -115,8 +107,6 @@ export const StoreChatProvider = ({ children }) => {
       return;
     }
 
-    console.log('💬 Loja: Iniciando listener de mensagens para chat:', activeChat.id);
-
     const messagesQuery = query(
       collection(db, 'chats', activeChat.id, 'messages'),
       orderBy('timestamp', 'asc')
@@ -125,8 +115,6 @@ export const StoreChatProvider = ({ children }) => {
     const unsubscribe = onSnapshot(
       messagesQuery,
       (snapshot) => {
-        console.log('📨 Loja: Mensagens snapshot, docs:', snapshot.docs.length);
-        
         const messagesList = snapshot.docs.map(doc => {
           const data = doc.data();
           return {
@@ -139,11 +127,10 @@ export const StoreChatProvider = ({ children }) => {
           };
         });
 
-        console.log('✅ Loja: Mensagens processadas:', messagesList.length);
         setMessages(messagesList);
       },
       (error) => {
-        console.error('❌ Loja: Erro no listener de mensagens:', error);
+        console.error('Erro ao carregar mensagens:', error);
         setError('Erro ao carregar mensagens');
       }
     );
@@ -155,8 +142,6 @@ export const StoreChatProvider = ({ children }) => {
     if (!activeChat?.id || !messageText.trim()) return;
 
     try {
-      console.log('📤 Loja: Enviando mensagem:', messageText);
-
       const messageData = {
         text: messageText.trim(),
         senderId: storeId,
@@ -166,10 +151,9 @@ export const StoreChatProvider = ({ children }) => {
       };
 
       await apiService.sendMessage(activeChat.id, messageData);
-      console.log('✅ Loja: Mensagem enviada com sucesso');
       
     } catch (error) {
-      console.error('❌ Loja: Erro ao enviar mensagem:', error);
+      console.error('Erro ao enviar mensagem:', error);
       setError('Erro ao enviar mensagem');
       throw error;
     }
@@ -180,21 +164,18 @@ export const StoreChatProvider = ({ children }) => {
     if (!targetChatId) return;
 
     try {
-      console.log('✅ Loja: Marcando chat como lido:', targetChatId);
       await apiService.markChatAsRead(targetChatId, storeId, 'store');
-      console.log('✅ Loja: Chat marcado como lido');
     } catch (error) {
-      console.error('❌ Loja: Erro ao marcar como lido:', error);
+      console.error('Erro ao marcar como lido:', error);
     }
   };
 
   const loadActiveChats = async () => {
-    console.log('🔄 Loja: loadActiveChats chamado (usando listener em tempo real)');
+    // Função mantida para compatibilidade - usa listener em tempo real
   };
 
   const startNewChat = async (orderId, customerId, customerName = 'Cliente') => {
     try {
-      console.log('🆕 Loja: Iniciando nova conversa:', { orderId, customerId });
       setIsLoading(true);
 
       const chatData = await apiService.getOrderChat(orderId, customerId, storeId);
@@ -214,7 +195,7 @@ export const StoreChatProvider = ({ children }) => {
       return processedChat;
       
     } catch (error) {
-      console.error('❌ Loja: Erro ao iniciar nova conversa:', error);
+      console.error('Erro ao iniciar nova conversa:', error);
       setError('Erro ao iniciar conversa');
       throw error;
     } finally {

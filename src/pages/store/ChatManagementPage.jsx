@@ -87,21 +87,13 @@ const ChatManagementPage = () => {
     urgentOnly: false
   });
 
-  console.log('🏪 ChatManagementPage: Estado atual:', {
-    chatsCount: chats.length,
-    stats,
-    activeChat: activeChat?.id,
-    isLoading,
-    userProfile: userProfile?.email
-  });
-
   // Carregar estatísticas e dados iniciais - usando dados reais
   const fetchData = useCallback(async () => {
     try {
       await loadActiveChats();
       await getChatStats();
     } catch (error) {
-      console.error('❌ Erro ao carregar dados:', error);
+      console.error('Erro ao carregar dados:', error);
     }
   }, [loadActiveChats, getChatStats]);
 
@@ -111,15 +103,12 @@ const ChatManagementPage = () => {
   
   // Selecionar um chat para visualização - otimizado
   const handleSelectChat = useCallback((chat) => {
-    console.log('🏪 Loja: Selecionando chat:', chat.id);
     setActiveChat(chat);
   }, [setActiveChat]);
   
   // Iniciar novo chat - usando função real
   const handleStartNewChat = useCallback(async (chatData) => {
     try {
-      console.log('🏪 Loja: Iniciando nova conversa:', chatData);
-      
       const newChat = await startNewChat(
         chatData.orderId, 
         chatData.customerId, 
@@ -127,10 +116,9 @@ const ChatManagementPage = () => {
       );
       
       setActiveTab('chats');
-      console.log('✅ Nova conversa iniciada:', newChat.id);
       
     } catch (error) {
-      console.error('❌ Erro ao iniciar nova conversa:', error);
+      console.error('Erro ao iniciar nova conversa:', error);
     }
   }, [startNewChat]);
   
@@ -146,10 +134,10 @@ const ChatManagementPage = () => {
   const performanceCards = useMemo(() => [
     {
       title: 'Mensagens Hoje',
-      value: stats.total || 0, // Usar dados reais das stats
+      value: stats.total || 0,
       icon: Activity,
       color: 'purple',
-      change: 0, // Pode calcular baseado em dados históricos se disponível
+      change: 0,
       changeLabel: 'vs ontem',
       trend: 'up'
     },
@@ -177,7 +165,7 @@ const ChatManagementPage = () => {
       borderColor: 'border-purple-200',
       hoverColor: 'hover:border-purple-400 hover:bg-purple-50',
       textColor: 'text-purple-600',
-      badge: stats.unread || 0, // Usar dados reais
+      badge: stats.unread || 0,
       badgeColor: 'bg-red-500',
       onClick: () => setActiveTab('chats')
     },
@@ -195,7 +183,6 @@ const ChatManagementPage = () => {
       badgeColor: 'bg-blue-500',
       onClick: () => {
         setActiveTab('chats');
-        // Trigger new chat modal se necessário
       }
     },
     {
@@ -222,7 +209,7 @@ const ChatManagementPage = () => {
       borderColor: 'border-red-200',
       hoverColor: 'hover:border-red-400 hover:bg-red-50',
       textColor: 'text-red-600',
-      badge: stats.urgent || 0, // Usar dados reais
+      badge: stats.urgent || 0,
       badgeColor: 'bg-red-500',
       onClick: () => {
         setActiveTab('chats');
@@ -237,14 +224,13 @@ const ChatManagementPage = () => {
     
     try {
       await sendMessage(responseText);
-      console.log('✅ Resposta rápida enviada:', responseText);
     } catch (error) {
-      console.error('❌ Erro ao enviar resposta rápida:', error);
+      console.error('Erro ao enviar resposta rápida:', error);
     }
   }, [activeChat, sendMessage]);
 
   return (
-    <MainLayout userType="store" pageTitle="Gerenciamento de Chats">
+    <MainLayout userType="store" pageTitle="Central de Atendimento">
       <div className="space-y-6 pb-8">
         
         {/* Header Otimizado - com dados reais */}
@@ -552,8 +538,8 @@ const ChatManagementPage = () => {
                           {
                             key: 'browserNotifications',
                             icon: SmartphoneIcon,
-                            title: 'Push',
-                            description: 'Notificações do navegador',
+                            title: 'Notificações',
+                            description: 'Alertas do navegador',
                             color: 'emerald'
                           },
                           {
@@ -647,7 +633,7 @@ const ChatManagementPage = () => {
                             </div>
                             <div className="text-right">
                               <Badge className="bg-gradient-to-r from-purple-100 to-purple-200 text-purple-800 border-purple-300 mb-1">
-                                Owner
+                                Administrador
                               </Badge>
                               <p className="text-xs text-zinc-500">{stats.total} conversas ativas</p>
                             </div>

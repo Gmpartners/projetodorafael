@@ -73,17 +73,17 @@ const NotificationManagementPage = () => {
       }
       
     } catch (error) {
-      console.error('❌ Erro ao carregar estatísticas:', error);
+      console.error('Erro ao carregar estatísticas:', error);
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <MainLayout userType="store" pageTitle="Gerenciamento de Notificações v7.0">
+    <MainLayout userType="store" pageTitle="Gerenciamento de Notificações">
       <div className="space-y-6 pb-8">
         
-        {/* Header v7.0 */}
+        {/* Header */}
         <div className="bg-white rounded-xl border shadow-sm p-4">
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
             <div className="space-y-2">
@@ -93,10 +93,10 @@ const NotificationManagementPage = () => {
                 </div>
                 <div>
                   <h1 className="text-2xl font-bold text-purple-900">
-                    Web Push v7.0 - Sistema Completo
+                    Gerenciamento de Notificações
                   </h1>
                   <p className="text-sm text-zinc-600 font-medium">
-                    ✨ URL Personalizada + Actions Inteligentes + Campos Configuráveis
+                    Envie alertas personalizados para seus clientes
                   </p>
                 </div>
               </div>
@@ -131,13 +131,13 @@ const NotificationManagementPage = () => {
                 onClick={() => setActiveTab('create')}
               >
                 <PlusIcon className="h-4 w-4 mr-2" />
-                Nova v7.0
+                Nova Notificação
               </Button>
             </div>
           </div>
         </div>
 
-        {/* Tabs v7.0 */}
+        {/* Tabs */}
         <div className="bg-white rounded-xl border shadow-sm p-3">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="w-full max-w-5xl mx-auto bg-gray-100 p-1.5 rounded-xl">
@@ -153,21 +153,21 @@ const NotificationManagementPage = () => {
                 className="flex-1 data-[state=active]:bg-white data-[state=active]:shadow-md transition-all duration-200 rounded-lg font-semibold"
               >
                 <PlusIcon className="h-4 w-4 mr-2" />
-                Criar v7.0
+                Criar
               </TabsTrigger>
               <TabsTrigger 
                 value="testing"
                 className="flex-1 data-[state=active]:bg-white data-[state=active]:shadow-md transition-all duration-200 rounded-lg font-semibold"
               >
                 <FlaskConical className="h-4 w-4 mr-2" />
-                Testes v7.0
+                Testes
               </TabsTrigger>
               <TabsTrigger 
                 value="config"
                 className="flex-1 data-[state=active]:bg-white data-[state=active]:shadow-md transition-all duration-200 rounded-lg font-semibold"
               >
                 <Settings className="h-4 w-4 mr-2" />
-                Config
+                Configurações
               </TabsTrigger>
               <TabsTrigger 
                 value="campaigns"

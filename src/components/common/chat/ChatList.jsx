@@ -66,13 +66,11 @@ const safeFormatTimestamp = (timestamp) => {
     }
 
     if (!dateToFormat || isNaN(dateToFormat.getTime())) {
-      console.warn('⚠️ Timestamp inválido recebido:', timestamp);
       return 'Recente';
     }
 
     const year = dateToFormat.getFullYear();
     if (year < 2020 || year > 2030) {
-      console.warn('⚠️ Data fora do range esperado:', dateToFormat);
       return 'Recente';
     }
 
@@ -82,7 +80,6 @@ const safeFormatTimestamp = (timestamp) => {
     });
 
   } catch (error) {
-    console.error('❌ Erro ao formatar timestamp:', error, 'Timestamp original:', timestamp);
     return 'Recente';
   }
 };
@@ -272,14 +269,6 @@ const ChatList = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
 
-  console.log('📋 ChatList: Estado atual:', {
-    userType,
-    chatsCount: chats.length,
-    stats,
-    isLoading,
-    userProfile: userProfile?.email
-  });
-
   const filterChats = (chatsList, search, filter) => {
     let result = chatsList;
     
@@ -339,13 +328,11 @@ const ChatList = ({
     try {
       await loadActiveChats();
     } catch (error) {
-      console.error('❌ Erro ao atualizar lista de chats:', error);
+      console.error('Erro ao atualizar conversas:', error);
     }
   };
   
   const handleSelectChat = (chat) => {
-    console.log('📋 ChatList: Selecionando chat:', chat.id);
-    
     if (onSelectChat) {
       onSelectChat(chat);
     }

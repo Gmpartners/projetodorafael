@@ -35,9 +35,9 @@ const CustomerDashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   
-  // 🆕 v7.0: Estados para Web Push
-  const [showWebPushCard, setShowWebPushCard] = useState(false);
-  const [webPushStatus, setWebPushStatus] = useState('checking');
+  // Estados para notificações
+  const [showNotificationCard, setShowNotificationCard] = useState(false);
+  const [notificationStatus, setNotificationStatus] = useState('checking');
   
   // ✅ USAR UID REAL DO USUÁRIO LOGADO
   const storeId = 'E47OkrK3IcNu1Ys8gD4CA29RrHk2';
@@ -52,38 +52,38 @@ const CustomerDashboard = () => {
     messages: 0
   });
 
-  // 🆕 v7.0: Verificar status Web Push ao carregar
+  // Verificar status das notificações ao carregar
   useEffect(() => {
     if (customerId) {
-      checkWebPushStatus();
+      checkNotificationStatus();
       fetchRealCustomerData();
     }
   }, [customerId]);
 
-  // 🆕 v7.0: Verificar status do Web Push
-  const checkWebPushStatus = async () => {
+  // Verificar status das notificações
+  const checkNotificationStatus = async () => {
     try {
       const status = await webPushService.checkSubscription();
       
       if (!status.isSupported) {
-        setWebPushStatus('not-supported');
+        setNotificationStatus('not-supported');
       } else if (status.permission === 'denied') {
-        setWebPushStatus('denied');
+        setNotificationStatus('denied');
       } else if (status.permission === 'granted' && status.isSubscribed) {
-        setWebPushStatus('active');
+        setNotificationStatus('active');
       } else {
-        setWebPushStatus('available');
+        setNotificationStatus('available');
         // Mostrar cartão de ativação após 3 segundos
-        setTimeout(() => setShowWebPushCard(true), 3000);
+        setTimeout(() => setShowNotificationCard(true), 3000);
       }
     } catch (error) {
-      console.error('❌ Erro ao verificar Web Push:', error);
-      setWebPushStatus('error');
+      console.error('Erro ao verificar notificação:', error);
+      setNotificationStatus('error');
     }
   };
 
-  // 🆕 v7.0: Ativar Web Push com template personalizado
-  const handleActivateWebPush = async () => {
+  // Ativar notificações
+  const handleActivateNotifications = async () => {
     try {
       await webPushService.initialize();
       const subscription = await webPushService.subscribe();
@@ -92,10 +92,10 @@ const CustomerDashboard = () => {
         // Inscrever na loja
         await apiService.subscribeToStoreWebPush(storeId);
         
-        setWebPushStatus('active');
-        setShowWebPushCard(false);
+        setNotificationStatus('active');
+        setShowNotificationCard(false);
         
-        // 🆕 v7.0: Enviar notificação de boas-vindas usando template
+        // Enviar notificação de boas-vindas
         setTimeout(async () => {
           try {
             const welcomeTemplate = notificationTemplates.getTemplate('welcome', {
@@ -113,12 +113,12 @@ const CustomerDashboard = () => {
           }
         }, 2000);
         
-        toast.success('🎉 Web Push v7.0 Ativado!', {
-          description: 'Sistema completo: URL personalizada + Actions inteligentes'
+        toast.success('🎉 Notificações ativadas!', {
+          description: 'Você receberá alertas sobre seus pedidos'
         });
       }
     } catch (error) {
-      toast.error('❌ Erro ao ativar Web Push', {
+      toast.error('❌ Erro ao ativar notificações', {
         description: error.message
       });
     }
@@ -263,7 +263,6 @@ const CustomerDashboard = () => {
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-2 border-violet-500 border-t-transparent mx-auto mb-3"></div>
           <p className="text-slate-600 text-sm font-medium">Carregando seus pedidos...</p>
-          <p className="text-xs text-slate-400 mt-1">Web Push v7.0 disponível</p>
         </div>
       </div>
     );
@@ -271,7 +270,7 @@ const CustomerDashboard = () => {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Header com badge v7.0 */}
+      {/* Header */}
       <header className="bg-gradient-to-r from-violet-500 to-purple-600 px-4 pt-8 pb-6 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-24 h-24 bg-white/5 rounded-full -translate-y-12 translate-x-12"></div>
         <div className="absolute bottom-0 left-0 w-16 h-16 bg-white/5 rounded-full translate-y-8 -translate-x-8"></div>
@@ -283,10 +282,10 @@ const CustomerDashboard = () => {
                 <p className="text-violet-100 text-sm font-normal">
                   Olá,
                 </p>
-                {webPushStatus === 'active' && (
+                {notificationStatus === 'active' && (
                   <div className="bg-green-500/20 px-2 py-1 rounded-full flex items-center space-x-1">
                     <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                    <span className="text-xs text-green-200 font-medium">v7.0</span>
+                    <span className="text-xs text-green-200 font-medium">🔔</span>
                   </div>
                 )}
               </div>
@@ -313,8 +312,8 @@ const CustomerDashboard = () => {
 
       <main className="px-4 py-5 -mt-3 relative z-10">
         
-        {/* 🆕 v7.0: Card de Web Push não intrusivo */}
-        {showWebPushCard && webPushStatus === 'available' && (
+        {/* Card de notificações não intrusivo */}
+        {showNotificationCard && notificationStatus === 'available' && (
           <Card className="mb-6 border-2 border-purple-200 bg-gradient-to-r from-purple-50 to-violet-50 shadow-lg">
             <CardContent className="p-4">
               <div className="flex items-start space-x-3">
@@ -323,25 +322,24 @@ const CustomerDashboard = () => {
                 </div>
                 <div className="flex-1">
                   <h3 className="font-semibold text-purple-900 mb-1 flex items-center">
-                    Web Push v7.0 Disponível!
+                    Notificações Disponíveis!
                     <span className="ml-2 bg-purple-200 text-purple-800 text-xs px-2 py-1 rounded-full">NOVO</span>
                   </h3>
                   <p className="text-purple-700 text-sm mb-3">
-                    Sistema completo com URL personalizada, actions inteligentes e campos configuráveis. 
-                    Receba notificações avançadas sobre seus pedidos!
+                    Receba alertas sobre atualizações dos seus pedidos diretamente no navegador!
                   </p>
                   <div className="flex space-x-3">
                     <Button 
-                      onClick={handleActivateWebPush}
+                      onClick={handleActivateNotifications}
                       className="bg-purple-600 hover:bg-purple-700 text-white text-sm px-4 py-2"
                     >
                       <Sparkles className="h-4 w-4 mr-2" />
-                      Ativar v7.0
+                      Ativar Notificações
                     </Button>
                     <Button 
                       variant="outline"
                       size="sm"
-                      onClick={() => setShowWebPushCard(false)}
+                      onClick={() => setShowNotificationCard(false)}
                       className="border-purple-300 text-purple-700 hover:bg-purple-100"
                     >
                       Depois
@@ -351,7 +349,7 @@ const CustomerDashboard = () => {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setShowWebPushCard(false)}
+                  onClick={() => setShowNotificationCard(false)}
                   className="text-purple-500 hover:text-purple-700 hover:bg-purple-100 p-1"
                 >
                   <XIcon className="h-4 w-4" />
@@ -361,24 +359,24 @@ const CustomerDashboard = () => {
           </Card>
         )}
 
-        {/* Status do Web Push v7.0 */}
-        {webPushStatus === 'active' && (
+        {/* Status das notificações */}
+        {notificationStatus === 'active' && (
           <Alert className="mb-6 border-emerald-200 bg-emerald-50">
             <CheckCircle className="h-4 w-4 text-emerald-600" />
             <AlertDescription className="text-emerald-800 flex items-center justify-between">
               <span>
-                <strong>🎉 Web Push v7.0 Ativo!</strong> Sistema completo funcionando.
+                <strong>🎉 Notificações ativas!</strong> Você receberá alertas sobre seus pedidos.
               </span>
               <Sparkles className="h-4 w-4 text-emerald-600" />
             </AlertDescription>
           </Alert>
         )}
 
-        {webPushStatus === 'denied' && (
+        {notificationStatus === 'denied' && (
           <Alert className="mb-6 border-amber-200 bg-amber-50">
             <AlertCircle className="h-4 w-4 text-amber-600" />
             <AlertDescription className="text-amber-800">
-              <strong>⚠️ Web Push bloqueado.</strong> Ative nas configurações do navegador para usar v7.0.
+              <strong>⚠️ Notificações bloqueadas.</strong> Ative nas configurações do navegador para receber alertas.
             </AlertDescription>
           </Alert>
         )}
@@ -403,15 +401,6 @@ const CustomerDashboard = () => {
           </div>
         </div>
 
-        {/* Web Push Subscription Component - Compact */}
-        <div className="mb-6">
-          <WebPushSubscription 
-            userType="customer" 
-            compact={true}
-            autoInit={false}
-          />
-        </div>
-
         {/* Seção Meus Pedidos */}
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-slate-800 text-lg font-medium">Meus Pedidos</h2>
@@ -424,16 +413,6 @@ const CustomerDashboard = () => {
             <RefreshCw className="h-4 w-4" />
           </Button>
         </div>
-        
-        {/* Debug info para desenvolvimento */}
-        {process.env.NODE_ENV === 'development' && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 text-xs">
-            <p><strong>Debug Info v7.0:</strong></p>
-            <p>Customer ID: {customerId}</p>
-            <p>Web Push Status: {webPushStatus}</p>
-            <p>Store ID: {storeId}</p>
-          </div>
-        )}
         
         {/* Tratamento de erro */}
         {error && (

@@ -53,7 +53,7 @@ const WebPushSubscription = ({
       });
       
     } catch (error) {
-      console.error('❌ Erro ao verificar status da subscription:', error);
+      console.error('Erro ao verificar status da subscription:', error);
       setStatus(prev => ({
         ...prev,
         loading: false,
@@ -71,7 +71,7 @@ const WebPushSubscription = ({
       // Inicializar Web Push Service se necessário
       const initialized = await webPushService.initialize();
       if (!initialized) {
-        throw new Error('Falha ao inicializar Web Push Service');
+        throw new Error('Falha ao inicializar serviço de notificações');
       }
       
       // Criar subscription
@@ -96,8 +96,8 @@ const WebPushSubscription = ({
             webPushService.sendTestNotification(
               'https://projeto-rafael-53f73.web.app/store/push-notifications',
               {
-                title: '🎉 Web Push v7.0 Ativo!',
-                body: 'Sistema completo configurado com sucesso!'
+                title: '🎉 Notificações ativas!',
+                body: 'Sistema configurado com sucesso!'
               }
             ).catch(e => console.log('Teste opcional falhou:', e));
           }, 2000);
@@ -105,7 +105,7 @@ const WebPushSubscription = ({
       }
       
     } catch (error) {
-      console.error('❌ Erro ao se inscrever:', error);
+      console.error('Erro ao se inscrever:', error);
       
       setStatus(prev => ({
         ...prev,
@@ -145,7 +145,7 @@ const WebPushSubscription = ({
       });
       
     } catch (error) {
-      console.error('❌ Erro ao cancelar subscription:', error);
+      console.error('Erro ao cancelar subscription:', error);
       setStatus(prev => ({
         ...prev,
         loading: false,
@@ -165,8 +165,8 @@ const WebPushSubscription = ({
         : 'https://projeto-rafael-53f73.web.app/customer/dashboard';
         
       await webPushService.sendTestNotification(testUrl, {
-        title: '🧪 Teste Web Push v7.0',
-        body: 'Se você está vendo isso, as notificações estão funcionando perfeitamente!'
+        title: '🧪 Teste de notificação',
+        body: 'Se você está vendo isso, as notificações estão funcionando!'
       });
       
       toast.success('🧪 Teste enviado!', {
@@ -174,27 +174,16 @@ const WebPushSubscription = ({
       });
       
     } catch (error) {
-      console.error('❌ Erro no teste:', error);
+      console.error('Erro no teste:', error);
       toast.error('❌ Erro no teste', {
         description: error.message
       });
     }
   };
 
+  // Não mostrar se não suportado - remover aviso que confunde usuário
   if (!status.isSupported) {
-    return (
-      <Card className="border-orange-200 bg-orange-50">
-        <CardContent className="p-4">
-          <div className="flex items-center space-x-3">
-            <AlertCircle className="h-5 w-5 text-orange-600" />
-            <div>
-              <p className="text-sm font-medium text-orange-800">Notificações não suportadas</p>
-              <p className="text-xs text-orange-600">Seu navegador não suporta Web Push</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    );
+    return null;
   }
 
   if (compact) {
@@ -248,7 +237,7 @@ const WebPushSubscription = ({
             </div>
             <div>
               <h3 className="text-lg font-bold text-zinc-900 flex items-center">
-                Notificações Web Push v7.0
+                Notificações
                 {status.features?.urlPersonalizada && (
                   <Sparkles className="h-4 w-4 ml-2 text-purple-600" />
                 )}
@@ -281,20 +270,14 @@ const WebPushSubscription = ({
           </div>
         )}
 
-        {/* Funcionalidades v7.0 */}
-        {status.features && (
+        {/* Benefícios das notificações */}
+        {!status.isSubscribed && (
           <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-sm font-medium text-blue-800 mb-2">✨ Funcionalidades v7.0:</p>
+            <p className="text-sm font-medium text-blue-800 mb-2">✨ Benefícios:</p>
             <div className="flex flex-wrap gap-2">
-              {status.features.urlPersonalizada && (
-                <Badge variant="outline" className="text-xs">🎯 URL Personalizada</Badge>
-              )}
-              {status.features.actionsInteligentes && (
-                <Badge variant="outline" className="text-xs">🧠 Actions Inteligentes</Badge>
-              )}
-              {status.features.imagensGrandes && (
-                <Badge variant="outline" className="text-xs">🖼️ Imagens Grandes</Badge>
-              )}
+              <Badge variant="outline" className="text-xs">🔔 Alertas instantâneos</Badge>
+              <Badge variant="outline" className="text-xs">📱 Funciona offline</Badge>
+              <Badge variant="outline" className="text-xs">🎯 Informações importantes</Badge>
             </div>
           </div>
         )}
@@ -324,7 +307,7 @@ const WebPushSubscription = ({
                 ) : (
                   <>
                     <BellIcon className="h-4 w-4 mr-2" />
-                    Ativar Notificações v7.0
+                    Ativar Notificações
                   </>
                 )}
               </>
@@ -355,12 +338,11 @@ const WebPushSubscription = ({
         {/* Detalhes técnicos */}
         {showDetails && (
           <div className="mt-4 p-3 bg-gray-50 rounded-lg border">
-            <h4 className="text-sm font-medium text-gray-800 mb-2">Detalhes Técnicos:</h4>
+            <h4 className="text-sm font-medium text-gray-800 mb-2">Detalhes:</h4>
             <div className="text-xs text-gray-600 space-y-1">
               <div>Permissão: <Badge variant="outline">{status.permission}</Badge></div>
               <div>Service Worker: <Badge variant="outline">{status.swActive ? 'Ativo' : 'Inativo'}</Badge></div>
               <div>Subscription: <Badge variant="outline">{status.isSubscribed ? 'Sim' : 'Não'}</Badge></div>
-              <div>Versão: <Badge variant="outline">v7.0.0-web-push-complete</Badge></div>
             </div>
           </div>
         )}
