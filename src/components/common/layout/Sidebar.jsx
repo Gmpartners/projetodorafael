@@ -1,4 +1,4 @@
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   HomeIcon, 
   ShoppingBagIcon, 
@@ -15,7 +15,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Package2Icon,
-  CopyIcon
+  CopyIcon,
+  LogOut
 } from 'lucide-react';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
@@ -32,8 +33,9 @@ import { toast } from 'sonner';
 
 const Sidebar = ({ userType = 'store' }) => {
   const location = useLocation();
+  const navigate = useNavigate();
   const { isCollapsed, isMobile, toggleSidebar, collapseSidebar, expandSidebar } = useSidebar();
-  const { user, userProfile } = useAuth();
+  const { user, userProfile, logout } = useAuth();
   const [expandedItem, setExpandedItem] = useState(null);
   
   useEffect(() => {
@@ -68,6 +70,18 @@ const Sidebar = ({ userType = 'store' }) => {
     if (user?.uid) {
       navigator.clipboard.writeText(user.uid);
       toast.success('User ID copiado para a área de transferência!');
+    }
+  };
+
+  // Função para fazer logout
+  const handleLogout = async () => {
+    try {
+      await logout();
+      toast.success('Logout realizado com sucesso!');
+      navigate('/login');
+    } catch (error) {
+      console.error('Erro ao fazer logout:', error);
+      toast.error('Erro ao fazer logout. Tente novamente.');
     }
   };
   
@@ -323,7 +337,7 @@ const Sidebar = ({ userType = 'store' }) => {
       {/* User Profile */}
       <div className={cn(
         "p-3 mt-auto border-t border-zinc-100 bg-zinc-50/50",
-        isCollapsed && !isMobile ? "flex flex-col items-center py-3 gap-1" : "flex flex-col gap-2"
+        isCollapsed && !isMobile ? "flex flex-col items-center py-3 gap-2" : "flex flex-col gap-3"
       )}>
       
         {/* Profile Section */}
@@ -378,6 +392,36 @@ const Sidebar = ({ userType = 'store' }) => {
             </>
           )}
         </div>
+
+        {/* Logout Button */}
+        {isCollapsed && !isMobile ? (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleLogout}
+                  className="w-full h-9 rounded-lg hover:bg-red-50 hover:text-red-600 transition-colors"
+                >
+                  <LogOut className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="ml-2">
+                <p>Sair</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        ) : (
+          <Button
+            variant="ghost"
+            onClick={handleLogout}
+            className="w-full justify-start h-9 px-3 text-zinc-700 hover:bg-red-50 hover:text-red-600 transition-colors"
+          >
+            <LogOut className="h-4 w-4 mr-3" />
+            <span className="text-sm font-medium">Sair</span>
+          </Button>
+        )}
       </div>
     </div>
   );
