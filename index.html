@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Projeto Rafael - Portal de Comunicação</title>
+    
+    <!-- PWA Meta Tags -->
+    <meta name="description" content="Portal de comunicação pós-venda para e-commerce">
+    <meta name="theme-color" content="#8b5cf6">
+    <meta name="background-color" content="#ffffff">
+    
+    <!-- Apple Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Projeto Rafael">
+    
+    <!-- Favicon -->
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+    
+    <!-- Manifest -->
+    <link rel="manifest" href="/manifest.json">
+    
+    <!-- Preload critical resources -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    
+    <!-- Critical CSS inline would go here if needed -->
+    <style>
+      /* Loading spinner para evitar flash */
+      .loading-container {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+      }
+      
+      .loading-spinner {
+        width: 40px;
+        height: 40px;
+        border: 4px solid rgba(255, 255, 255, 0.3);
+        border-top: 4px solid white;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+      
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      
+      .loading-text {
+        color: white;
+        margin-top: 20px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        font-size: 16px;
+        font-weight: 500;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Loading screen -->
+    <div id="loading" class="loading-container">
+      <div style="text-align: center;">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Carregando Projeto Rafael...</div>
+      </div>
+    </div>
+    
+    <!-- Main app -->
+    <div id="root"></div>
+    
+    <!-- Remove loading screen when app loads -->
+    <script>
+      // Remove loading screen após um tempo mínimo
+      setTimeout(() => {
+        const loading = document.getElementById('loading');
+        if (loading) {
+          loading.style.opacity = '0';
+          loading.style.transition = 'opacity 0.5s ease';
+          setTimeout(() => {
+            loading.remove();
+          }, 500);
+        }
+      }, 1000);
+      
+      // Registrar Service Worker para Web Push
+      if ('serviceWorker' in navigator && 'PushManager' in window) {
+        window.addEventListener('load', async () => {
+          try {
+            // Desregistrar service workers antigos primeiro
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            for (const registration of registrations) {
+              if (registration.scope.includes('firebase-messaging-sw.js')) {
+                await registration.unregister();
+                console.log('🗑️ Service Worker antigo removido');
+              }
+            }
+            
+            // Registrar novo Service Worker
+            const registration = await navigator.serviceWorker.register('/sw.js');
+            console.log('✅ Service Worker Web Push registrado:', registration.scope);
+            
+            // Verificar atualizações
+            registration.addEventListener('updatefound', () => {
+              console.log('🔄 Nova versão do Service Worker disponível');
+            });
+            
+          } catch (error) {
+            console.error('❌ Erro ao registrar Service Worker:', error);
+          }
+        });
+      } else {
+        console.warn('⚠️ Web Push não é suportado neste navegador');
+      }
+    </script>
+    
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
