@@ -578,7 +578,7 @@ const CustomerDashboard = () => {
                           
                           <div className="text-right flex-shrink-0">
                             <span className="text-slate-400 text-xs">
-                              {isValidDate(order.createdAt || order.orderDate) ? formatDate(order.createdAt || order.orderDate, 'short') : new Date(order.createdAt || order.orderDate || Date.now()).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                              {formatDate(order.createdAt || order.orderDate, 'short')}
                             </span>
                             <ArrowRight className="h-3 w-3 text-slate-400 mt-1 ml-auto transition-colors" />
                           </div>

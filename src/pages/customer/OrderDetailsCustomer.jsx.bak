@@ -52,8 +52,7 @@ import {
   formatDuration, 
   formatStepDate,
   shouldShowStepTime,
-  formatStepTime,
-  isValidDate 
+  formatStepTime 
 } from '@/utils/dateFormatter';
 
 const OrderDetailsCustomer = () => {
@@ -133,8 +132,7 @@ const OrderDetailsCustomer = () => {
         
         const formattedDate = formatStepDate(step);
         const showTime = shouldShowStepTime(step);
-        const timeDisplay = showTime ? formatStepTime,
-  isValidDate(step) : '';
+        const timeDisplay = showTime ? formatStepTime(step) : '';
         
         const totalSteps = orderDetails.customSteps.length;
         const stepProgress = Math.floor((100 / totalSteps) * (index + 1));
@@ -479,7 +477,7 @@ const OrderDetailsCustomer = () => {
                 <div className="flex items-center mt-1">
                   <span className="text-blue-100 text-sm flex items-center">
                     <Calendar className="h-3 w-3 mr-1" />
-                    {orderDetails.createdAt && isValidDate(orderDetails.createdAt) ? formatDate(orderDetails.createdAt, 'date') : new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
+                    {orderDetails.createdAt ? formatDate(orderDetails.createdAt, 'date') : 'Hoje'}
                   </span>
                   <span className="mx-2 text-blue-200">•</span>
                   <span className="text-blue-100 text-sm">

@@ -14,21 +14,28 @@ export const formatDate = (dateInput, format = 'full') => {
   try {
     let date;
     
-    // Converter diferentes tipos de entrada
-    if (dateInput.seconds) {
-      // Timestamp do Firestore
-      date = new Date(dateInput.seconds * 1000);
+    // ✅ CORRIGIDO: Suportar tanto `seconds` quanto `_seconds` do Firestore
+    if (dateInput.seconds || dateInput._seconds) {
+      // Timestamp do Firestore (pode vir como `seconds` ou `_seconds`)
+      const seconds = dateInput.seconds || dateInput._seconds;
+      const nanoseconds = dateInput.nanoseconds || dateInput._nanoseconds || 0;
+      date = new Date(seconds * 1000 + Math.floor(nanoseconds / 1000000));
+    } else if (dateInput.toDate && typeof dateInput.toDate === 'function') {
+      // Timestamp do Firestore com método toDate()
+      date = dateInput.toDate();
     } else if (typeof dateInput === 'string') {
       // String ISO
       date = new Date(dateInput);
     } else if (dateInput instanceof Date) {
       date = dateInput;
     } else {
+      console.warn('Tipo de data não reconhecido:', dateInput);
       return 'Data inválida';
     }
     
     // Verificar se a data é válida
     if (isNaN(date.getTime())) {
+      console.warn('Data inválida após conversão:', dateInput);
       return 'Data inválida';
     }
     
@@ -61,7 +68,7 @@ export const formatDate = (dateInput, format = 'full') => {
     return date.toLocaleDateString(locale, options[format] || options.full);
     
   } catch (error) {
-    console.error('Erro ao formatar data:', error);
+    console.error('Erro ao formatar data:', error, 'Input:', dateInput);
     return 'Data inválida';
   }
 };
@@ -77,8 +84,14 @@ export const formatRelativeTime = (dateInput) => {
   try {
     let date;
     
-    if (dateInput.seconds) {
-      date = new Date(dateInput.seconds * 1000);
+    // ✅ CORRIGIDO: Suportar tanto `seconds` quanto `_seconds` do Firestore
+    if (dateInput.seconds || dateInput._seconds) {
+      const seconds = dateInput.seconds || dateInput._seconds;
+      const nanoseconds = dateInput.nanoseconds || dateInput._nanoseconds || 0;
+      date = new Date(seconds * 1000 + Math.floor(nanoseconds / 1000000));
+    } else if (dateInput.toDate && typeof dateInput.toDate === 'function') {
+      // Timestamp do Firestore com método toDate()
+      date = dateInput.toDate();
     } else {
       date = new Date(dateInput);
     }
@@ -111,6 +124,7 @@ export const formatRelativeTime = (dateInput) => {
         : `há ${days} ${days === 1 ? 'dia' : 'dias'}`;
     }
   } catch (error) {
+    console.warn('Erro ao formatar tempo relativo:', error, 'Input:', dateInput);
     return '';
   }
 };
@@ -188,4 +202,37 @@ export const formatStepTime = (step) => {
   if (!shouldShowStepTime(step)) return '';
   
   return formatDate(step.completedAt, 'time');
+};
+
+/**
+ * ✅ NOVA: Função helper para debug de datas
+ * @param {any} dateInput - Data para debug
+ * @param {string} context - Contexto onde está sendo usada
+ */
+export const debugDate = (dateInput, context = 'unknown') => {
+  console.log(`🔍 DEBUG DATE [${context}]:`, {
+    input: dateInput,
+    type: typeof dateInput,
+    hasSeconds: !!(dateInput?.seconds),
+    has_seconds: !!(dateInput?._seconds),
+    hasToDate: !!(dateInput?.toDate),
+    isDate: dateInput instanceof Date,
+    formatted: formatDate(dateInput)
+  });
+};
+
+/**
+ * ✅ NOVA: Função para verificar se data é válida
+ * @param {any} dateInput - Data para verificar
+ * @returns {boolean} True se a data é válida
+ */
+export const isValidDate = (dateInput) => {
+  if (!dateInput) return false;
+  
+  try {
+    const formatted = formatDate(dateInput);
+    return formatted !== 'Data inválida' && formatted !== 'Data não disponível';
+  } catch {
+    return false;
+  }
 };
