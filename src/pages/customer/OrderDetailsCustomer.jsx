@@ -477,7 +477,7 @@ const OrderDetailsCustomer = () => {
                 <div className="flex items-center mt-1">
                   <span className="text-blue-100 text-sm flex items-center">
                     <Calendar className="h-3 w-3 mr-1" />
-                    {formatDate(orderDetails.createdAt, 'date')}
+                    {orderDetails.createdAt ? formatDate(orderDetails.createdAt, 'date') : 'Hoje'}
                   </span>
                   <span className="mx-2 text-blue-200">•</span>
                   <span className="text-blue-100 text-sm">
@@ -800,24 +800,13 @@ const OrderDetailsCustomer = () => {
                    orderDetails.description ||
                    'Produto da loja'}
                 </p>
-                <div className="flex items-center space-x-6">
-                  <div className="flex items-center">
-                    <span className="text-sm text-slate-500 mr-1">Quantidade:</span>
-                    <span className="font-semibold text-slate-800">
-                      {orderDetails.productDetails?.quantity || orderDetails.quantity || 1}
-                    </span>
-                  </div>
-                  <div className="flex items-center">
-                    <span className="text-sm text-slate-500 mr-1">Total:</span>
-                    <span className="font-bold text-lg text-blue-600">
-                      {formatCurrency(
-                        orderDetails.totalValue || 
-                        orderDetails.productDetails?.price || 
-                        orderDetails.price || 
-                        0
-                      )}
-                    </span>
-                  </div>
+                <div className="flex items-center">
+                  <span className="text-sm text-slate-500 mr-1">Detalhes:</span>
+                  <span className="font-semibold text-slate-800">
+                    {productName} - {orderDetails.productDetails?.quantity || orderDetails.quantity || 1} {
+                      (orderDetails.productDetails?.quantity || orderDetails.quantity || 1) > 1 ? 'unidades' : 'unidade'
+                    }
+                  </span>
                 </div>
               </div>
             </div>
@@ -857,7 +846,7 @@ const OrderDetailsCustomer = () => {
             </Card>
           )}
           
-          {orderDetails.shippingAddress && (
+          {orderDetails.shippingAddress && orderDetails.shippingAddress.street && (
             <Card className="bg-white shadow-lg border-0">
               <CardContent className="p-5">
                 <div className="flex items-center mb-4">
@@ -865,17 +854,21 @@ const OrderDetailsCustomer = () => {
                   <span className="font-semibold text-slate-700">Endereço de Entrega</span>
                 </div>
                 <div className="text-sm text-slate-600 space-y-1">
-                  <p className="font-medium">{orderDetails.shippingAddress.street}</p>
+                  <p className="font-medium">{orderDetails.shippingAddress.street || 'Endereço não informado'}</p>
                   {orderDetails.shippingAddress.complement && 
                     <p>{orderDetails.shippingAddress.complement}</p>
                   }
                   {orderDetails.shippingAddress.neighborhood && 
                     <p>{orderDetails.shippingAddress.neighborhood}</p>
                   }
-                  <p>{orderDetails.shippingAddress.city} - {orderDetails.shippingAddress.state}</p>
-                  <p className="font-mono text-xs bg-slate-100 inline-block px-2 py-1 rounded mt-2">
-                    CEP: {orderDetails.shippingAddress.zipCode}
+                  <p>
+                    {orderDetails.shippingAddress.city || 'Cidade'} - {orderDetails.shippingAddress.state || 'Estado'}
                   </p>
+                  {orderDetails.shippingAddress.zipCode && (
+                    <p className="font-mono text-xs bg-slate-100 inline-block px-2 py-1 rounded mt-2">
+                      CEP: {orderDetails.shippingAddress.zipCode}
+                    </p>
+                  )}
                 </div>
               </CardContent>
             </Card>
