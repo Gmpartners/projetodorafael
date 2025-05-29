@@ -104,7 +104,7 @@ const WebPushDirectTest = () => {
               onClick={testSimpleNotification}
               disabled={testing}
               variant="outline"
-              className="w-full h-10 px-4"
+              className="w-full"
             >
               {testing ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -119,7 +119,7 @@ const WebPushDirectTest = () => {
             <Button
               onClick={testDirectNotification}
               disabled={testing}
-              className="w-full h-10 px-4 bg-yellow-600 hover:bg-yellow-700 text-white"
+              className="w-full bg-yellow-600 hover:bg-yellow-700"
             >
               {testing ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

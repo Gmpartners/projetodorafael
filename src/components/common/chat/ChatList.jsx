@@ -284,8 +284,14 @@ const ChatList = ({
       case 'unread':
         result = result.filter(chat => (chat.unreadCount || chat.userUnreadCount || 0) > 0);
         break;
+      case 'attention':
+        result = result.filter(chat => chat.hasAttention || chat.isUrgent);
+        break;
       case 'online':
         result = result.filter(chat => chat.online);
+        break;
+      case 'urgent':
+        result = result.filter(chat => chat.priority === 'urgent' || chat.isUrgent);
         break;
       default:
         break;
@@ -339,10 +345,10 @@ const ChatList = ({
   if (!chats && isLoading) {
     return (
       <div className="h-full flex flex-col bg-white rounded-xl shadow-lg overflow-hidden">
-        <div className="p-3 border-b border-zinc-100 flex-shrink-0">
+        <div className="p-3 border-b border-zinc-100">
           <LoadingSkeleton rows={1} showAvatar={false} />
         </div>
-        <div className="flex-1 p-2 min-h-0">
+        <div className="flex-1 p-2">
           <LoadingSkeleton rows={4} showAvatar />
         </div>
       </div>
@@ -351,7 +357,6 @@ const ChatList = ({
   
   return (
     <div className="h-full flex flex-col bg-white rounded-xl shadow-lg overflow-hidden">
-      {/* Header - Altura fixa */}
       <div className="p-3 border-b border-zinc-100 bg-gradient-to-r from-white via-purple-50/30 to-indigo-50/30 flex-shrink-0">
         <div className="flex justify-between items-center mb-2">
           <div className="flex items-center space-x-2">
@@ -377,8 +382,7 @@ const ChatList = ({
           </Button>
         </div>
         
-        {/* Stats - removendo card de Urgentes */}
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-4 gap-1.5">
           <div className="text-center p-1.5 rounded bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200">
             <p className="text-xs font-bold text-purple-900">{stats.total}</p>
             <p className="text-xs text-purple-700">Total</p>
@@ -387,6 +391,10 @@ const ChatList = ({
             <p className="text-xs font-bold text-blue-900">{stats.unread}</p>
             <p className="text-xs text-blue-700">Não Lidas</p>
           </div>
+          <div className="text-center p-1.5 rounded bg-gradient-to-br from-red-50 to-red-100 border border-red-200">
+            <p className="text-xs font-bold text-red-900">{stats.urgent}</p>
+            <p className="text-xs text-red-700">Urgentes</p>
+          </div>
           <div className="text-center p-1.5 rounded bg-gradient-to-br from-emerald-50 to-emerald-100 border border-emerald-200">
             <p className="text-xs font-bold text-emerald-900">{stats.online}</p>
             <p className="text-xs text-emerald-700">Online</p>
@@ -394,7 +402,6 @@ const ChatList = ({
         </div>
       </div>
       
-      {/* Search - Altura fixa */}
       <div className="p-2 border-b border-zinc-100 flex-shrink-0 bg-white">
         <div className="relative">
           <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-zinc-400" />
@@ -417,7 +424,6 @@ const ChatList = ({
         </div>
       </div>
       
-      {/* Error */}
       {error && (
         <div className="p-2 bg-red-50 border-b border-red-200 flex-shrink-0">
           <div className="flex items-center space-x-2 text-red-800">
@@ -435,8 +441,7 @@ const ChatList = ({
         </div>
       )}
       
-      {/* Tabs - removendo tab Urgentes */}
-      <Tabs defaultValue="all" className="flex-1 flex flex-col overflow-hidden bg-white min-h-0" onValueChange={handleFilterChange}>
+      <Tabs defaultValue="all" className="flex-1 flex flex-col overflow-hidden bg-white" onValueChange={handleFilterChange}>
         <div className="px-2 pt-2 flex-shrink-0 bg-white">
           <TabsList className="w-full bg-zinc-100/80 backdrop-blur-sm p-0.5 rounded-lg h-7">
             <TabsTrigger value="all" className="flex-1 data-[state=active]:bg-white data-[state=active]:shadow-md transition-all text-xs h-6">
@@ -450,6 +455,14 @@ const ChatList = ({
                 </Badge>
               )}
             </TabsTrigger>
+            <TabsTrigger value="urgent" className="flex-1 data-[state=active]:bg-white data-[state=active]:shadow-md transition-all text-xs h-6">
+              Urgentes
+              {stats.urgent > 0 && (
+                <Badge className="ml-1 bg-red-600 text-white text-xs min-w-[12px] h-3 p-0 flex items-center justify-center">
+                  {stats.urgent}
+                </Badge>
+              )}
+            </TabsTrigger>
             <TabsTrigger value="online" className="flex-1 data-[state=active]:bg-white data-[state=active]:shadow-md transition-all text-xs h-6">
               Online
               <div className="ml-1 w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
@@ -457,10 +470,9 @@ const ChatList = ({
           </TabsList>
         </div>
         
-        {/* Content com scroll limitado */}
-        <div className="flex-1 overflow-hidden bg-white min-h-0">
+        <div className="flex-1 overflow-hidden bg-white">
           <TabsContent value="all" className="flex-1 m-0 h-full data-[state=active]:flex data-[state=active]:flex-col overflow-hidden">
-            <div className="flex-1 overflow-hidden bg-white min-h-0">
+            <div className="flex-1 overflow-hidden bg-white">
               <ScrollArea className="h-full">
                 {isLoading && chats.length === 0 ? (
                   <div className="p-2 bg-white">
@@ -492,7 +504,7 @@ const ChatList = ({
           </TabsContent>
           
           <TabsContent value="unread" className="flex-1 m-0 h-full data-[state=active]:flex data-[state=active]:flex-col overflow-hidden">
-            <div className="flex-1 overflow-hidden bg-white min-h-0">
+            <div className="flex-1 overflow-hidden bg-white">
               <ScrollArea className="h-full">
                 {isLoading ? (
                   <div className="p-2 bg-white">
@@ -523,8 +535,40 @@ const ChatList = ({
             </div>
           </TabsContent>
           
+          <TabsContent value="urgent" className="flex-1 m-0 h-full data-[state=active]:flex data-[state=active]:flex-col overflow-hidden">
+            <div className="flex-1 overflow-hidden bg-white">
+              <ScrollArea className="h-full">
+                {isLoading ? (
+                  <div className="p-2 bg-white">
+                    <LoadingSkeleton rows={2} showAvatar />
+                  </div>
+                ) : filteredChats.length > 0 ? (
+                  <div className="divide-y divide-zinc-100 bg-white">
+                    {filteredChats.map((chat, index) => (
+                      <ChatListItem
+                        key={chat.id}
+                        chat={chat}
+                        activeChat={activeChat}
+                        onClick={handleSelectChat}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-3 bg-white">
+                    <EmptyState
+                      icon={Zap}
+                      title="Nenhuma conversa urgente"
+                      description="Situações críticas resolvidas."
+                      variant="success"
+                    />
+                  </div>
+                )}
+              </ScrollArea>
+            </div>
+          </TabsContent>
+          
           <TabsContent value="online" className="flex-1 m-0 h-full data-[state=active]:flex data-[state=active]:flex-col overflow-hidden">
-            <div className="flex-1 overflow-hidden bg-white min-h-0">
+            <div className="flex-1 overflow-hidden bg-white">
               <ScrollArea className="h-full">
                 {isLoading ? (
                   <div className="p-2 bg-white">
@@ -557,7 +601,6 @@ const ChatList = ({
         </div>
       </Tabs>
       
-      {/* Footer button - Altura fixa */}
       {userType === 'store' && onCreateChat && (
         <div className="p-2 border-t border-zinc-100 bg-white flex-shrink-0">
           <Button

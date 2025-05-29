@@ -206,7 +206,6 @@ const WebPushSubscription = ({
           variant="outline"
           onClick={status.isSubscribed ? handleUnsubscribe : handleSubscribe}
           disabled={status.loading}
-          className="h-10 px-4"
         >
           {status.loading ? (
             <Loader2 className="h-3 w-3 animate-spin" />
@@ -287,10 +286,10 @@ const WebPushSubscription = ({
           <Button
             onClick={status.isSubscribed ? handleUnsubscribe : handleSubscribe}
             disabled={status.loading}
-            className={`flex-1 h-10 px-4 ${
+            className={`flex-1 ${
               status.isSubscribed 
-                ? 'bg-red-600 hover:bg-red-700 text-white' 
-                : 'bg-green-600 hover:bg-green-700 text-white'
+                ? 'bg-red-600 hover:bg-red-700' 
+                : 'bg-green-600 hover:bg-green-700'
             }`}
           >
             {status.loading ? (
@@ -320,7 +319,6 @@ const WebPushSubscription = ({
               variant="outline"
               onClick={handleTestNotification}
               disabled={status.loading}
-              className="h-10 px-4"
             >
               🧪 Testar
             </Button>
@@ -331,7 +329,6 @@ const WebPushSubscription = ({
               variant="outline"
               onClick={() => setShowDetails(!showDetails)}
               disabled={status.loading}
-              className="h-10 px-4"
             >
               <Settings className="h-4 w-4" />
             </Button>

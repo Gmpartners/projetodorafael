@@ -85,8 +85,9 @@ const NotificationOverview = ({ stats, onRefresh, setActiveTab }) => {
         </div>
         <Button 
           variant="outline" 
+          size="sm"
           onClick={onRefresh}
-          className="h-10 px-4 border-emerald-300 hover:bg-emerald-50"
+          className="border-emerald-300 hover:bg-emerald-50"
         >
           <RefreshCcwIcon className="h-4 w-4 mr-2" />
           Atualizar

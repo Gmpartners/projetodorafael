@@ -421,7 +421,7 @@ const CreateNotification = () => {
                       type="button"
                       onClick={addCustomButton}
                       disabled={!newButtonTitle.trim() || customButtons.length >= 2}
-                      className="w-full h-10 px-4"
+                      className="w-full"
                     >
                       <PlusIcon className="h-4 w-4" />
                     </Button>
@@ -445,7 +445,7 @@ const CreateNotification = () => {
                           variant="ghost"
                           size="sm"
                           onClick={() => removeCustomButton(index)}
-                          className="text-red-500 hover:text-red-700 h-10 px-4"
+                          className="text-red-500 hover:text-red-700"
                         >
                           <X className="h-4 w-4" />
                         </Button>
@@ -643,11 +643,7 @@ const CreateNotification = () => {
               <Button 
                 onClick={handleSendNotification}
                 disabled={loading || !title.trim() || !body.trim() || uploadingIcon || uploadingImage}
-                className={`flex-1 h-10 px-4 ${
-                  scheduledDate 
-                    ? 'bg-purple-600 hover:bg-purple-700' 
-                    : 'bg-green-600 hover:bg-green-700'
-                } text-white`}
+                className="flex-1 bg-purple-600 hover:bg-purple-700"
               >
                 {loading ? (
                   <>

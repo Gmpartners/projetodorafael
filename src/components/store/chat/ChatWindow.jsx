@@ -187,7 +187,7 @@ const ChatWindow = ({ activeChat, onStartNewChat, onSelectResponse }) => {
   if (!activeChat) {
     return (
       <div className="h-full flex flex-col bg-white rounded-xl shadow-lg overflow-hidden">
-        <div className="p-4 border-b border-zinc-100 bg-gradient-to-r from-white via-purple-50/30 to-indigo-50/30 flex-shrink-0">
+        <div className="p-4 border-b border-zinc-100 bg-gradient-to-r from-white via-purple-50/30 to-indigo-50/30">
           <div className="flex items-center space-x-3">
             <div className="p-2 rounded-lg bg-gradient-to-br from-blue-100 to-blue-200 shadow-md">
               <MessageSquare className="h-5 w-5 text-blue-700" />
@@ -199,7 +199,7 @@ const ChatWindow = ({ activeChat, onStartNewChat, onSelectResponse }) => {
           </div>
         </div>
         
-        <div className="flex-1 flex items-center justify-center p-6 bg-white overflow-hidden">
+        <div className="flex-1 flex items-center justify-center p-6 bg-white">
           <EmptyState
             icon={MessageSquare}
             title="Nenhuma conversa selecionada"
@@ -215,12 +215,11 @@ const ChatWindow = ({ activeChat, onStartNewChat, onSelectResponse }) => {
   }
 
   return (
-    <div className="h-full flex flex-col bg-white rounded-xl shadow-lg overflow-hidden max-h-full">
-      {/* Header - Altura fixa */}
-      <div className="p-3 border-b border-zinc-100 bg-gradient-to-r from-white via-purple-50/30 to-indigo-50/30 flex-shrink-0">
+    <div className="h-full flex flex-col bg-white rounded-xl shadow-lg overflow-hidden">
+      <div className="p-3 border-b border-zinc-100 bg-gradient-to-r from-white via-purple-50/30 to-indigo-50/30 flex-shrink-0 relative">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3 min-w-0 flex-1">
-            <div className="relative flex-shrink-0">
+          <div className="flex items-center space-x-3">
+            <div className="relative">
               <Avatar className="h-10 w-10 border-2 border-white shadow-md">
                 <AvatarImage src={activeChat.avatar} />
                 <AvatarFallback className="bg-gradient-to-br from-purple-100 to-purple-200 text-purple-700 font-bold text-sm">
@@ -256,7 +255,7 @@ const ChatWindow = ({ activeChat, onStartNewChat, onSelectResponse }) => {
             </div>
           </div>
           
-          <div className="flex items-center space-x-1 flex-shrink-0">
+          <div className="flex items-center space-x-1">
             <Button 
               variant="ghost" 
               size="icon" 
@@ -281,18 +280,16 @@ const ChatWindow = ({ activeChat, onStartNewChat, onSelectResponse }) => {
         </div>
       </div>
 
-      {/* Área de mensagens - Com altura limitada e scroll */}
-      <div className="flex-1 overflow-hidden bg-gradient-to-br from-zinc-50/30 to-white relative min-h-0">
+      <div className="flex-1 overflow-hidden bg-gradient-to-br from-zinc-50/30 to-white relative">
         <ScrollArea 
           ref={scrollAreaRef}
           className="h-full"
           onScroll={handleScroll}
         >
           <div className="p-3 space-y-3">
-            {/* Card de informações do chat */}
-            <div className="bg-gradient-to-r from-purple-50/70 to-indigo-50/70 border border-purple-100 rounded-lg p-3 transition-all hover:shadow-md flex-shrink-0">
+            <div className="bg-gradient-to-r from-purple-50/70 to-indigo-50/70 border border-purple-100 rounded-lg p-3 transition-all hover:shadow-md">
               <div className="flex items-center space-x-3">
-                <Avatar className="h-8 w-8 border-2 border-white shadow-sm flex-shrink-0">
+                <Avatar className="h-8 w-8 border-2 border-white shadow-sm">
                   <AvatarImage src={activeChat.avatar} />
                   <AvatarFallback className="bg-gradient-to-br from-purple-100 to-purple-200 text-purple-700 font-semibold text-xs">
                     {activeChat.initials}
@@ -313,7 +310,7 @@ const ChatWindow = ({ activeChat, onStartNewChat, onSelectResponse }) => {
                 <Button 
                   variant="ghost" 
                   size="sm"
-                  className="h-7 text-xs text-purple-600 hover:bg-purple-100 flex-shrink-0"
+                  className="h-7 text-xs text-purple-600 hover:bg-purple-100"
                   onClick={handleMarkAsRead}
                 >
                   Marcar como lida
@@ -321,7 +318,6 @@ const ChatWindow = ({ activeChat, onStartNewChat, onSelectResponse }) => {
               </div>
             </div>
             
-            {/* Lista de mensagens */}
             <div className="space-y-3">
               {isLoading && messages.length === 0 ? (
                 <div className="text-center text-zinc-500 py-8">
@@ -344,14 +340,14 @@ const ChatWindow = ({ activeChat, onStartNewChat, onSelectResponse }) => {
                     )}
                   >
                     <div className={cn(
-                      "max-w-[75%] rounded-xl p-3 shadow-sm transition-all hover:shadow-md break-words",
+                      "max-w-[75%] rounded-xl p-3 shadow-sm transition-all hover:shadow-md",
                       message.sender === 'store' || message.senderType === 'store'
                         ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-br-md'
                         : message.senderType === 'system'
                         ? 'bg-zinc-100 text-zinc-700 rounded-lg text-center text-sm'
                         : 'bg-white border border-zinc-200 text-zinc-900 rounded-bl-md'
                     )}>
-                      <p className="text-sm whitespace-pre-wrap leading-relaxed word-break">
+                      <p className="text-sm whitespace-pre-wrap leading-relaxed">
                         {message.content || message.text}
                       </p>
                       <div className={cn(
@@ -390,9 +386,8 @@ const ChatWindow = ({ activeChat, onStartNewChat, onSelectResponse }) => {
         )}
       </div>
 
-      {/* Respostas rápidas - Altura fixa */}
       {onSelectResponse && (
-        <div className="border-t border-zinc-100 p-2 bg-zinc-50/50 flex-shrink-0">
+        <div className="border-t border-zinc-100 p-2 bg-zinc-50/50">
           <div className="flex space-x-2 overflow-x-auto">
             <Button
               variant="outline"
@@ -422,7 +417,6 @@ const ChatWindow = ({ activeChat, onStartNewChat, onSelectResponse }) => {
         </div>
       )}
 
-      {/* Input de mensagem - Altura fixa */}
       <div className="p-3 border-t border-zinc-100 bg-white flex-shrink-0">
         {showEmojiPanel && (
           <div className="mb-2 p-2 border rounded-lg bg-zinc-50">

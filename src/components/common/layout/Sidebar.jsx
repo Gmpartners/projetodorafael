@@ -80,7 +80,20 @@ const Sidebar = ({ userType = 'store' }) => {
       icon: <Package2Icon className="h-5 w-5" />
     },
     
-
+    { 
+      name: 'Pedidos', 
+      path: '/store/orders', 
+      icon: <ShoppingBagIcon className="h-5 w-5" />,
+      subItems: [
+        { name: 'Todos os Pedidos', path: '/store/orders' },
+        { name: 'Novos', path: '/store/orders/new' },
+        { name: 'Processando', path: '/store/orders/processing' },
+        { name: 'Enviados', path: '/store/orders/shipped' },
+        { name: 'Entregues', path: '/store/orders/delivered' },
+        { name: 'Concluídos', path: '/store/orders/completed' },
+        { name: 'Cancelados', path: '/store/orders/cancelled' },
+      ]
+    },
     
     { 
       name: 'Mensagens', 
@@ -92,7 +105,7 @@ const Sidebar = ({ userType = 'store' }) => {
       path: '/store/push-notifications', 
       icon: <BellIcon className="h-5 w-5" />
     },
-
+    { name: 'Configurações', path: '/store/settings', icon: <Settings className="h-5 w-5" /> },
   ];
   
   const customerNavItems = [
@@ -326,7 +339,35 @@ const Sidebar = ({ userType = 'store' }) => {
         isCollapsed && !isMobile ? "flex flex-col items-center py-3 gap-1" : "flex flex-col gap-2"
       )}>
         {/* User ID Section - Sempre visível em destaque */}
-    
+        {!isCollapsed && user?.uid && (
+          <div className="mb-2 p-2 bg-gradient-to-r from-emerald-50 to-blue-50 rounded-lg border border-emerald-200">
+            <div className="flex items-center justify-between">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-emerald-800 mb-1">🆔 User ID (Para Testes)</p>
+                <p className="text-xs font-mono text-emerald-700 break-all leading-tight">
+                  {user.uid}
+                </p>
+              </div>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={copyUserId}
+                      className="h-6 w-6 ml-2 text-emerald-600 hover:text-emerald-800 hover:bg-emerald-100"
+                    >
+                      <CopyIcon className="h-3 w-3" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Copiar User ID</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+          </div>
+        )}
 
         {/* Profile Section */}
         <div className={cn(

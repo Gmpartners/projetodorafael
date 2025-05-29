@@ -153,7 +153,7 @@ const ChatManagementPage = () => {
     }
   ], [stats]);
 
-  // Dados das ações rápidas organizadas - removendo "Urgentes"
+  // Dados das ações rápidas organizadas - usando dados reais
   const quickActions = useMemo(() => [
     {
       id: 'chats',
@@ -198,8 +198,25 @@ const ChatManagementPage = () => {
       badge: 0,
       badgeColor: 'bg-emerald-500',
       onClick: () => setActiveTab('settings')
+    },
+    {
+      id: 'urgent',
+      title: 'Urgentes',
+      description: 'Conversas que precisam de atenção',
+      icon: AlertCircle,
+      color: 'red',
+      bgColor: 'from-red-50 to-red-100',
+      borderColor: 'border-red-200',
+      hoverColor: 'hover:border-red-400 hover:bg-red-50',
+      textColor: 'text-red-600',
+      badge: stats.urgent || 0,
+      badgeColor: 'bg-red-500',
+      onClick: () => {
+        setActiveTab('chats');
+        setFilterStatus('urgent');
+      }
     }
-  ], [stats.unread]);
+  ], [stats.unread, stats.urgent]);
 
   // Quick response handler - usando função real
   const handleQuickResponse = useCallback(async (responseText) => {
@@ -449,11 +466,11 @@ const ChatManagementPage = () => {
                 </FadeInUp>
               </TabsContent>
               
-              {/* Tab: Conversas - Layout Corrigido com altura fixa */}
+              {/* Tab: Conversas - Layout Otimizado usando componentes reais */}
               <TabsContent value="chats" className="mt-6">
-                <div className="h-[700px]"> {/* Altura fixa específica */}
+                <div className="h-[calc(100vh-280px)] min-h-[650px] max-h-[900px]">
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
-                    {/* Lista de Conversas */}
+                    {/* Lista de Conversas - usando dados reais */}
                     <div className="h-full">
                       <FadeInUp delay={0} className="h-full">
                         <div className="h-full overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-lg">
@@ -469,7 +486,7 @@ const ChatManagementPage = () => {
                       </FadeInUp>
                     </div>
                     
-                    {/* Janela de Chat */}
+                    {/* Janela de Chat - usando dados reais */}
                     <div className="h-full">
                       <FadeInUp delay={200} className="h-full">
                         <div className="h-full overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-lg">

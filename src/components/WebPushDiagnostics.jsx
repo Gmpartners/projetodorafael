@@ -281,7 +281,6 @@ const WebPushDiagnostics = () => {
             variant="outline"
             onClick={runFullDiagnostics}
             disabled={running}
-            className="h-10 px-4"
           >
             {running ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -443,7 +442,7 @@ const WebPushDiagnostics = () => {
               <Button
                 onClick={attemptSubscription}
                 disabled={running || diagnostics.subscription?.exists}
-                className="flex-1 h-10 px-4 bg-blue-600 hover:bg-blue-700 text-white"
+                className="flex-1"
               >
                 <Bell className="h-4 w-4 mr-2" />
                 Ativar Web Push
@@ -453,7 +452,7 @@ const WebPushDiagnostics = () => {
                 onClick={sendTestPush}
                 disabled={running || !diagnostics.subscription?.exists}
                 variant="outline"
-                className="flex-1 h-10 px-4"
+                className="flex-1"
               >
                 Enviar Teste
               </Button>

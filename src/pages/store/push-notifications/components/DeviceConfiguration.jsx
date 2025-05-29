@@ -245,7 +245,7 @@ const DeviceConfiguration = () => {
                 <Button 
                   onClick={handleRequestPermission}
                   disabled={loading}
-                  className="h-10 px-4 bg-blue-600 hover:bg-blue-700 text-white"
+                  className="bg-blue-600 hover:bg-blue-700"
                 >
                   {loading ? (
                     <>
@@ -269,7 +269,7 @@ const DeviceConfiguration = () => {
                   onClick={handleSendTestNotification}
                   disabled={testLoading}
                   variant="outline"
-                  className="w-full h-10 px-4 border-emerald-300 hover:bg-emerald-50"
+                  className="w-full border-emerald-300 hover:bg-emerald-50"
                 >
                   {testLoading ? (
                     <>
