@@ -21,7 +21,21 @@ import {
   XIcon,
   Mail,
   Phone,
-  MapPin
+  MapPin,
+  TrendingUp,
+  Activity,
+  Zap,
+  Star,
+  Gift,
+  Bell,
+  Eye,
+  Timer,
+  BarChart3,
+  PieChart,
+  Target,
+  Award,
+  Flame,
+  
 } from 'lucide-react';
 import { apiService } from '@/services/apiService';
 import webPushService from '@/services/webPushService';
@@ -52,13 +66,19 @@ const CustomerDashboard = () => {
     messages: 0
   });
 
+  // Estados para animações
+  const [statsAnimation, setStatsAnimation] = useState(false);
+
+  useEffect(() => {
+    setTimeout(() => setStatsAnimation(true), 300);
+  }, []);
+
   // Load customer data from localStorage
   useEffect(() => {
     const storedEmail = localStorage.getItem('customerEmail');
     const storedData = localStorage.getItem('customerData');
     
     if (!storedEmail || !storedData) {
-      // Redirect back to lookup if no data
       navigate('/customer/lookup');
       return;
     }
@@ -94,7 +114,6 @@ const CustomerDashboard = () => {
         setNotificationStatus('active');
       } else {
         setNotificationStatus('available');
-        // Show activation card after 3 seconds
         setTimeout(() => setShowNotificationCard(true), 3000);
       }
     } catch (error) {
@@ -110,13 +129,11 @@ const CustomerDashboard = () => {
       const subscription = await webPushService.subscribe();
       
       if (subscription) {
-        // Subscribe to store
         await apiService.subscribeToStoreWebPush(storeId);
         
         setNotificationStatus('active');
         setShowNotificationCard(false);
         
-        // Send welcome notification
         setTimeout(async () => {
           try {
             const welcomeTemplate = notificationTemplates.getTemplate('welcome', {
@@ -160,7 +177,6 @@ const CustomerDashboard = () => {
         setCustomerOrders(response.data.orders);
         setDashboardStats(response.data.stats);
         
-        // Update localStorage
         localStorage.setItem('customerData', JSON.stringify(response.data));
         
         toast.success('✅ Data updated successfully');
@@ -175,7 +191,6 @@ const CustomerDashboard = () => {
   };
 
   const handleBack = () => {
-    // Clear stored data and go back to lookup
     localStorage.removeItem('customerEmail');
     localStorage.removeItem('customerData');
     navigate('/customer/lookup');
@@ -189,10 +204,10 @@ const CustomerDashboard = () => {
   };
 
   const getProgressBarColor = (order) => {
-    if (order.progress >= 100) return 'from-emerald-400 to-emerald-500';
-    if (order.progress >= 66) return 'from-violet-400 to-violet-500';
-    if (order.progress >= 33) return 'from-blue-400 to-blue-500';
-    return 'from-amber-400 to-amber-500';
+    if (order.progress >= 100) return 'from-emerald-400 via-emerald-500 to-emerald-600';
+    if (order.progress >= 66) return 'from-violet-400 via-violet-500 to-violet-600';
+    if (order.progress >= 33) return 'from-blue-400 via-blue-500 to-blue-600';
+    return 'from-amber-400 via-amber-500 to-amber-600';
   };
 
   const getStatusText = (order) => {
@@ -229,6 +244,21 @@ const CustomerDashboard = () => {
     if (name.includes('shipped') || name.includes('transit')) return Truck;
     if (name.includes('delivered')) return CheckCircle;
     return Clock;
+  };
+
+  const getStatIcon = (index) => {
+    const icons = [Package, Activity, CheckCircle, MessageSquare];
+    return icons[index] || Package;
+  };
+
+  const getStatGradient = (index) => {
+    const gradients = [
+      'from-blue-500 to-indigo-600',
+      'from-orange-500 to-red-600', 
+      'from-emerald-500 to-teal-600',
+      'from-purple-500 to-pink-600'
+    ];
+    return gradients[index] || gradients[0];
   };
 
   if (isLoading) {
@@ -388,22 +418,40 @@ const CustomerDashboard = () => {
 
         {/* Stats cards */}
         <div className="grid grid-cols-4 gap-2.5 mb-6">
-          <div className="bg-white rounded-lg p-3 text-center shadow-sm border border-slate-100">
-            <div className="text-lg font-semibold text-slate-800">{dashboardStats.totalOrders}</div>
-            <div className="text-xs text-slate-500 font-medium">Orders</div>
-          </div>
-          <div className="bg-white rounded-lg p-3 text-center shadow-sm border border-slate-100">
-            <div className="text-lg font-semibold text-blue-600">{dashboardStats.inProgress}</div>
-            <div className="text-xs text-slate-500 font-medium">In Progress</div>
-          </div>
-          <div className="bg-white rounded-lg p-3 text-center shadow-sm border border-slate-100">
-            <div className="text-lg font-semibold text-emerald-600">{dashboardStats.completed}</div>
-            <div className="text-xs text-slate-500 font-medium">Completed</div>
-          </div>
-          <div className="bg-white rounded-lg p-3 text-center shadow-sm border border-slate-100">
-            <div className="text-lg font-semibold text-violet-600">{dashboardStats.messages}</div>
-            <div className="text-xs text-slate-500 font-medium">Messages</div>
-          </div>
+          {[
+            { label: 'Orders', value: dashboardStats.totalOrders, icon: Package },
+            { label: 'In Progress', value: dashboardStats.inProgress, icon: Activity },
+            { label: 'Completed', value: dashboardStats.completed, icon: CheckCircle },
+            { label: 'Messages', value: dashboardStats.messages, icon: MessageSquare }
+          ].map((stat, index) => {
+            const IconComponent = stat.icon;
+            
+            return (
+              <div key={index} className={`
+                bg-white rounded-lg p-3 text-center shadow-sm border border-slate-100 transition-all duration-300
+                ${statsAnimation ? 'animate-fadeInUp' : 'opacity-0'}
+              `} style={{animationDelay: `${index * 100}ms`}}>
+                
+                {/* Icon with gradient background */}
+                <div className={`
+                  w-8 h-8 mx-auto mb-2 rounded-lg bg-gradient-to-br ${getStatGradient(index)} 
+                  flex items-center justify-center shadow-sm
+                `}>
+                  <IconComponent className="h-4 w-4 text-white" />
+                </div>
+                
+                {/* Value */}
+                <div className="text-lg font-semibold text-slate-800">
+                  {stat.value}
+                </div>
+                
+                {/* Label */}
+                <div className="text-xs text-slate-500 font-medium">
+                  {stat.label}
+                </div>
+              </div>
+            );
+          })}
         </div>
 
         {/* My Orders Section */}
@@ -462,7 +510,7 @@ const CustomerDashboard = () => {
             {customerOrders.map((order, index) => (
               <Card 
                 key={order.id || index}
-                className="bg-white border border-slate-100 shadow-sm hover:shadow-md hover:border-slate-200 transition-all duration-200 cursor-pointer group"
+                className="bg-white border border-slate-100 shadow-sm transition-all duration-200 cursor-pointer"
                 onClick={() => navigate(`/customer/orders/${order.id || order.orderId}`, { state: { customerEmail } })}
               >
                 <CardContent className="p-4">
@@ -503,7 +551,7 @@ const CustomerDashboard = () => {
                           <span className="text-slate-400 text-xs">
                             {formatDate(order.createdAt || order.orderDate)}
                           </span>
-                          <ArrowRight className="h-3 w-3 text-slate-400 mt-1 ml-auto group-hover:text-slate-600 transition-colors" />
+                          <ArrowRight className="h-3 w-3 text-slate-400 mt-1 ml-auto transition-colors" />
                         </div>
                       </div>
                       
@@ -526,7 +574,6 @@ const CustomerDashboard = () => {
                               className={`h-2 rounded-full bg-gradient-to-r ${getProgressBarColor(order)} transition-all duration-700 ease-out`}
                               style={{ width: `${order.progress || 0}%` }}
                             >
-                              <div className="h-full w-full bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse"></div>
                             </div>
                           </div>
                         </div>

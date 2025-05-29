@@ -25,7 +25,20 @@ import {
   Info,
   MessageCircle,
   Send,
-  HeadphonesIcon
+  HeadphonesIcon,
+  ShoppingBag,
+  PackageCheck,
+  Factory,
+  TruckIcon,
+  Home,
+  Timer,
+  Zap,
+  Activity,
+  CheckCircle2,
+  ArrowRight,
+  Eye,
+  ShieldCheck,
+  Gift
 } from 'lucide-react';
 import { apiService } from '@/services/apiService';
 
@@ -36,14 +49,22 @@ const OrderDetailsCustomer = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [orderDetails, setOrderDetails] = useState(null);
   const [error, setError] = useState(null);
+  const [pulseStep, setPulseStep] = useState(0);
 
   // Get customer email from localStorage or state
   const customerEmail = location.state?.customerEmail || localStorage.getItem('customerEmail');
   const storeId = 'E47OkrK3IcNu1Ys8gD4CA29RrHk2';
 
+  // Pulse animation for current step
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setPulseStep(prev => (prev + 1) % 3);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   useEffect(() => {
     if (!customerEmail) {
-      // Redirect to lookup if no email
       navigate('/customer/lookup');
       return;
     }
@@ -59,7 +80,6 @@ const OrderDetailsCustomer = () => {
       setError(null);
       console.log('🔍 Fetching order details:', orderId, 'for email:', customerEmail);
 
-      // Get order progress by email (no auth required)
       const progressData = await apiService.getOrderProgressByEmail(orderId, customerEmail);
       
       if (progressData.success && progressData.data) {
@@ -85,7 +105,116 @@ const OrderDetailsCustomer = () => {
     }
   };
 
-  // Open chat with store
+  // Enhanced timeline steps with more detailed process
+  const getEnhancedSteps = (orderDetails) => {
+    const baseProgress = orderDetails.progress || 0;
+    
+    const allSteps = [
+      {
+        id: 1,
+        name: "Order Placed",
+        description: "Your order has been successfully placed and payment confirmed",
+        icon: ShoppingBag,
+        progress: 10,
+        status: "completed",
+        estimatedTime: "Just now",
+        color: "emerald"
+      },
+      {
+        id: 2,
+        name: "Order Confirmed",
+        description: "We've received your order and are preparing to process it",
+        icon: CheckCircle2,
+        progress: 20,
+        status: baseProgress >= 20 ? "completed" : "pending",
+        estimatedTime: "Within 2 hours",
+        color: "emerald"
+      },
+      {
+        id: 3,
+        name: "Payment Verified",
+        description: "Payment has been verified and authorized",
+        icon: ShieldCheck,
+        progress: 25,
+        status: baseProgress >= 25 ? "completed" : "pending",
+        estimatedTime: "Completed",
+        color: "emerald"
+      },
+      {
+        id: 4,
+        name: "Processing",
+        description: "Your order is being prepared and quality checked",
+        icon: Factory,
+        progress: 40,
+        status: baseProgress >= 40 ? "completed" : baseProgress >= 25 ? "current" : "pending",
+        estimatedTime: "2-4 hours",
+        color: "blue"
+      },
+      {
+        id: 5,
+        name: "Quality Check",
+        description: "Final quality inspection and packaging preparation",
+        icon: Eye,
+        progress: 55,
+        status: baseProgress >= 55 ? "completed" : baseProgress >= 40 ? "current" : "pending",
+        estimatedTime: "30 minutes",
+        color: "blue"
+      },
+      {
+        id: 6,
+        name: "Packaging",
+        description: "Your order is being carefully packaged for shipping",
+        icon: Package,
+        progress: 70,
+        status: baseProgress >= 70 ? "completed" : baseProgress >= 55 ? "current" : "pending",
+        estimatedTime: "1 hour",
+        color: "violet"
+      },
+      {
+        id: 7,
+        name: "Ready for Pickup",
+        description: "Package is ready and waiting for courier pickup",
+        icon: PackageCheck,
+        progress: 80,
+        status: baseProgress >= 80 ? "completed" : baseProgress >= 70 ? "current" : "pending",
+        estimatedTime: "2-6 hours",
+        color: "violet"
+      },
+      {
+        id: 8,
+        name: "In Transit",
+        description: "Your package is on its way to your delivery address",
+        icon: TruckIcon,
+        progress: 90,
+        status: baseProgress >= 90 ? "completed" : baseProgress >= 80 ? "current" : "pending",
+        estimatedTime: "1-2 days",
+        color: "orange"
+      },
+      {
+        id: 9,
+        name: "Out for Delivery",
+        description: "Package is with the delivery agent in your area",
+        icon: Truck,
+        progress: 95,
+        status: baseProgress >= 95 ? "completed" : baseProgress >= 90 ? "current" : "pending",
+        estimatedTime: "Today",
+        color: "orange"
+      },
+      {
+        id: 10,
+        name: "Delivered",
+        description: "Successfully delivered to your address",
+        icon: Home,
+        progress: 100,
+        status: baseProgress >= 100 ? "completed" : baseProgress >= 95 ? "current" : "pending",
+        estimatedTime: "Completed",
+        color: "emerald"
+      }
+    ];
+
+    return allSteps;
+  };
+
   const handleOpenChat = async () => {
     try {
       console.log('💬 Opening chat for order:', {
@@ -94,7 +223,6 @@ const OrderDetailsCustomer = () => {
         storeId: storeId
       });
 
-      // Navigate to chat with customer email
       navigate(`/customer/chat`, {
         state: {
           orderId: orderId,
@@ -145,35 +273,68 @@ const OrderDetailsCustomer = () => {
     }
   };
 
-  const getStepIcon = (stepName) => {
-    if (!stepName) return Clock;
-    const name = stepName.toLowerCase();
-    if (name.includes('confirmed') || name.includes('received')) return CheckCircle;
-    if (name.includes('preparing') || name.includes('packing')) return Package;
-    if (name.includes('shipped') || name.includes('transit')) return Truck;
-    if (name.includes('delivered')) return CheckCircle;
-    return Clock;
-  };
-
   const getProgressColor = (progress) => {
-    if (progress >= 100) return 'from-emerald-400 to-emerald-500';
-    if (progress >= 66) return 'from-violet-400 to-violet-500';
-    if (progress >= 33) return 'from-blue-400 to-blue-500';
-    return 'from-amber-400 to-amber-500';
+    if (progress >= 100) return 'from-emerald-400 via-emerald-500 to-emerald-600';
+    if (progress >= 80) return 'from-orange-400 via-orange-500 to-orange-600';
+    if (progress >= 60) return 'from-violet-400 via-violet-500 to-violet-600';
+    if (progress >= 40) return 'from-blue-400 via-blue-500 to-blue-600';
+    return 'from-amber-400 via-amber-500 to-amber-600';
   };
 
   const getStatusColor = (progress) => {
     if (progress >= 100) return 'text-emerald-600';
-    if (progress >= 66) return 'text-violet-600';
-    if (progress >= 33) return 'text-blue-600';
+    if (progress >= 80) return 'text-orange-600';
+    if (progress >= 60) return 'text-violet-600';
+    if (progress >= 40) return 'text-blue-600';
     return 'text-amber-600';
+  };
+
+  const getStepColorClasses = (step) => {
+    const colors = {
+      emerald: {
+        bg: 'bg-emerald-500',
+        text: 'text-emerald-700',
+        border: 'border-emerald-200',
+        glow: 'shadow-emerald-200'
+      },
+      blue: {
+        bg: 'bg-blue-500',
+        text: 'text-blue-700',
+        border: 'border-blue-200',
+        glow: 'shadow-blue-200'
+      },
+      violet: {
+        bg: 'bg-violet-500',
+        text: 'text-violet-700',
+        border: 'border-violet-200',
+        glow: 'shadow-violet-200'
+      },
+      orange: {
+        bg: 'bg-orange-500',
+        text: 'text-orange-700',
+        border: 'border-orange-200',
+        glow: 'shadow-orange-200'
+      },
+      amber: {
+        bg: 'bg-amber-500',
+        text: 'text-amber-700',
+        border: 'border-amber-200',
+        glow: 'shadow-amber-200'
+      }
+    };
+    return colors[step.color] || colors.blue;
   };
 
   if (isLoading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-3" />
+          <div className="relative">
+            <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-3" />
+            <div className="absolute inset-0 animate-ping">
+              <div className="h-8 w-8 bg-blue-200 rounded-full mx-auto opacity-20"></div>
+            </div>
+          </div>
           <p className="text-slate-600 text-sm font-medium">Loading order details...</p>
           <p className="text-xs text-slate-400 mt-1">Order: {orderId}</p>
         </div>
@@ -205,12 +366,17 @@ const OrderDetailsCustomer = () => {
     );
   }
 
+  const enhancedSteps = getEnhancedSteps(orderDetails);
+  const currentStepIndex = enhancedSteps.findIndex(step => step.status === 'current');
+  const completedSteps = enhancedSteps.filter(step => step.status === 'completed').length;
+
   return (
     <div className="min-h-screen bg-slate-50">
       {/* Header */}
-      <header className="bg-gradient-to-r from-blue-500 to-indigo-600 px-4 pt-8 pb-6 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-24 h-24 bg-white/5 rounded-full -translate-y-12 translate-x-12"></div>
-        <div className="absolute bottom-0 left-0 w-16 h-16 bg-white/5 rounded-full translate-y-8 -translate-x-8"></div>
+      <header className="bg-gradient-to-r from-blue-500 via-indigo-600 to-purple-600 px-4 pt-8 pb-6 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -translate-y-16 translate-x-16 animate-pulse"></div>
+        <div className="absolute bottom-0 left-0 w-20 h-20 bg-white/5 rounded-full translate-y-10 -translate-x-10 animate-pulse delay-500"></div>
+        <div className="absolute top-1/2 right-1/4 w-6 h-6 bg-white/10 rounded-full animate-bounce delay-1000"></div>
         
         <div className="relative z-10">
           <div className="flex items-center mb-4">
@@ -218,7 +384,7 @@ const OrderDetailsCustomer = () => {
               variant="ghost" 
               size="sm"
               onClick={() => navigate('/customer/dashboard')}
-              className="text-white/80 hover:text-white hover:bg-white/10 p-2 mr-3 rounded-lg"
+              className="text-white/80 hover:text-white hover:bg-white/10 p-2 mr-3 rounded-lg transition-all duration-200"
             >
               <ArrowLeft className="h-4 w-4" />
             </Button>
@@ -227,7 +393,7 @@ const OrderDetailsCustomer = () => {
           
           <div className="flex items-center justify-between">
             <div className="flex items-center">
-              <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center text-lg mr-3 backdrop-blur-sm">
+              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center text-xl mr-3 backdrop-blur-sm border border-white/20 shadow-lg">
                 🏪
               </div>
               <div>
@@ -235,13 +401,13 @@ const OrderDetailsCustomer = () => {
                   <h2 className="text-white text-lg font-medium mr-2">
                     {orderDetails.storeName || 'Store'}
                   </h2>
-                  <div className="w-4 h-4 bg-emerald-500 rounded-full flex items-center justify-center">
-                    <CheckCircle className="w-2.5 h-2.5 text-white" />
+                  <div className="w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center animate-pulse">
+                    <CheckCircle className="w-3 h-3 text-white" />
                   </div>
                 </div>
                 <div className="flex items-center mt-1">
-                  <span className="text-blue-200 text-sm">
-                    <Clock className="h-3 w-3 inline mr-1" />
+                  <span className="text-blue-100 text-sm flex items-center">
+                    <Clock className="h-3 w-3 mr-1" />
                     Order #{(orderDetails.orderId || orderDetails.id).toString().slice(-6)}
                   </span>
                 </div>
@@ -253,93 +419,259 @@ const OrderDetailsCustomer = () => {
 
       {/* Content */}
       <main className="px-4 py-5 -mt-3 relative z-10">
-        {/* Main order card */}
-        <Card className="bg-white shadow-sm mb-6 border border-slate-100">
-          <CardContent className="p-5">
-            <div className="flex justify-between items-center mb-4">
-              <div>
-                <h3 className="text-blue-600 font-medium text-lg">
-                  Order #{(orderDetails.orderId || orderDetails.id).toString().slice(-6)}
-                </h3>
-                <p className="text-slate-500 text-sm">
-                  Created on {formatDate(orderDetails.createdAt)}
-                </p>
-              </div>
-            </div>
-            
-            {/* Progress section */}
-            <div className="mb-5">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center space-x-2">
-                  <Sparkles className={`h-4 w-4 ${getStatusColor(orderDetails.progress || 0)}`} />
-                  <span className={`font-medium text-sm ${getStatusColor(orderDetails.progress || 0)}`}>
-                    {orderDetails.progress >= 100 ? 'Order Completed' : 
-                     orderDetails.currentStep?.name || 
-                     orderDetails.status || 'Processing'}
-                  </span>
+        {/* Enhanced Order Progress Card */}
+        <Card className="bg-white shadow-lg mb-6 border-0 overflow-hidden">
+          <div className="bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 p-1">
+            <CardContent className="p-6 bg-white m-0 rounded-lg">
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <h3 className="text-blue-600 font-semibold text-xl flex items-center">
+                    <Sparkles className="h-5 w-5 mr-2 text-blue-500" />
+                    Order #{(orderDetails.orderId || orderDetails.id).toString().slice(-6)}
+                  </h3>
+                  <p className="text-slate-500 text-sm mt-1">
+                    Created on {formatDate(orderDetails.createdAt)}
+                  </p>
                 </div>
-                <span className="text-slate-600 font-medium text-sm">
-                  {orderDetails.progress || 0}%
-                </span>
-              </div>
-              
-              {/* Progress bar */}
-              <div className="relative mb-3">
-                <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
-                  <div 
-                    className={`h-3 rounded-full bg-gradient-to-r ${getProgressColor(orderDetails.progress || 0)} transition-all duration-700 ease-out`}
-                    style={{ width: `${orderDetails.progress || 0}%` }}
-                  >
-                    <div className="h-full w-full bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse"></div>
+                <div className="text-right">
+                  <div className={`text-2xl font-bold ${getStatusColor(orderDetails.progress || 0)}`}>
+                    {orderDetails.progress || 0}%
+                  </div>
+                  <div className="text-xs text-slate-500 mt-1">
+                    {completedSteps} of {enhancedSteps.length} steps
                   </div>
                 </div>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-xs font-medium text-slate-700 drop-shadow-sm">
-                    {orderDetails.progress || 0}%
+              </div>
+              
+              {/* Enhanced Progress Bar with Segments */}
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-2">
+                  <span className={`font-semibold text-sm ${getStatusColor(orderDetails.progress || 0)} flex items-center`}>
+                    <Activity className="h-4 w-4 mr-1" />
+                    {orderDetails.progress >= 100 ? 'Order Completed!' : 
+                     enhancedSteps.find(s => s.status === 'current')?.name || 'Processing'}
                   </span>
+                  <span className="text-slate-600 font-medium text-sm flex items-center">
+                    <Timer className="h-3 w-3 mr-1" />
+                    {orderDetails.progress >= 100 ? 'Delivered' : 
+                     enhancedSteps.find(s => s.status === 'current')?.estimatedTime || 'Calculating...'}
+                  </span>
+                </div>
+                
+                {/* Multi-segment progress bar */}
+                <div className="relative">
+                  <div className="w-full bg-slate-100 rounded-full h-4 overflow-hidden shadow-inner">
+                    <div 
+                      className={`h-4 rounded-full bg-gradient-to-r ${getProgressColor(orderDetails.progress || 0)} transition-all duration-1000 ease-out relative overflow-hidden`}
+                      style={{ width: `${orderDetails.progress || 0}%` }}
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-pulse"></div>
+                      <div className="absolute inset-0 bg-gradient-to-r from-white/20 via-transparent to-white/20 animate-shimmer"></div>
+                    </div>
+                  </div>
+                  
+                  {/* Progress markers */}
+                  <div className="flex justify-between mt-2">
+                    {[0, 25, 50, 75, 100].map((marker) => (
+                      <div key={marker} className="flex flex-col items-center">
+                        <div className={`w-2 h-2 rounded-full ${(orderDetails.progress || 0) >= marker ? 'bg-blue-500' : 'bg-slate-300'} transition-colors duration-500`}></div>
+                        <span className="text-xs text-slate-400 mt-1">{marker}%</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
               
-              {orderDetails.currentStep?.description && (
-                <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                  <div className="flex items-start">
-                    <Info className="h-4 w-4 text-blue-500 mr-2 mt-0.5 flex-shrink-0" />
-                    <p className="text-sm text-slate-600">
-                      {orderDetails.currentStep.description}
-                    </p>
+              {/* Current Step Description */}
+              {enhancedSteps.find(s => s.status === 'current') && (
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-xl border border-blue-100 relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-20 h-20 bg-blue-200/20 rounded-full -translate-y-10 translate-x-10"></div>
+                  <div className="relative flex items-start">
+                    <div className={`p-2 rounded-lg mr-3 ${getStepColorClasses(enhancedSteps.find(s => s.status === 'current')).bg} shadow-lg`}>
+                      {React.createElement(enhancedSteps.find(s => s.status === 'current').icon, {
+                        className: "h-5 w-5 text-white"
+                      })}
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-slate-800 mb-1 flex items-center">
+                        Currently: {enhancedSteps.find(s => s.status === 'current').name}
+                        <div className="ml-2 flex space-x-1">
+                          <div className={`w-2 h-2 bg-blue-500 rounded-full animate-pulse ${pulseStep === 0 ? 'opacity-100' : 'opacity-30'}`}></div>
+                          <div className={`w-2 h-2 bg-blue-500 rounded-full animate-pulse ${pulseStep === 1 ? 'opacity-100' : 'opacity-30'}`}></div>
+                          <div className={`w-2 h-2 bg-blue-500 rounded-full animate-pulse ${pulseStep === 2 ? 'opacity-100' : 'opacity-30'}`}></div>
+                        </div>
+                      </h4>
+                      <p className="text-slate-600 text-sm mb-2">
+                        {enhancedSteps.find(s => s.status === 'current').description}
+                      </p>
+                      <div className="flex items-center text-xs text-slate-500">
+                        <Clock className="h-3 w-3 mr-1" />
+                        Estimated completion: {enhancedSteps.find(s => s.status === 'current').estimatedTime}
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
+            </CardContent>
+          </div>
+        </Card>
+
+        {/* Enhanced Timeline */}
+        <Card className="bg-white shadow-lg mb-6 border-0">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="font-semibold text-slate-800 text-lg flex items-center">
+                <Zap className="h-5 w-5 mr-2 text-blue-500" />
+                Order Journey
+              </h3>
+              <div className="text-sm text-slate-500 bg-slate-50 px-3 py-1 rounded-full">
+                {completedSteps}/{enhancedSteps.length} completed
+              </div>
+            </div>
+            
+            <div className="space-y-4">
+              {enhancedSteps.map((step, index) => {
+                const isLast = index === enhancedSteps.length - 1;
+                const colors = getStepColorClasses(step);
+                
+                return (
+                  <div key={step.id} className="flex items-start relative group">
+                    {/* Connecting line */}
+                    {!isLast && (
+                      <div className={`absolute left-6 top-12 w-0.5 h-8 transition-all duration-500
+                        ${step.status === 'completed' ? 'bg-gradient-to-b from-emerald-400 to-emerald-500' : 
+                          step.status === 'current' ? 'bg-gradient-to-b from-blue-400 to-blue-300' : 
+                          'bg-slate-200'}`}>
+                        {step.status === 'current' && (
+                          <div className="absolute inset-0 bg-gradient-to-b from-blue-400 to-blue-300 animate-pulse"></div>
+                        )}
+                      </div>
+                    )}
+                    
+                    {/* Step icon with enhanced styling */}
+                    <div className="relative">
+                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 mr-4 border-2 transition-all duration-300 shadow-lg
+                        ${step.status === 'completed' ? `${colors.bg} border-emerald-200 ${colors.glow} shadow-lg` : 
+                          step.status === 'current' ? `${colors.bg} border-blue-200 shadow-blue-200 shadow-lg animate-pulse` : 
+                          'bg-slate-100 border-slate-200 shadow-sm'}`}>
+                        {React.createElement(step.icon, {
+                          className: `h-6 w-6 transition-colors duration-300 ${
+                            step.status === 'completed' || step.status === 'current' ? 'text-white' : 'text-slate-400'
+                          }`
+                        })}
+                        
+                        {/* Animated ring for current step */}
+                        {step.status === 'current' && (
+                          <div className="absolute inset-0 rounded-xl border-2 border-blue-300 animate-ping"></div>
+                        )}
+                        
+                        {/* Completion checkmark overlay */}
+                        {step.status === 'completed' && (
+                          <div className="absolute -top-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center border-2 border-white">
+                            <CheckCircle2 className="h-3 w-3 text-white" />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Step content with enhanced styling */}
+                    <div className="flex-1 min-w-0 pb-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center">
+                          <h4 className={`font-semibold text-base transition-colors duration-300
+                            ${step.status === 'completed' ? colors.text : 
+                              step.status === 'current' ? 'text-blue-700' : 'text-slate-500'}`}>
+                            {step.name}
+                          </h4>
+                          
+                          {step.status === 'current' && (
+                            <div className="ml-3 flex items-center">
+                              <span className="inline-block bg-blue-100 text-blue-700 px-2 py-1 rounded-full text-xs font-medium animate-pulse">
+                                In Progress
+                              </span>
+                              <div className="ml-2 flex space-x-1">
+                                <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce"></div>
+                                <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+                                <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {step.status === 'completed' && (
+                            <CheckCircle className="ml-2 h-4 w-4 text-emerald-500" />
+                          )}
+                        </div>
+                        
+                        <div className="text-right">
+                          {step.status === 'completed' ? (
+                            <div className="flex items-center text-emerald-600">
+                              <CheckCircle2 className="h-4 w-4 mr-1" />
+                              <span className="text-sm font-medium">Done</span>
+                            </div>
+                          ) : (
+                            <span className={`text-sm font-medium
+                              ${step.status === 'current' ? 'text-blue-600' : 'text-slate-400'}`}>
+                              {step.estimatedTime}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <p className={`text-sm mb-3 transition-colors duration-300
+                        ${step.status === 'completed' ? 'text-emerald-600' : 
+                          step.status === 'current' ? 'text-blue-600' : 'text-slate-400'}`}>
+                        {step.description}
+                      </p>
+                      
+                      {/* Progress indicator for current step */}
+                      {step.status === 'current' && (
+                        <div className="w-full bg-blue-100 rounded-full h-2 overflow-hidden">
+                          <div className="h-2 bg-gradient-to-r from-blue-400 to-blue-600 rounded-full animate-pulse" style={{width: '60%'}}></div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </CardContent>
         </Card>
 
-        {/* Chat with store */}
-        <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 shadow-sm mb-6 border border-blue-100">
-          <CardContent className="p-5">
+        {/* Chat with store - Enhanced */}
+        <Card className="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 shadow-lg mb-6 border-0 overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-blue-200/20 rounded-full -translate-y-16 translate-x-16"></div>
+          <CardContent className="p-6 relative">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center">
-                <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center mr-3">
-                  <MessageCircle className="h-5 w-5 text-white" />
+                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center mr-4 shadow-lg">
+                  <MessageCircle className="h-6 w-6 text-white" />
                 </div>
                 <div>
-                  <h3 className="font-medium text-blue-800">Chat with Store</h3>
+                  <h3 className="font-semibold text-blue-800 text-lg">Chat with Store</h3>
                   <p className="text-blue-600 text-sm">Ask questions about your order</p>
                 </div>
               </div>
               {orderDetails.unreadMessages > 0 && (
-                <div className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center">
-                  <span className="text-xs text-white font-medium">{orderDetails.unreadMessages}</span>
+                <div className="relative">
+                  <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center shadow-lg animate-bounce">
+                    <span className="text-sm text-white font-bold">{orderDetails.unreadMessages}</span>
+                  </div>
+                  <div className="absolute inset-0 bg-red-400 rounded-full animate-ping opacity-50"></div>
                 </div>
               )}
             </div>
             
-            <div className="bg-white/70 p-4 rounded-lg border border-blue-200 mb-4">
+            <div className="bg-white/80 backdrop-blur-sm p-4 rounded-xl border border-blue-200 mb-4 shadow-sm">
               <div className="flex items-start">
-                <HeadphonesIcon className="h-4 w-4 text-blue-500 mr-2 mt-0.5 flex-shrink-0" />
+                <div className="p-2 bg-blue-100 rounded-lg mr-3">
+                  <HeadphonesIcon className="h-5 w-5 text-blue-600" />
+                </div>
                 <div className="text-sm">
-                  <p className="text-blue-700 font-medium mb-1">Customer Support Available</p>
-                  <p className="text-blue-600">
+                  <p className="text-blue-800 font-semibold mb-1 flex items-center">
+                    Customer Support Available
+                    <div className="ml-2 w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  </p>
+                  <p className="text-blue-700">
                     Our team is ready to help with questions about delivery, 
                     products, or any issues related to your order.
                   </p>
@@ -349,72 +681,78 @@ const OrderDetailsCustomer = () => {
             
             <Button 
               onClick={handleOpenChat}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
+              className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg transition-all duration-200 transform hover:scale-[1.02]"
               size="lg"
             >
-              <MessageSquare className="h-4 w-4 mr-2" />
+              <MessageSquare className="h-5 w-5 mr-2" />
               Start Conversation
               <Send className="h-4 w-4 ml-2" />
             </Button>
           </CardContent>
         </Card>
 
-        {/* Product details */}
-        <Card className="bg-white shadow-sm mb-6 border border-slate-100">
-          <CardContent className="p-5">
-            <h3 className="text-slate-800 font-medium mb-4">Product</h3>
+        {/* Product details - Enhanced */}
+        <Card className="bg-white shadow-lg mb-6 border-0">
+          <CardContent className="p-6">
+            <h3 className="text-slate-800 font-semibold mb-5 text-lg flex items-center">
+              <Gift className="h-5 w-5 mr-2 text-slate-600" />
+              Product Details
+            </h3>
             
             <div className="flex items-center">
-              <div className="w-16 h-16 rounded-lg bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center text-2xl mr-4 flex-shrink-0 border border-blue-100">
+              <div className="w-20 h-20 rounded-xl bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center text-3xl mr-4 flex-shrink-0 border border-blue-100 shadow-sm">
                 📦
               </div>
               <div className="flex-1">
-                <h4 className="font-medium text-slate-800">
+                <h4 className="font-semibold text-slate-800 text-lg">
                   {orderDetails.productName || orderDetails.productDetails?.name || orderDetails.product?.name || 'Product'}
                 </h4>
-                <p className="text-slate-600 text-sm mt-1">
+                <p className="text-slate-600 text-sm mt-1 mb-3">
                   {orderDetails.productDetails?.description || orderDetails.product?.description || 'Store product'}
                 </p>
-                <div className="flex items-center space-x-4 mt-2">
-                  <span className="text-sm text-slate-500">
-                    Qty: {orderDetails.quantity || 1}
-                  </span>
-                  <span className="text-sm font-medium text-slate-800">
-                    {formatCurrency(orderDetails.totalValue || orderDetails.productDetails?.price || 0)}
-                  </span>
+                <div className="flex items-center space-x-6">
+                  <div className="flex items-center">
+                    <span className="text-sm text-slate-500 mr-1">Quantity:</span>
+                    <span className="font-semibold text-slate-800">{orderDetails.quantity || 1}</span>
+                  </div>
+                  <div className="flex items-center">
+                    <span className="text-sm text-slate-500 mr-1">Total:</span>
+                    <span className="font-bold text-lg text-blue-600">
+                      {formatCurrency(orderDetails.totalValue || orderDetails.productDetails?.price || 0)}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Customer and address info (masked) */}
+        {/* Customer and address info */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          {/* Customer data (masked) */}
           {(orderDetails.customer || orderDetails.customerName) && (
-            <Card className="bg-white shadow-sm border border-slate-100">
+            <Card className="bg-white shadow-lg border-0">
               <CardContent className="p-5">
-                <div className="flex items-center mb-3">
-                  <User className="h-4 w-4 text-slate-500 mr-2" />
-                  <span className="font-medium text-slate-700 text-sm">Customer Information</span>
+                <div className="flex items-center mb-4">
+                  <User className="h-5 w-5 text-slate-500 mr-2" />
+                  <span className="font-semibold text-slate-700">Customer Information</span>
                 </div>
-                <div className="space-y-2">
-                  <p className="text-slate-900 font-medium text-sm">
+                <div className="space-y-3">
+                  <p className="text-slate-900 font-semibold">
                     {orderDetails.customer?.name || orderDetails.customerName || 'Customer'}
                   </p>
                   <p className="text-slate-600 text-sm flex items-center">
-                    <Mail className="h-3 w-3 mr-2" />
+                    <Mail className="h-4 w-4 mr-2 text-slate-400" />
                     {customerEmail}
                   </p>
                   {orderDetails.customer?.phone && (
                     <p className="text-slate-600 text-sm flex items-center">
-                      <Phone className="h-3 w-3 mr-2" />
+                      <Phone className="h-4 w-4 mr-2 text-slate-400" />
                       {orderDetails.customer.phone}
                     </p>
                   )}
                   {orderDetails.customer?.documentId && (
                     <p className="text-slate-600 text-sm flex items-center">
-                      <User className="h-3 w-3 mr-2" />
+                      <User className="h-4 w-4 mr-2 text-slate-400" />
                       ID: {orderDetails.customer.documentId}
                     </p>
                   )}
@@ -423,104 +761,37 @@ const OrderDetailsCustomer = () => {
             </Card>
           )}
           
-          {/* Shipping address (masked) */}
           {orderDetails.shippingAddress && (
-            <Card className="bg-white shadow-sm border border-slate-100">
+            <Card className="bg-white shadow-lg border-0">
               <CardContent className="p-5">
-                <div className="flex items-center mb-3">
-                  <MapPin className="h-4 w-4 text-slate-500 mr-2" />
-                  <span className="font-medium text-slate-700 text-sm">Shipping Address</span>
+                <div className="flex items-center mb-4">
+                  <MapPin className="h-5 w-5 text-slate-500 mr-2" />
+                  <span className="font-semibold text-slate-700">Shipping Address</span>
                 </div>
                 <div className="text-sm text-slate-600 space-y-1">
-                  <p>{orderDetails.shippingAddress.street}</p>
+                  <p className="font-medium">{orderDetails.shippingAddress.street}</p>
                   {orderDetails.shippingAddress.complement && 
                     <p>{orderDetails.shippingAddress.complement}</p>
                   }
                   <p>{orderDetails.shippingAddress.neighborhood}</p>
                   <p>{orderDetails.shippingAddress.city} - {orderDetails.shippingAddress.state}</p>
-                  <p className="font-mono text-xs">{orderDetails.shippingAddress.zipCode}</p>
+                  <p className="font-mono text-xs bg-slate-100 inline-block px-2 py-1 rounded">
+                    {orderDetails.shippingAddress.zipCode}
+                  </p>
                 </div>
               </CardContent>
             </Card>
           )}
         </div>
 
-        {/* Timeline of steps */}
-        {orderDetails.steps && orderDetails.steps.length > 0 && (
-          <Card className="bg-white shadow-sm mb-6 border border-slate-100">
-            <CardContent className="p-5">
-              <h3 className="font-medium text-slate-800 mb-5">Order Timeline</h3>
-              <div className="space-y-5">
-                {orderDetails.steps.map((step, index) => {
-                  const StepIcon = getStepIcon(step.name);
-                  const isLast = index === orderDetails.steps.length - 1;
-                  
-                  return (
-                    <div key={step.id || index} className="flex items-start relative">
-                      {/* Connecting line */}
-                      {!isLast && (
-                        <div className={`absolute left-4 top-8 w-0.5 h-6 
-                          ${step.completed ? 'bg-emerald-400' : 'bg-slate-200'}`}>
-                        </div>
-                      )}
-                      
-                      {/* Step icon */}
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mr-3 border-2 border-white shadow-sm
-                        ${step.completed ? 'bg-emerald-500' : 
-                          step.current ? 'bg-blue-500' : 'bg-slate-300'}`}>
-                        <StepIcon className="h-4 w-4 text-white" />
-                      </div>
-                      
-                      {/* Step content */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className={`font-medium text-sm
-                            ${step.completed ? 'text-emerald-700' : 
-                              step.current ? 'text-blue-700' : 'text-slate-500'}`}>
-                            {step.name}
-                            {step.current && (
-                              <span className="ml-2 inline-block bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs">
-                                In Progress
-                              </span>
-                            )}
-                          </h4>
-                          
-                          {step.completedAt ? (
-                            <span className="text-xs text-slate-500">
-                              {formatDateShort(step.completedAt)}
-                            </span>
-                          ) : step.estimatedTime ? (
-                            <span className="text-xs text-blue-600 font-medium">
-                              ~{step.estimatedTime}
-                            </span>
-                          ) : null}
-                        </div>
-                        
-                        {step.description && (
-                          <p className={`text-sm
-                            ${step.completed ? 'text-emerald-600' : 
-                              step.current ? 'text-blue-600' : 'text-slate-400'}`}>
-                            {step.description}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Padding for bottom navigation */}
         <div className="h-20"></div>
       </main>
 
-      {/* Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200/60 px-4 py-2">
+      {/* Enhanced Bottom Navigation */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200/60 px-4 py-3 shadow-lg">
         <div className="flex justify-center items-center max-w-sm mx-auto">
           <button 
-            className="flex flex-col items-center text-slate-400 p-3"
+            className="flex flex-col items-center text-slate-400 p-3 rounded-lg transition-all duration-200 hover:bg-slate-50"
             onClick={() => navigate('/customer/dashboard')}
           >
             <Package className="h-5 w-5" />
@@ -528,20 +799,20 @@ const OrderDetailsCustomer = () => {
           </button>
           
           <button 
-            className="flex flex-col items-center text-blue-600 p-3 mx-6 relative bg-blue-50 rounded-lg border border-blue-200"
+            className="flex flex-col items-center text-blue-600 p-3 mx-6 relative bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-200 shadow-sm transition-all duration-200 hover:shadow-md"
             onClick={handleOpenChat}
           >
             <MessageSquare className="h-5 w-5" />
             <span className="text-xs mt-1 font-medium">Chat</span>
             {orderDetails.unreadMessages > 0 && (
-              <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center">
-                <span className="text-xs text-white font-medium">{orderDetails.unreadMessages}</span>
+              <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center shadow-sm">
+                <span className="text-xs text-white font-bold">{orderDetails.unreadMessages}</span>
               </div>
             )}
           </button>
           
           <button 
-            className="flex flex-col items-center text-slate-400 p-3"
+            className="flex flex-col items-center text-slate-400 p-3 rounded-lg transition-all duration-200 hover:bg-slate-50"
             onClick={() => navigate('/customer/lookup')}
           >
             <ArrowLeft className="h-5 w-5" />
