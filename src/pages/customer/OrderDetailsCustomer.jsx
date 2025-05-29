@@ -133,8 +133,7 @@ const OrderDetailsCustomer = () => {
         
         const formattedDate = formatStepDate(step);
         const showTime = shouldShowStepTime(step);
-        const timeDisplay = showTime ? formatStepTime,
-  isValidDate(step) : '';
+        const timeDisplay = showTime ? formatStepTime(step) : "";
         
         const totalSteps = orderDetails.customSteps.length;
         const stepProgress = Math.floor((100 / totalSteps) * (index + 1));
