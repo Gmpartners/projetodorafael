@@ -6,7 +6,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import WebPushSubscription from '@/components/common/WebPushSubscription';
 import { 
   MetricCard, 
   TrendIndicator, 
@@ -52,27 +51,16 @@ import {
   FileTextIcon,
   BellIcon,
   Loader2,
-  Package2Icon,
-  Sparkles,
-  Zap
+  Package2Icon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { apiService } from '@/services/apiService';
-import webPushService from '@/services/webPushService';
 import { toast } from 'sonner';
 
 const StoreDashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  
-  // Estados para notificações
-  const [notificationStats, setNotificationStats] = useState({
-    totalSubscriptions: 0,
-    activeSubscriptions: 0,
-    lastNotificationSent: null,
-    status: 'checking'
-  });
   
   // Estados para dados reais da API
   const [dashboardStats, setDashboardStats] = useState({
@@ -91,7 +79,6 @@ const StoreDashboard = () => {
   // Carregar dados ao montar componente
   useEffect(() => {
     fetchDashboardData();
-    fetchNotificationStats();
   }, []);
 
   const fetchDashboardData = async () => {
@@ -114,50 +101,12 @@ const StoreDashboard = () => {
     }
   };
 
-  // Carregar estatísticas de notificações
-  const fetchNotificationStats = async () => {
-    try {
-      const stats = await apiService.getWebPushStoreStats('E47OkrK3IcNu1Ys8gD4CA29RrHk2');
-      setNotificationStats({
-        totalSubscriptions: stats.totalSubscriptions || 0,
-        activeSubscriptions: stats.activeSubscriptions || 0,
-        lastNotificationSent: stats.lastNotificationSent,
-        status: stats.totalSubscriptions > 0 ? 'active' : 'inactive'
-      });
-    } catch (error) {
-      console.warn('Erro ao carregar stats de notificações:', error);
-      setNotificationStats(prev => ({ ...prev, status: 'error' }));
-    }
-  };
-
-  // Enviar notificação de teste rápida
-  const handleQuickTestNotification = async () => {
-    try {
-      await webPushService.sendTestNotification(
-        'https://projeto-rafael-53f73.web.app/store/dashboard',
-        {
-          title: '🧪 Teste do Dashboard',
-          body: 'Sistema de notificações funcionando!'
-        }
-      );
-      
-      toast.success('🧪 Teste enviado!', {
-        description: 'Verifique se recebeu a notificação'
-      });
-    } catch (error) {
-      toast.error('❌ Erro no teste', {
-        description: error.message
-      });
-    }
-  };
-
   // Quick refresh handler
   const handleRefreshData = useCallback(async () => {
     await fetchDashboardData();
-    await fetchNotificationStats();
   }, []);
 
-  // Métricas principais - usando dados reais + Notificações
+  // Métricas principais - usando dados reais
   const mainStats = useMemo(() => [
     { 
       title: 'Receita Total', 
@@ -192,16 +141,17 @@ const StoreDashboard = () => {
       format: 'number'
     },
     { 
-      title: 'Notificações', 
-      value: notificationStats.activeSubscriptions || 0, 
-      change: notificationStats.totalSubscriptions - notificationStats.activeSubscriptions || 0, 
-      changeLabel: 'inscritos ativos',
-      icon: Sparkles, 
+      title: 'Taxa de Conversão', 
+      value: dashboardStats.conversionRate || 0, 
+      change: dashboardStats.conversionRateChange || 0, 
+      changeLabel: 'vs mês anterior',
+      icon: Target, 
       color: 'amber',
       trend: 45,
-      format: 'number'
+      suffix: '%',
+      format: 'percentage'
     }
-  ], [dashboardStats, notificationStats]);
+  ], [dashboardStats]);
 
   // Métricas secundárias - usando dados reais
   const secondaryStats = useMemo(() => [
@@ -226,7 +176,7 @@ const StoreDashboard = () => {
     }
   ], [dashboardStats]);
 
-  // Dados das ações rápidas - COM Notificações
+  // Dados das ações rápidas
   const quickActions = useMemo(() => [
     {
       id: 'orders',
@@ -271,20 +221,20 @@ const StoreDashboard = () => {
       onClick: () => window.location.href = '/store/chats'
     },
     {
-      id: 'notifications',
-      title: 'Notificações',
-      description: 'Sistema de notificações push',
-      icon: Sparkles,
-      color: 'emerald',
-      bgColor: 'from-emerald-50 to-emerald-100',
-      borderColor: 'border-emerald-200',
-      hoverColor: 'hover:border-emerald-400 hover:bg-emerald-50',
-      textColor: 'text-emerald-600',
-      badge: notificationStats.activeSubscriptions || 0,
-      badgeColor: 'bg-emerald-500',
-      onClick: () => window.location.href = '/store/push-notifications'
+      id: 'settings',
+      title: 'Configurações',
+      description: 'Gerenciar preferências',
+      icon: SettingsIcon,
+      color: 'gray',
+      bgColor: 'from-gray-50 to-gray-100',
+      borderColor: 'border-gray-200',
+      hoverColor: 'hover:border-gray-400 hover:bg-gray-50',
+      textColor: 'text-gray-600',
+      badge: 0,
+      badgeColor: 'bg-gray-500',
+      onClick: () => window.location.href = '/store/settings'
     }
-  ], [dashboardStats.pendingOrders, dashboardStats.newMessages, notificationStats.activeSubscriptions]);
+  ], [dashboardStats.pendingOrders, dashboardStats.newMessages]);
   
   const getStatusBadge = (status) => {
     const statusConfig = {
@@ -401,7 +351,7 @@ const StoreDashboard = () => {
       <div className="space-y-6 pb-8">
         <FloatingParticles className="fixed inset-0 z-0" count={8} />
         
-        {/* Header com badge de notificações */}
+        {/* Header */}
         <FadeInUp delay={0}>
           <div className="relative">
             <GlassCard variant="gradient" className="p-4 border-0 overflow-hidden">
@@ -432,15 +382,9 @@ const StoreDashboard = () => {
                         <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-900 via-purple-800 to-indigo-900 bg-clip-text text-transparent">
                           Dashboard Executivo
                         </h1>
-                        {notificationStats.status === 'active' && (
-                          <div className="bg-gradient-to-r from-emerald-500 to-emerald-600 px-3 py-1 rounded-full flex items-center space-x-1 shadow-md">
-                            <Sparkles className="h-3 w-3 text-white" />
-                            <span className="text-xs text-white font-bold">🔔</span>
-                          </div>
-                        )}
                       </div>
                       <p className="text-sm text-zinc-600 font-medium">
-                        Visão completa com notificações integradas
+                        Visão completa do seu negócio
                       </p>
                     </div>
                   </div>
@@ -458,18 +402,6 @@ const StoreDashboard = () => {
                     />
                   </div>
                   
-                  {/* Teste rápido de notificação */}
-                  {notificationStats.status === 'active' && (
-                    <Button 
-                      variant="outline"
-                      onClick={handleQuickTestNotification}
-                      className="h-10 px-3 border-emerald-300 text-emerald-700 hover:bg-emerald-50"
-                    >
-                      <Zap className="h-4 w-4 mr-1" />
-                      Teste
-                    </Button>
-                  )}
-                  
                   {/* Actions */}
                   <Button 
                     className="btn-premium h-10 px-4"
@@ -486,41 +418,6 @@ const StoreDashboard = () => {
                 </div>
               </div>
             </GlassCard>
-          </div>
-        </FadeInUp>
-
-        {/* Subscription Card */}
-        <FadeInUp delay={150}>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <div className="lg:col-span-2">
-              <WebPushSubscription 
-                userType="store" 
-                showSettings={true}
-                autoInit={true}
-              />
-            </div>
-            <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-xl p-4 border border-emerald-200">
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="font-semibold text-emerald-900">Estatísticas</h4>
-                <Sparkles className="h-4 w-4 text-emerald-600" />
-              </div>
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-emerald-700">Inscritos Ativos:</span>
-                  <span className="font-bold text-emerald-900">{notificationStats.activeSubscriptions}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-emerald-700">Total Inscritos:</span>
-                  <span className="font-bold text-emerald-900">{notificationStats.totalSubscriptions}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-emerald-700">Status:</span>
-                  <Badge className={`text-xs ${notificationStats.status === 'active' ? 'bg-emerald-500' : 'bg-gray-500'}`}>
-                    {notificationStats.status === 'active' ? 'Ativo' : 'Inativo'}
-                  </Badge>
-                </div>
-              </div>
-            </div>
           </div>
         </FadeInUp>
 
@@ -552,7 +449,7 @@ const StoreDashboard = () => {
               
               {/* Tab: Visão Geral */}
               <TabsContent value="overview" className="mt-6 space-y-6">
-                {/* Quick Stats Bar com Notificações */}
+                {/* Quick Stats Bar */}
                 <div className="flex items-center justify-between p-4 bg-gradient-to-r from-emerald-50 to-blue-50 rounded-xl border border-emerald-200/50">
                   <div className="flex items-center space-x-6">
                     <div className="text-center">
@@ -568,23 +465,13 @@ const StoreDashboard = () => {
                       <div className="text-xs text-amber-600">Mensagens</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-2xl font-bold text-purple-700 flex items-center">
-                        {notificationStats.activeSubscriptions || 0}
-                        <Sparkles className="h-4 w-4 ml-1" />
+                      <div className="text-2xl font-bold text-purple-700">
+                        {dashboardStats.completionRate || 0}%
                       </div>
-                      <div className="text-xs text-purple-600">Notificações</div>
+                      <div className="text-xs text-purple-600">Taxa Conclusão</div>
                     </div>
                   </div>
                   <div className="flex space-x-2">
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => window.location.href = '/store/push-notifications'}
-                      className="border-purple-300 hover:bg-purple-50 text-purple-700"
-                    >
-                      <Sparkles className="h-4 w-4 mr-2" />
-                      Notificações
-                    </Button>
                     <Button 
                       variant="outline" 
                       size="sm"
@@ -602,7 +489,7 @@ const StoreDashboard = () => {
                   </div>
                 </div>
 
-                {/* Métricas Principais com Notificações */}
+                {/* Métricas Principais */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   {mainStats.map((stat, i) => (
                     <FadeInUp key={i} delay={i * 100}>
@@ -617,10 +504,7 @@ const StoreDashboard = () => {
                           />
                         }
                         loading={isLoading}
-                        className={cn(
-                          "hover-lift",
-                          stat.icon === Sparkles && "border-2 border-emerald-200 bg-gradient-to-br from-emerald-50 to-emerald-100"
-                        )}
+                        className="hover-lift"
                       />
                     </FadeInUp>
                   ))}
@@ -648,7 +532,7 @@ const StoreDashboard = () => {
                 
                 {/* Main Content Grid */}
                 <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-                  {/* Ações Rápidas com Notificações */}
+                  {/* Ações Rápidas */}
                   <FadeInUp delay={600}>
                     <GlassCard className="p-6 border-0 shadow-premium">
                       <div className="flex items-center justify-between mb-6">
@@ -678,16 +562,14 @@ const StoreDashboard = () => {
                                   "w-full p-4 rounded-xl border-2 transition-all duration-300 group",
                                   "bg-gradient-to-r", action.bgColor,
                                   action.borderColor, action.hoverColor,
-                                  "hover:shadow-md hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-purple-300",
-                                  action.id === 'notifications' && "ring-2 ring-emerald-300 ring-opacity-50"
+                                  "hover:shadow-md hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-purple-300"
                                 )}
                               >
                                 <div className="flex items-center justify-between">
                                   <div className="flex items-center space-x-3">
                                     <div className={cn(
                                       "p-2.5 rounded-lg shadow-sm group-hover:scale-110 transition-transform",
-                                      "bg-white/50 backdrop-blur-sm",
-                                      action.id === 'notifications' && "bg-emerald-200/50"
+                                      "bg-white/50 backdrop-blur-sm"
                                     )}>
                                       <div className="relative">
                                         <IconComponent className={cn("h-5 w-5", action.textColor)} />
@@ -708,9 +590,6 @@ const StoreDashboard = () => {
                                     <div className="text-left">
                                       <h4 className={cn("font-semibold text-sm", action.textColor)}>
                                         {action.title}
-                                        {action.id === 'notifications' && (
-                                          <Sparkles className="inline h-3 w-3 ml-1 text-emerald-500" />
-                                        )}
                                       </h4>
                                       <p className="text-xs text-zinc-600 group-hover:text-zinc-700">
                                         {action.description}
@@ -722,8 +601,7 @@ const StoreDashboard = () => {
                                     <Badge 
                                       className={cn(
                                         "text-white text-xs px-2 py-1",
-                                        action.badgeColor,
-                                        action.id === 'notifications' && "animate-pulse"
+                                        action.badgeColor
                                       )}
                                     >
                                       {action.badge}
@@ -762,7 +640,7 @@ const StoreDashboard = () => {
                         <p className="text-gray-500 mb-4">As mensagens dos clientes aparecerão aqui</p>
                         <Button 
                           onClick={() => window.location.href = '/store/chats'}
-                          className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
+                          className="btn-premium h-10 px-4"
                         >
                           <MessageSquareIcon className="h-4 w-4 mr-2" />
                           Ir para Chat

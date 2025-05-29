@@ -28,7 +28,6 @@ export const StoreChatProvider = ({ children }) => {
   const [stats, setStats] = useState({
     total: 0,
     unread: 0,
-    urgent: 0,
     online: 0
   });
   const [isLoading, setIsLoading] = useState(false);
@@ -73,7 +72,6 @@ export const StoreChatProvider = ({ children }) => {
             priority: (data.unreadCount?.store || 0) > 2 ? 'high' : 'medium',
             hasAttachment: false,
             hasRating: false,
-            isUrgent: (data.unreadCount?.store || 0) > 3,
             orderStatus: data.orderDetails?.status || 'processing'
           };
         });
@@ -82,10 +80,10 @@ export const StoreChatProvider = ({ children }) => {
         setIsLoading(false);
         setError(null);
 
+        // Estatísticas simplificadas - removendo urgentes
         const newStats = {
           total: chatsList.length,
           unread: chatsList.filter(chat => chat.unreadCount > 0).length,
-          urgent: chatsList.filter(chat => chat.isUrgent).length,
           online: chatsList.filter(chat => chat.online).length
         };
         

@@ -91,7 +91,6 @@ const ChatListItem = ({ chat, activeChat, onClick }) => {
   
   const getPriorityColor = (priority) => {
     switch(priority) {
-      case 'urgent': return 'bg-red-500';
       case 'high': return 'bg-orange-500';
       case 'medium': return 'bg-yellow-500';
       case 'low': return 'bg-green-500';
@@ -219,11 +218,6 @@ const ChatListItem = ({ chat, activeChat, onClick }) => {
                     📎
                   </Badge>
                 )}
-                {chat.isUrgent && (
-                  <Badge variant="outline" className="text-xs px-0.5 py-0 bg-red-50 text-red-700 border-red-200 h-3">
-                    ⚡
-                  </Badge>
-                )}
                 {chat.hasRating && chat.rating && (
                   <div className="flex items-center space-x-0.5">
                     <Star className="h-2.5 w-2.5 text-yellow-500 fill-yellow-500" />
@@ -258,7 +252,7 @@ const ChatList = ({
   
   const {
     chats = [],
-    stats = { total: 0, unread: 0, urgent: 0, online: 0 },
+    stats = { total: 0, unread: 0, online: 0 },
     isLoading = false,
     error = null,
     loadActiveChats = () => {},
@@ -284,21 +278,14 @@ const ChatList = ({
       case 'unread':
         result = result.filter(chat => (chat.unreadCount || chat.userUnreadCount || 0) > 0);
         break;
-      case 'attention':
-        result = result.filter(chat => chat.hasAttention || chat.isUrgent);
-        break;
       case 'online':
         result = result.filter(chat => chat.online);
-        break;
-      case 'urgent':
-        result = result.filter(chat => chat.priority === 'urgent' || chat.isUrgent);
         break;
       default:
         break;
     }
     
     result.sort((a, b) => {
-      if (a.isUrgent !== b.isUrgent) return b.isUrgent - a.isUrgent;
       const aUnread = a.unreadCount || a.userUnreadCount || 0;
       const bUnread = b.unreadCount || b.userUnreadCount || 0;
       if (aUnread !== bUnread) return bUnread - aUnread;
@@ -382,7 +369,7 @@ const ChatList = ({
           </Button>
         </div>
         
-        <div className="grid grid-cols-4 gap-1.5">
+        <div className="grid grid-cols-3 gap-1.5">
           <div className="text-center p-1.5 rounded bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200">
             <p className="text-xs font-bold text-purple-900">{stats.total}</p>
             <p className="text-xs text-purple-700">Total</p>
@@ -390,10 +377,6 @@ const ChatList = ({
           <div className="text-center p-1.5 rounded bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200">
             <p className="text-xs font-bold text-blue-900">{stats.unread}</p>
             <p className="text-xs text-blue-700">Não Lidas</p>
-          </div>
-          <div className="text-center p-1.5 rounded bg-gradient-to-br from-red-50 to-red-100 border border-red-200">
-            <p className="text-xs font-bold text-red-900">{stats.urgent}</p>
-            <p className="text-xs text-red-700">Urgentes</p>
           </div>
           <div className="text-center p-1.5 rounded bg-gradient-to-br from-emerald-50 to-emerald-100 border border-emerald-200">
             <p className="text-xs font-bold text-emerald-900">{stats.online}</p>
@@ -452,14 +435,6 @@ const ChatList = ({
               {stats.unread > 0 && (
                 <Badge className="ml-1 bg-blue-600 text-white text-xs min-w-[12px] h-3 p-0 flex items-center justify-center">
                   {stats.unread}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="urgent" className="flex-1 data-[state=active]:bg-white data-[state=active]:shadow-md transition-all text-xs h-6">
-              Urgentes
-              {stats.urgent > 0 && (
-                <Badge className="ml-1 bg-red-600 text-white text-xs min-w-[12px] h-3 p-0 flex items-center justify-center">
-                  {stats.urgent}
                 </Badge>
               )}
             </TabsTrigger>
@@ -527,38 +502,6 @@ const ChatList = ({
                       icon={CheckCircle}
                       title="Tudo em dia!"
                       description="Não há mensagens não lidas."
-                      variant="success"
-                    />
-                  </div>
-                )}
-              </ScrollArea>
-            </div>
-          </TabsContent>
-          
-          <TabsContent value="urgent" className="flex-1 m-0 h-full data-[state=active]:flex data-[state=active]:flex-col overflow-hidden">
-            <div className="flex-1 overflow-hidden bg-white">
-              <ScrollArea className="h-full">
-                {isLoading ? (
-                  <div className="p-2 bg-white">
-                    <LoadingSkeleton rows={2} showAvatar />
-                  </div>
-                ) : filteredChats.length > 0 ? (
-                  <div className="divide-y divide-zinc-100 bg-white">
-                    {filteredChats.map((chat, index) => (
-                      <ChatListItem
-                        key={chat.id}
-                        chat={chat}
-                        activeChat={activeChat}
-                        onClick={handleSelectChat}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="p-3 bg-white">
-                    <EmptyState
-                      icon={Zap}
-                      title="Nenhuma conversa urgente"
-                      description="Situações críticas resolvidas."
                       variant="success"
                     />
                   </div>

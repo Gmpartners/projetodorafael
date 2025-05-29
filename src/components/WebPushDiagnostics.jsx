@@ -271,22 +271,23 @@ const WebPushDiagnostics = () => {
               <Bug className="h-5 w-5 text-purple-600" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-zinc-900">Diagnóstico Completo Web Push v7.0</h3>
+              <h3 className="text-lg font-bold text-zinc-900">Diagnóstico Completo Web Push</h3>
               <p className="text-sm text-zinc-600">Análise detalhada do sistema</p>
             </div>
           </div>
           
           <Button
-            size="sm"
             variant="outline"
+            className="h-10 px-4"
             onClick={runFullDiagnostics}
             disabled={running}
           >
             {running ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
             ) : (
-              <RefreshCw className="h-4 w-4" />
+              <RefreshCw className="h-4 w-4 mr-2" />
             )}
+            Atualizar
           </Button>
         </div>
 
@@ -442,7 +443,7 @@ const WebPushDiagnostics = () => {
               <Button
                 onClick={attemptSubscription}
                 disabled={running || diagnostics.subscription?.exists}
-                className="flex-1"
+                className="flex-1 h-10 px-4"
               >
                 <Bell className="h-4 w-4 mr-2" />
                 Ativar Web Push
@@ -452,7 +453,7 @@ const WebPushDiagnostics = () => {
                 onClick={sendTestPush}
                 disabled={running || !diagnostics.subscription?.exists}
                 variant="outline"
-                className="flex-1"
+                className="flex-1 h-10 px-4"
               >
                 Enviar Teste
               </Button>
@@ -465,12 +466,15 @@ const WebPushDiagnostics = () => {
           <Alert className="border-blue-300 bg-blue-50">
             <Info className="h-4 w-4 text-blue-600" />
             <AlertDescription className="ml-2 text-blue-800 text-sm">
-              <strong>Sobre Safari e Web Push:</strong>
+              <strong>Sistema Web Push Nativo:</strong>
               <ul className="mt-2 list-disc list-inside space-y-1">
                 <li><strong>Safari macOS:</strong> ✅ Suporta Web Push desde 2023</li>
                 <li><strong>Safari iOS:</strong> ❌ NÃO suporta no navegador, apenas em PWAs instaladas</li>
                 <li><strong>Chrome/Firefox/Edge:</strong> ✅ Suportam em todas as plataformas</li>
               </ul>
+              <p className="mt-2 text-xs">
+                As notificações usam o padrão Web Push sem dependência do Firebase. Compatível com Chrome, Firefox, Edge e Safari (macOS).
+              </p>
             </AlertDescription>
           </Alert>
         </div>

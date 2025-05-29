@@ -158,7 +158,7 @@ const AdvancedTesting = () => {
         scope: registration?.scope,
         scriptURL: registration?.active?.scriptURL,
         state: registration?.active?.state,
-        version: 'v7.0.0-web-push-complete'
+        version: 'web-push-complete'
       };
       
       setSwStatus(status);
@@ -374,7 +374,7 @@ const AdvancedTesting = () => {
                 <FlaskConical className="h-6 w-6 text-green-700" />
               </div>
               <div>
-                <h3 className="text-xl font-bold text-zinc-900">Testes Avançados v7.0</h3>
+                <h3 className="text-xl font-bold text-zinc-900">Testes Avançados</h3>
                 <p className="text-zinc-600">Suite completa de testes para Web Push</p>
               </div>
             </div>
@@ -385,11 +385,11 @@ const AdvancedTesting = () => {
               </Badge>
               <Button
                 variant="outline"
-                size="sm"
+                className="h-10 px-4"
                 onClick={updateServiceWorker}
                 disabled={loading}
               >
-                <RefreshCw className="h-4 w-4 mr-1" />
+                <RefreshCw className="h-4 w-4 mr-2" />
                 Atualizar SW
               </Button>
             </div>
@@ -413,19 +413,16 @@ const AdvancedTesting = () => {
                   <div className="flex items-center justify-between mb-2">
                     <h5 className="font-semibold text-sm">{test.name}</h5>
                     <Button
-                      size="sm"
+                      className="h-10 px-4"
                       onClick={() => runTypeTest(test)}
                       disabled={loading}
-                      className={cn(
-                        "h-8 px-3",
-                        activeTest === test.id && "bg-blue-600"
-                      )}
                     >
                       {activeTest === test.id ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                       ) : (
-                        <Play className="h-3 w-3" />
+                        <Play className="h-4 w-4 mr-2" />
                       )}
+                      Testar
                     </Button>
                   </div>
                   
@@ -466,13 +463,14 @@ const AdvancedTesting = () => {
                   value={customTestUrl}
                   onChange={(e) => setCustomTestUrl(e.target.value)}
                   placeholder="https://projeto-rafael-53f73.web.app/custom-page"
+                  className="h-10"
                 />
               </div>
               
               <Button
                 onClick={runCustomUrlTest}
                 disabled={loading || !customTestUrl.trim()}
-                className="w-full bg-purple-600 hover:bg-purple-700"
+                className="w-full h-10 px-4 bg-purple-600 hover:bg-purple-700"
               >
                 {loading ? (
                   <>
@@ -528,18 +526,19 @@ const AdvancedTesting = () => {
               <div className="flex items-center space-x-2">
                 <Button
                   variant="outline"
-                  size="sm"
+                  className="h-10 px-4"
                   onClick={() => setAutoRefresh(!autoRefresh)}
                 >
-                  <Activity className={cn("h-3 w-3 mr-1", autoRefresh && "animate-pulse")} />
+                  <Activity className={cn("h-4 w-4 mr-2", autoRefresh && "animate-pulse")} />
                   Auto
                 </Button>
                 <Button
                   variant="outline"
-                  size="sm"
+                  className="h-10 px-4"
                   onClick={checkServiceWorkerStatus}
                 >
-                  <RefreshCw className="h-3 w-3" />
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Atualizar
                 </Button>
               </div>
             </div>
@@ -663,7 +662,7 @@ const AdvancedTesting = () => {
               <div className="mt-4 pt-3 border-t text-center">
                 <Button
                   variant="outline"
-                  size="sm"
+                  className="h-10 px-4"
                   onClick={() => setTestResults([])}
                 >
                   Limpar Resultados

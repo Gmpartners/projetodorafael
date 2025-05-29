@@ -245,7 +245,7 @@ const DeviceConfiguration = () => {
                 <Button 
                   onClick={handleRequestPermission}
                   disabled={loading}
-                  className="bg-blue-600 hover:bg-blue-700"
+                  className="h-10 px-4 bg-blue-600 hover:bg-blue-700"
                 >
                   {loading ? (
                     <>
@@ -269,7 +269,7 @@ const DeviceConfiguration = () => {
                   onClick={handleSendTestNotification}
                   disabled={testLoading}
                   variant="outline"
-                  className="w-full border-emerald-300 hover:bg-emerald-50"
+                  className="w-full h-10 px-4 border-emerald-300 hover:bg-emerald-50"
                 >
                   {testLoading ? (
                     <>
@@ -290,7 +290,7 @@ const DeviceConfiguration = () => {
             <Alert className="border-blue-200 bg-blue-50/50">
               <AlertTriangleIcon className="h-4 w-4 text-blue-600" />
               <AlertDescription className="text-blue-800">
-                <strong>Sistema Web Push Nativo v7.0:</strong> As notificações usam o padrão Web Push sem dependência do Firebase. 
+                <strong>Sistema Web Push Nativo:</strong> As notificações usam o padrão Web Push sem dependência do Firebase. 
                 Compatível com Chrome, Firefox, Edge e Safari (macOS).
               </AlertDescription>
             </Alert>

@@ -35,10 +35,10 @@ const CreateNotification = () => {
   const [scheduledDate, setScheduledDate] = useState('');
   const [loading, setLoading] = useState(false);
   
-  // 🆕 v7.3: Estados para URL personalizada (sem validação via API)
+  // Estados para URL personalizada
   const [customUrl, setCustomUrl] = useState('');
   
-  // 🆕 v7.3: Sistema de botões personalizados livre
+  // Sistema de botões personalizados
   const [customButtons, setCustomButtons] = useState([]);
   const [newButtonTitle, setNewButtonTitle] = useState('');
   const [newButtonAction, setNewButtonAction] = useState('');
@@ -49,7 +49,7 @@ const CreateNotification = () => {
   const [uploadingIcon, setUploadingIcon] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
 
-  // 🆕 v7.3: Adicionar novo botão personalizado
+  // Adicionar novo botão personalizado
   const addCustomButton = () => {
     if (!newButtonTitle.trim()) {
       toast.error('Digite o texto do botão');
@@ -68,7 +68,7 @@ const CreateNotification = () => {
     toast.success('Botão adicionado!');
   };
 
-  // 🆕 v7.3: Remover botão personalizado
+  // Remover botão personalizado
   const removeCustomButton = (index) => {
     setCustomButtons(customButtons.filter((_, i) => i !== index));
     toast.success('Botão removido');
@@ -200,20 +200,20 @@ const CreateNotification = () => {
 
     setLoading(true);
     try {
-      console.log('📤 Enviando notificação v7.3 (simplificada)...');
+      console.log('📤 Enviando notificação personalizada...');
 
       const baseNotificationData = {
         title: title.trim(),
         body: body.trim(),
         type: 'custom',
-        // 🆕 v7.3: URL personalizada sem validação via API
+        // URL personalizada sem validação via API
         data: {
           type: 'custom',
           timestamp: new Date().toISOString(),
-          source: 'manual_creation_v7_3',
+          source: 'manual_creation',
           ...(customUrl && { url: customUrl })
         },
-        // 🆕 v7.3: Botões totalmente personalizados
+        // Botões totalmente personalizados
         ...(customButtons.length > 0 && { actions: customButtons }),
         requireInteraction: true,
         vibrate: [200, 100, 200]
@@ -235,7 +235,7 @@ const CreateNotification = () => {
         };
 
         const result = await apiService.createNotification(notificationData);
-        console.log('✅ Notificação v7.3 agendada:', result);
+        console.log('✅ Notificação agendada:', result);
         
         toast.success('📅 Notificação agendada com sucesso!', {
           description: `Será enviada em ${new Date(scheduledDate).toLocaleString()}`
@@ -252,7 +252,7 @@ const CreateNotification = () => {
           }
         });
         
-        console.log('✅ Notificação v7.3 enviada:', result);
+        console.log('✅ Notificação enviada:', result);
         
         toast.success('🚀 Notificação enviada com sucesso!', {
           description: `${customButtons.length} botões personalizados`
@@ -263,7 +263,7 @@ const CreateNotification = () => {
       resetForm();
       
     } catch (error) {
-      console.error('❌ Erro ao enviar notificação v7.3:', error);
+      console.error('❌ Erro ao enviar notificação:', error);
       toast.error('❌ Erro ao enviar notificação: ' + error.message);
     } finally {
       setLoading(false);
@@ -299,7 +299,7 @@ const CreateNotification = () => {
               <Sparkles className="h-6 w-6 text-purple-700" />
             </div>
             <div>
-              <h3 className="text-xl font-bold text-zinc-900">Criar Notificação v7.3</h3>
+              <h3 className="text-xl font-bold text-zinc-900">Criar Notificação</h3>
               <p className="text-zinc-600">Crie notificações com botões totalmente personalizados</p>
             </div>
           </div>
@@ -309,7 +309,7 @@ const CreateNotification = () => {
             <div className="space-y-2">
               <Label htmlFor="target">Destinatário</Label>
               <Select value={targetType} onValueChange={setTargetType}>
-                <SelectTrigger>
+                <SelectTrigger className="h-10">
                   <SelectValue placeholder="Selecione o destinatário..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -327,6 +327,7 @@ const CreateNotification = () => {
                   value={targetUserId}
                   onChange={(e) => setTargetUserId(e.target.value)}
                   placeholder="Ex: 0HeRINZTlvOM5raS8J4AkITanWP2"
+                  className="h-10"
                 />
               </div>
             )}
@@ -348,6 +349,7 @@ const CreateNotification = () => {
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Ex: Nova promoção disponível!"
                 maxLength={50}
+                className="h-10"
               />
             </div>
 
@@ -371,7 +373,7 @@ const CreateNotification = () => {
               />
             </div>
 
-            {/* 🆕 v7.3: URL Personalizada (sem validação via API) */}
+            {/* URL Personalizada */}
             <div className="space-y-2">
               <Label htmlFor="customUrl">URL Personalizada (Opcional)</Label>
               <div className="relative">
@@ -381,7 +383,7 @@ const CreateNotification = () => {
                   value={customUrl}
                   onChange={(e) => setCustomUrl(e.target.value)}
                   placeholder="https://exemplo.com/promocao"
-                  className="pl-10"
+                  className="pl-10 h-10"
                 />
               </div>
               <p className="text-xs text-zinc-500">
@@ -389,7 +391,7 @@ const CreateNotification = () => {
               </p>
             </div>
 
-            {/* 🆕 v7.3: Sistema de Botões Personalizados */}
+            {/* Sistema de Botões Personalizados */}
             <div className="space-y-3">
               <Label className="text-sm font-semibold">🎯 Botões Personalizados</Label>
               
@@ -406,6 +408,7 @@ const CreateNotification = () => {
                       value={newButtonTitle}
                       onChange={(e) => setNewButtonTitle(e.target.value)}
                       maxLength={20}
+                      className="h-10"
                     />
                   </div>
                   <div className="col-span-5">
@@ -414,6 +417,7 @@ const CreateNotification = () => {
                       value={newButtonAction}
                       onChange={(e) => setNewButtonAction(e.target.value)}
                       maxLength={20}
+                      className="h-10"
                     />
                   </div>
                   <div className="col-span-2">
@@ -421,7 +425,7 @@ const CreateNotification = () => {
                       type="button"
                       onClick={addCustomButton}
                       disabled={!newButtonTitle.trim() || customButtons.length >= 2}
-                      className="w-full"
+                      className="w-full h-10 px-4 bg-blue-600 hover:bg-blue-700"
                     >
                       <PlusIcon className="h-4 w-4" />
                     </Button>
@@ -443,9 +447,8 @@ const CreateNotification = () => {
                         <Button
                           type="button"
                           variant="ghost"
-                          size="sm"
+                          className="text-red-500 hover:text-red-700 h-10 w-10 p-0"
                           onClick={() => removeCustomButton(index)}
-                          className="text-red-500 hover:text-red-700"
                         >
                           <X className="h-4 w-4" />
                         </Button>
@@ -487,11 +490,10 @@ const CreateNotification = () => {
                       <Button
                         type="button"
                         onClick={handleRemoveIcon}
-                        size="sm"
                         variant="destructive"
-                        className="absolute -top-2 -right-2 h-6 w-6 p-0"
+                        className="absolute -top-2 -right-2 h-8 w-8 p-0"
                       >
-                        <TrashIcon className="h-3 w-3" />
+                        <TrashIcon className="h-4 w-4" />
                       </Button>
                     </div>
                   ) : (
@@ -537,11 +539,10 @@ const CreateNotification = () => {
                       <Button
                         type="button"
                         onClick={handleRemoveImage}
-                        size="sm"
                         variant="destructive"
-                        className="absolute -top-2 -right-2 h-6 w-6 p-0"
+                        className="absolute -top-2 -right-2 h-8 w-8 p-0"
                       >
-                        <TrashIcon className="h-3 w-3" />
+                        <TrashIcon className="h-4 w-4" />
                       </Button>
                     </div>
                   ) : (
@@ -576,13 +577,14 @@ const CreateNotification = () => {
                 value={scheduledDate}
                 onChange={(e) => setScheduledDate(e.target.value)}
                 min={new Date().toISOString().slice(0, 16)}
+                className="h-10"
               />
               <p className="text-xs text-zinc-500">
                 {scheduledDate ? 'Será enviada automaticamente na data especificada' : 'Deixe vazio para envio imediato'}
               </p>
             </div>
 
-            {/* Preview v7.3 Simplificado */}
+            {/* Preview Simplificado */}
             {(title || body || customIcon || customImage || customUrl || customButtons.length > 0) && (
               <div className="p-4 bg-gradient-to-r from-zinc-50 to-blue-50 rounded-xl border border-zinc-200">
                 <h4 className="text-sm font-semibold text-zinc-700 mb-3 flex items-center">
@@ -643,7 +645,7 @@ const CreateNotification = () => {
               <Button 
                 onClick={handleSendNotification}
                 disabled={loading || !title.trim() || !body.trim() || uploadingIcon || uploadingImage}
-                className="flex-1 bg-purple-600 hover:bg-purple-700"
+                className="flex-1 h-10 px-4 bg-purple-600 hover:bg-purple-700"
               >
                 {loading ? (
                   <>
@@ -655,7 +657,7 @@ const CreateNotification = () => {
                     {scheduledDate ? (
                       <>
                         <CalendarIcon className="h-4 w-4 mr-2" />
-                        Agendar
+                        Agendar Envio
                       </>
                     ) : (
                       <>

@@ -41,7 +41,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { useStoreChat } from '@/contexts/StoreChatContext';
-import ChatInitiator from './ChatInitiator';
+import ChatInitiator from '@/components/store/chat/ChatInitiator';
 
 const MESSAGE_STATUS = {
   sending: Clock,
@@ -216,6 +216,7 @@ const ChatWindow = ({ activeChat, onStartNewChat, onSelectResponse }) => {
 
   return (
     <div className="h-full flex flex-col bg-white rounded-xl shadow-lg overflow-hidden">
+      {/* Header fixo */}
       <div className="p-3 border-b border-zinc-100 bg-gradient-to-r from-white via-purple-50/30 to-indigo-50/30 flex-shrink-0 relative">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
@@ -280,13 +281,15 @@ const ChatWindow = ({ activeChat, onStartNewChat, onSelectResponse }) => {
         </div>
       </div>
 
-      <div className="flex-1 overflow-hidden bg-gradient-to-br from-zinc-50/30 to-white relative">
+      {/* Área de mensagens com scroll fixo */}
+      <div className="flex-1 overflow-hidden bg-gradient-to-br from-zinc-50/30 to-white relative" style={{ height: '400px' }}>
         <ScrollArea 
           ref={scrollAreaRef}
           className="h-full"
           onScroll={handleScroll}
         >
           <div className="p-3 space-y-3">
+            {/* Info do chat */}
             <div className="bg-gradient-to-r from-purple-50/70 to-indigo-50/70 border border-purple-100 rounded-lg p-3 transition-all hover:shadow-md">
               <div className="flex items-center space-x-3">
                 <Avatar className="h-8 w-8 border-2 border-white shadow-sm">
@@ -318,6 +321,7 @@ const ChatWindow = ({ activeChat, onStartNewChat, onSelectResponse }) => {
               </div>
             </div>
             
+            {/* Lista de mensagens */}
             <div className="space-y-3">
               {isLoading && messages.length === 0 ? (
                 <div className="text-center text-zinc-500 py-8">
@@ -386,8 +390,9 @@ const ChatWindow = ({ activeChat, onStartNewChat, onSelectResponse }) => {
         )}
       </div>
 
+      {/* Respostas rápidas */}
       {onSelectResponse && (
-        <div className="border-t border-zinc-100 p-2 bg-zinc-50/50">
+        <div className="border-t border-zinc-100 p-2 bg-zinc-50/50 flex-shrink-0">
           <div className="flex space-x-2 overflow-x-auto">
             <Button
               variant="outline"
@@ -417,6 +422,7 @@ const ChatWindow = ({ activeChat, onStartNewChat, onSelectResponse }) => {
         </div>
       )}
 
+      {/* Input de mensagem fixo */}
       <div className="p-3 border-t border-zinc-100 bg-white flex-shrink-0">
         {showEmojiPanel && (
           <div className="mb-2 p-2 border rounded-lg bg-zinc-50">

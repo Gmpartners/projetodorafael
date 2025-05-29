@@ -10,8 +10,7 @@ import {
   BarChart3Icon,
   TargetIcon,
   RefreshCcwIcon,
-  Loader2,
-  FlaskConical
+  Loader2
 } from 'lucide-react';
 import MainLayout from '@/components/common/layout/MainLayout';
 import { apiService } from '@/services/apiService';
@@ -22,7 +21,6 @@ import NotificationOverview from './components/NotificationOverview';
 import DeviceConfiguration from './components/DeviceConfiguration';
 import CreateNotification from './components/CreateNotification';
 import NotificationList from './components/NotificationList';
-import AdvancedTesting from './components/AdvancedTesting';
 
 const NotificationManagementPage = () => {
   const [activeTab, setActiveTab] = useState('overview');
@@ -109,7 +107,7 @@ const NotificationManagementPage = () => {
                   placeholder="Buscar notificações..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 h-10 w-56"
+                  className="pl-10 h-10 w-56 border-zinc-200 focus:border-purple-300 focus:ring-purple-200"
                 />
               </div>
               
@@ -138,40 +136,33 @@ const NotificationManagementPage = () => {
         </div>
 
         {/* Tabs */}
-        <div className="bg-white rounded-xl border shadow-sm p-3">
+        <div className="bg-white rounded-xl border shadow-sm p-4">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="w-full max-w-5xl mx-auto bg-gray-100 p-1.5 rounded-xl">
+            <TabsList className="w-full max-w-4xl mx-auto bg-gray-100 p-2 rounded-xl">
               <TabsTrigger 
                 value="overview" 
-                className="flex-1 data-[state=active]:bg-white data-[state=active]:shadow-md transition-all duration-200 rounded-lg font-semibold"
+                className="flex-1 data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all duration-200 rounded-lg font-semibold h-10 px-4"
               >
                 <BarChart3Icon className="h-4 w-4 mr-2" />
                 Dashboard
               </TabsTrigger>
               <TabsTrigger 
                 value="create"
-                className="flex-1 data-[state=active]:bg-white data-[state=active]:shadow-md transition-all duration-200 rounded-lg font-semibold"
+                className="flex-1 data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all duration-200 rounded-lg font-semibold h-10 px-4"
               >
                 <PlusIcon className="h-4 w-4 mr-2" />
                 Criar
               </TabsTrigger>
               <TabsTrigger 
-                value="testing"
-                className="flex-1 data-[state=active]:bg-white data-[state=active]:shadow-md transition-all duration-200 rounded-lg font-semibold"
-              >
-                <FlaskConical className="h-4 w-4 mr-2" />
-                Testes
-              </TabsTrigger>
-              <TabsTrigger 
                 value="config"
-                className="flex-1 data-[state=active]:bg-white data-[state=active]:shadow-md transition-all duration-200 rounded-lg font-semibold"
+                className="flex-1 data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all duration-200 rounded-lg font-semibold h-10 px-4"
               >
                 <Settings className="h-4 w-4 mr-2" />
                 Configurações
               </TabsTrigger>
               <TabsTrigger 
                 value="campaigns"
-                className="flex-1 data-[state=active]:bg-white data-[state=active]:shadow-md transition-all duration-200 rounded-lg font-semibold"
+                className="flex-1 data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all duration-200 rounded-lg font-semibold h-10 px-4"
               >
                 <TargetIcon className="h-4 w-4 mr-2" />
                 Histórico
@@ -184,10 +175,6 @@ const NotificationManagementPage = () => {
             
             <TabsContent value="create" className="mt-6">
               <CreateNotification />
-            </TabsContent>
-            
-            <TabsContent value="testing" className="mt-6">
-              <AdvancedTesting />
             </TabsContent>
             
             <TabsContent value="config" className="mt-6">
