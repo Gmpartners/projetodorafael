@@ -38,7 +38,11 @@ import {
   ArrowRight,
   Eye,
   ShieldCheck,
-  Gift
+  Gift,
+  Settings,
+  Target,
+  Shield,
+  Search
 } from 'lucide-react';
 import { apiService } from '@/services/apiService';
 
@@ -105,11 +109,45 @@ const OrderDetailsCustomer = () => {
     }
   };
 
-  // Enhanced timeline steps with more detailed process
+  // 🔥 CORRIGIDO: Função que usa dados REAIS da API
   const getEnhancedSteps = (orderDetails) => {
     const baseProgress = orderDetails.progress || 0;
     
-    const allSteps = [
+    // ✅ USAR DADOS REAIS: customSteps da API
+    if (orderDetails.customSteps && orderDetails.customSteps.length > 0) {
+      console.log('📊 Using REAL customSteps from API:', orderDetails.customSteps);
+      
+      return orderDetails.customSteps.map((step, index) => {
+        // Determinar status baseado na API
+        let status = 'pending';
+        if (step.completed) {
+          status = 'completed';
+        } else if (step.current || step.active) {
+          status = 'current';
+        }
+        
+        // Calcular progresso por etapa
+        const stepProgress = Math.floor((100 / orderDetails.customSteps.length) * (index + 1));
+        
+        return {
+          id: index + 1,
+          name: step.name,
+          description: step.description || `Step ${index + 1} in your order process`,
+          icon: getStepIcon(step.name),
+          progress: stepProgress,
+          status: status,
+          estimatedTime: step.estimatedTime || step.scheduledFor || 'Processing',
+          color: getStepColor(status, index),
+          scheduledDate: step.scheduledDate,
+          completedDate: step.completedDate
+        };
+      });
+    }
+    
+    // ✅ FALLBACK: Se não tiver customSteps, usar estrutura genérica baseada no progresso
+    console.log('⚠️  No customSteps found, using fallback based on progress:', baseProgress);
+    
+    const genericSteps = [
       {
         id: 1,
         name: "Order Placed",
@@ -117,7 +155,7 @@ const OrderDetailsCustomer = () => {
         icon: ShoppingBag,
         progress: 10,
         status: "completed",
-        estimatedTime: "Just now",
+        estimatedTime: "Completed",
         color: "emerald"
       },
       {
@@ -125,94 +163,86 @@ const OrderDetailsCustomer = () => {
         name: "Order Confirmed",
         description: "We've received your order and are preparing to process it",
         icon: CheckCircle2,
-        progress: 20,
-        status: baseProgress >= 20 ? "completed" : "pending",
-        estimatedTime: "Within 2 hours",
+        progress: 25,
+        status: baseProgress >= 25 ? "completed" : "current",
+        estimatedTime: baseProgress >= 25 ? "Completed" : "Processing",
         color: "emerald"
       },
       {
         id: 3,
-        name: "Payment Verified",
-        description: "Payment has been verified and authorized",
-        icon: ShieldCheck,
-        progress: 25,
-        status: baseProgress >= 25 ? "completed" : "pending",
-        estimatedTime: "Completed",
-        color: "emerald"
+        name: "Processing",
+        description: "Your order is being prepared and quality checked",
+        icon: Settings,
+        progress: 50,
+        status: baseProgress >= 50 ? "completed" : baseProgress >= 25 ? "current" : "pending",
+        estimatedTime: baseProgress >= 50 ? "Completed" : "In Progress",
+        color: "blue"
       },
       {
         id: 4,
-        name: "Processing",
-        description: "Your order is being prepared and quality checked",
-        icon: Factory,
-        progress: 40,
-        status: baseProgress >= 40 ? "completed" : baseProgress >= 25 ? "current" : "pending",
-        estimatedTime: "2-4 hours",
-        color: "blue"
-      },
-      {
-        id: 5,
-        name: "Quality Check",
-        description: "Final quality inspection and packaging preparation",
-        icon: Eye,
-        progress: 55,
-        status: baseProgress >= 55 ? "completed" : baseProgress >= 40 ? "current" : "pending",
-        estimatedTime: "30 minutes",
-        color: "blue"
-      },
-      {
-        id: 6,
         name: "Packaging",
         description: "Your order is being carefully packaged for shipping",
         icon: Package,
-        progress: 70,
-        status: baseProgress >= 70 ? "completed" : baseProgress >= 55 ? "current" : "pending",
-        estimatedTime: "1 hour",
+        progress: 75,
+        status: baseProgress >= 75 ? "completed" : baseProgress >= 50 ? "current" : "pending",
+        estimatedTime: baseProgress >= 75 ? "Completed" : "Processing",
         color: "violet"
       },
       {
-        id: 7,
-        name: "Ready for Pickup",
-        description: "Package is ready and waiting for courier pickup",
-        icon: PackageCheck,
-        progress: 80,
-        status: baseProgress >= 80 ? "completed" : baseProgress >= 70 ? "current" : "pending",
-        estimatedTime: "2-6 hours",
-        color: "violet"
-      },
-      {
-        id: 8,
-        name: "In Transit",
+        id: 5,
+        name: "Shipped",
         description: "Your package is on its way to your delivery address",
         icon: TruckIcon,
         progress: 90,
-        status: baseProgress >= 90 ? "completed" : baseProgress >= 80 ? "current" : "pending",
-        estimatedTime: "1-2 days",
+        status: baseProgress >= 90 ? "completed" : baseProgress >= 75 ? "current" : "pending",
+        estimatedTime: baseProgress >= 90 ? "Shipped" : "Preparing",
         color: "orange"
       },
       {
-        id: 9,
-        name: "Out for Delivery",
-        description: "Package is with the delivery agent in your area",
-        icon: Truck,
-        progress: 95,
-        status: baseProgress >= 95 ? "completed" : baseProgress >= 90 ? "current" : "pending",
-        estimatedTime: "Today",
-        color: "orange"
-      },
-      {
-        id: 10,
+        id: 6,
         name: "Delivered",
         description: "Successfully delivered to your address",
         icon: Home,
         progress: 100,
-        status: baseProgress >= 100 ? "completed" : baseProgress >= 95 ? "current" : "pending",
-        estimatedTime: "Completed",
+        status: baseProgress >= 100 ? "completed" : baseProgress >= 90 ? "current" : "pending",
+        estimatedTime: baseProgress >= 100 ? "Delivered" : "In Transit",
         color: "emerald"
       }
     ];
 
-    return allSteps;
+    return genericSteps;
+  };
+
+  // Função para determinar ícone baseado no nome da etapa
+  const getStepIcon = (stepName) => {
+    if (!stepName) return Clock;
+    
+    const name = stepName.toLowerCase();
+    
+    // Mapeamento inteligente de nomes para ícones
+    if (name.includes('placed') || name.includes('received')) return ShoppingBag;
+    if (name.includes('confirmed') || name.includes('accepted')) return CheckCircle2;
+    if (name.includes('payment') || name.includes('paid')) return ShieldCheck;
+    if (name.includes('processing') || name.includes('preparing')) return Settings;
+    if (name.includes('separating') || name.includes('picking')) return Search;
+    if (name.includes('quality') || name.includes('check')) return Eye;
+    if (name.includes('packaging') || name.includes('packing')) return Package;
+    if (name.includes('ready') || name.includes('pickup')) return PackageCheck;
+    if (name.includes('shipped') || name.includes('transit') || name.includes('sending')) return TruckIcon;
+    if (name.includes('delivery') || name.includes('delivered')) return Home;
+    
+    // Ícones por posição se não conseguir determinar pelo nome
+    return Clock;
+  };
+
+  // Função para determinar cor baseada no status
+  const getStepColor = (status, index) => {
+    if (status === 'completed') return 'emerald';
+    if (status === 'current') return 'blue';
+    
+    // Cores alternadas para etapas pendentes
+    const colors = ['blue', 'violet', 'orange', 'amber'];
+    return colors[index % colors.length] || 'blue';
   };
 
   const handleOpenChat = async () => {
@@ -366,9 +396,15 @@ const OrderDetailsCustomer = () => {
     );
   }
 
+  // ✅ USAR DADOS REAIS: Obter etapas da API
   const enhancedSteps = getEnhancedSteps(orderDetails);
   const currentStepIndex = enhancedSteps.findIndex(step => step.status === 'current');
   const completedSteps = enhancedSteps.filter(step => step.status === 'completed').length;
+
+  // ✅ DADOS REAIS: Status atual baseado na API
+  const currentStepName = orderDetails.currentStepName || 
+                          enhancedSteps.find(s => s.status === 'current')?.name || 
+                          'Processing';
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -408,7 +444,7 @@ const OrderDetailsCustomer = () => {
                 <div className="flex items-center mt-1">
                   <span className="text-blue-100 text-sm flex items-center">
                     <Clock className="h-3 w-3 mr-1" />
-                    Order #{(orderDetails.orderId || orderDetails.id).toString().slice(-6)}
+                    Order #{(orderDetails.orderId || orderDetails.id || orderDetails.externalOrderId || 'N/A').toString().slice(-6)}
                   </span>
                 </div>
               </div>
@@ -419,7 +455,7 @@ const OrderDetailsCustomer = () => {
 
       {/* Content */}
       <main className="px-4 py-5 -mt-3 relative z-10">
-        {/* Enhanced Order Progress Card */}
+        {/* ✅ DADOS REAIS: Order Progress Card */}
         <Card className="bg-white shadow-lg mb-6 border-0 overflow-hidden">
           <div className="bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 p-1">
             <CardContent className="p-6 bg-white m-0 rounded-lg">
@@ -427,7 +463,10 @@ const OrderDetailsCustomer = () => {
                 <div>
                   <h3 className="text-blue-600 font-semibold text-xl flex items-center">
                     <Sparkles className="h-5 w-5 mr-2 text-blue-500" />
-                    Order #{(orderDetails.orderId || orderDetails.id).toString().slice(-6)}
+                    {orderDetails.productDetails?.displayName || 
+                     orderDetails.productDetails?.title || 
+                     orderDetails.productName || 
+                     `Order #${(orderDetails.orderId || orderDetails.id || orderDetails.externalOrderId || 'N/A').toString().slice(-6)}`}
                   </h3>
                   <p className="text-slate-500 text-sm mt-1">
                     Created on {formatDate(orderDetails.createdAt)}
@@ -448,13 +487,12 @@ const OrderDetailsCustomer = () => {
                 <div className="flex items-center justify-between mb-2">
                   <span className={`font-semibold text-sm ${getStatusColor(orderDetails.progress || 0)} flex items-center`}>
                     <Activity className="h-4 w-4 mr-1" />
-                    {orderDetails.progress >= 100 ? 'Order Completed!' : 
-                     enhancedSteps.find(s => s.status === 'current')?.name || 'Processing'}
+                    {orderDetails.progress >= 100 ? 'Order Completed!' : currentStepName}
                   </span>
                   <span className="text-slate-600 font-medium text-sm flex items-center">
                     <Timer className="h-3 w-3 mr-1" />
                     {orderDetails.progress >= 100 ? 'Delivered' : 
-                     enhancedSteps.find(s => s.status === 'current')?.estimatedTime || 'Calculating...'}
+                     enhancedSteps.find(s => s.status === 'current')?.estimatedTime || 'Processing...'}
                   </span>
                 </div>
                 
@@ -516,13 +554,18 @@ const OrderDetailsCustomer = () => {
           </div>
         </Card>
 
-        {/* Enhanced Timeline */}
+        {/* ✅ DADOS REAIS: Enhanced Timeline */}
         <Card className="bg-white shadow-lg mb-6 border-0">
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-6">
               <h3 className="font-semibold text-slate-800 text-lg flex items-center">
                 <Zap className="h-5 w-5 mr-2 text-blue-500" />
                 Order Journey
+                {orderDetails.customSteps && orderDetails.customSteps.length > 0 && (
+                  <span className="ml-2 bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full">
+                    Real-time
+                  </span>
+                )}
               </h3>
               <div className="text-sm text-slate-500 bg-slate-50 px-3 py-1 rounded-full">
                 {completedSteps}/{enhancedSteps.length} completed
@@ -651,7 +694,7 @@ const OrderDetailsCustomer = () => {
                   <p className="text-blue-600 text-sm">Ask questions about your order</p>
                 </div>
               </div>
-              {orderDetails.unreadMessages > 0 && (
+              {(orderDetails.unreadMessages || 0) > 0 && (
                 <div className="relative">
                   <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center shadow-lg animate-bounce">
                     <span className="text-sm text-white font-bold">{orderDetails.unreadMessages}</span>
@@ -691,7 +734,7 @@ const OrderDetailsCustomer = () => {
           </CardContent>
         </Card>
 
-        {/* Product details - Enhanced */}
+        {/* ✅ DADOS REAIS: Product details */}
         <Card className="bg-white shadow-lg mb-6 border-0">
           <CardContent className="p-6">
             <h3 className="text-slate-800 font-semibold mb-5 text-lg flex items-center">
@@ -700,25 +743,56 @@ const OrderDetailsCustomer = () => {
             </h3>
             
             <div className="flex items-center">
-              <div className="w-20 h-20 rounded-xl bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center text-3xl mr-4 flex-shrink-0 border border-blue-100 shadow-sm">
-                📦
-              </div>
+              {orderDetails.productDetails?.image ? (
+                <div className="w-20 h-20 rounded-xl mr-4 flex-shrink-0 border border-blue-100 shadow-sm overflow-hidden">
+                  <img 
+                    src={orderDetails.productDetails.image} 
+                    alt={orderDetails.productDetails.displayName || 'Product'}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      e.target.nextSibling.style.display = 'flex';
+                    }}
+                  />
+                  <div className="hidden w-full h-full bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 items-center justify-center text-3xl">
+                    📦
+                  </div>
+                </div>
+              ) : (
+                <div className="w-20 h-20 rounded-xl bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center text-3xl mr-4 flex-shrink-0 border border-blue-100 shadow-sm">
+                  📦
+                </div>
+              )}
+              
               <div className="flex-1">
                 <h4 className="font-semibold text-slate-800 text-lg">
-                  {orderDetails.productName || orderDetails.productDetails?.name || orderDetails.product?.name || 'Product'}
+                  {orderDetails.productDetails?.displayName || 
+                   orderDetails.productDetails?.title || 
+                   orderDetails.productName || 
+                   orderDetails.product?.name || 'Product'}
                 </h4>
                 <p className="text-slate-600 text-sm mt-1 mb-3">
-                  {orderDetails.productDetails?.description || orderDetails.product?.description || 'Store product'}
+                  {orderDetails.productDetails?.description || 
+                   orderDetails.product?.description || 
+                   orderDetails.description ||
+                   'Store product'}
                 </p>
                 <div className="flex items-center space-x-6">
                   <div className="flex items-center">
                     <span className="text-sm text-slate-500 mr-1">Quantity:</span>
-                    <span className="font-semibold text-slate-800">{orderDetails.quantity || 1}</span>
+                    <span className="font-semibold text-slate-800">
+                      {orderDetails.productDetails?.quantity || orderDetails.quantity || 1}
+                    </span>
                   </div>
                   <div className="flex items-center">
                     <span className="text-sm text-slate-500 mr-1">Total:</span>
                     <span className="font-bold text-lg text-blue-600">
-                      {formatCurrency(orderDetails.totalValue || orderDetails.productDetails?.price || 0)}
+                      {formatCurrency(
+                        orderDetails.totalValue || 
+                        orderDetails.productDetails?.price || 
+                        orderDetails.price || 
+                        0
+                      )}
                     </span>
                   </div>
                 </div>
@@ -727,9 +801,9 @@ const OrderDetailsCustomer = () => {
           </CardContent>
         </Card>
 
-        {/* Customer and address info */}
+        {/* ✅ DADOS REAIS: Customer and address info */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          {(orderDetails.customer || orderDetails.customerName) && (
+          {(orderDetails.customer || orderDetails.customerName || customerEmail) && (
             <Card className="bg-white shadow-lg border-0">
               <CardContent className="p-5">
                 <div className="flex items-center mb-4">
@@ -742,7 +816,7 @@ const OrderDetailsCustomer = () => {
                   </p>
                   <p className="text-slate-600 text-sm flex items-center">
                     <Mail className="h-4 w-4 mr-2 text-slate-400" />
-                    {customerEmail}
+                    {orderDetails.customerEmail || customerEmail}
                   </p>
                   {orderDetails.customer?.phone && (
                     <p className="text-slate-600 text-sm flex items-center">
@@ -773,7 +847,9 @@ const OrderDetailsCustomer = () => {
                   {orderDetails.shippingAddress.complement && 
                     <p>{orderDetails.shippingAddress.complement}</p>
                   }
-                  <p>{orderDetails.shippingAddress.neighborhood}</p>
+                  {orderDetails.shippingAddress.neighborhood && 
+                    <p>{orderDetails.shippingAddress.neighborhood}</p>
+                  }
                   <p>{orderDetails.shippingAddress.city} - {orderDetails.shippingAddress.state}</p>
                   <p className="font-mono text-xs bg-slate-100 inline-block px-2 py-1 rounded">
                     {orderDetails.shippingAddress.zipCode}
@@ -804,7 +880,7 @@ const OrderDetailsCustomer = () => {
           >
             <MessageSquare className="h-5 w-5" />
             <span className="text-xs mt-1 font-medium">Chat</span>
-            {orderDetails.unreadMessages > 0 && (
+            {(orderDetails.unreadMessages || 0) > 0 && (
               <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center shadow-sm">
                 <span className="text-xs text-white font-bold">{orderDetails.unreadMessages}</span>
               </div>
