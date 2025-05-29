@@ -18,6 +18,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { 
   Plus, 
   Search, 
   Edit, 
@@ -29,7 +36,17 @@ import {
   Clock,
   ArrowRight,
   Sparkles,
-  Loader2
+  Loader2,
+  Copy,
+  ExternalLink,
+  Zap,
+  Globe,
+  Timer,
+  Upload,
+  Image as ImageIcon,
+  X,
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
 import { apiService } from '@/services/apiService';
 import { cn } from '@/lib/utils';
@@ -41,14 +58,15 @@ const ProductsManagementPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddingProduct, setIsAddingProduct] = useState(false);
   const [isCreatingProduct, setIsCreatingProduct] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [errors, setErrors] = useState({});
   
-  // Form states - valores iniciais simples
+  // Form states - ESTRUTURA NOVA (compatível com backend CartPanda)
   const [newProduct, setNewProduct] = useState({
-    name: '',
+    displayName: '',
+    image: '',
     description: '',
-    price: '',
-    category: '',
-    imageUrl: '',
     customSteps: []
   });
 
@@ -72,51 +90,150 @@ const ProductsManagementPage = () => {
 
   const resetForm = () => {
     setNewProduct({
-      name: '',
+      displayName: '',
+      image: '',
       description: '',
-      price: '',
-      category: '',
-      imageUrl: '',
       customSteps: []
+    });
+    setImagePreview(null);
+    setErrors({});
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
+    
+    if (!newProduct.displayName.trim()) {
+      newErrors.displayName = 'Nome é obrigatório';
+    }
+    
+    if (newProduct.customSteps.length === 0) {
+      newErrors.customSteps = 'Adicione pelo menos 1 etapa personalizada';
+    }
+    
+    newProduct.customSteps.forEach((step, index) => {
+      if (!step.name.trim()) {
+        newErrors[`step_name_${index}`] = 'Nome da etapa é obrigatório';
+      }
+      if (!step.timeValue || step.timeValue <= 0) {
+        newErrors[`step_time_${index}`] = 'Tempo deve ser maior que 0';
+      }
+      if (!step.timeUnit) {
+        newErrors[`step_unit_${index}`] = 'Selecione a unidade de tempo';
+      }
+    });
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  // ✅ FUNÇÃO DE UPLOAD MELHORADA
+  const handleImageUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Validar tipo de arquivo
+    if (!file.type.startsWith('image/')) {
+      setErrors(prev => ({ ...prev, image: 'Selecione apenas arquivos de imagem' }));
+      return;
+    }
+
+    // Validar tamanho (máximo 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setErrors(prev => ({ ...prev, image: 'A imagem deve ter no máximo 5MB' }));
+      return;
+    }
+
+    try {
+      setIsUploadingImage(true);
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors.image;
+        return newErrors;
+      });
+
+      // Criar preview local
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImagePreview(e.target.result);
+      };
+      reader.readAsDataURL(file);
+
+      const response = await apiService.uploadImage(file, 'product');
+      
+      if (response && response.data && response.data.imageUrl) {
+        setNewProduct(prev => ({ ...prev, image: response.data.imageUrl }));
+      } else {
+        throw new Error('URL da imagem não retornada');
+      }
+
+    } catch (error) {
+      console.error('❌ Erro no upload:', error);
+      setErrors(prev => ({ 
+        ...prev, 
+        image: error.response?.data?.error || 'Erro ao enviar imagem'
+      }));
+      setImagePreview(null);
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setNewProduct(prev => ({ ...prev, image: '' }));
+    setImagePreview(null);
+    setErrors(prev => {
+      const newErrors = { ...prev };
+      delete newErrors.image;
+      return newErrors;
     });
   };
 
   const handleCreateProduct = async () => {
-    if (!newProduct.name || !newProduct.price) {
-      alert('Nome e preço são obrigatórios');
+    if (!validateForm()) {
       return;
     }
 
     try {
       setIsCreatingProduct(true);
+      setErrors({});
+      
+      // Converter customSteps para formato do backend
+      const processedSteps = newProduct.customSteps.map(step => ({
+        name: step.name.trim(),
+        scheduledFor: `${step.timeValue} ${step.timeUnit}`,
+        description: step.description.trim()
+      }));
       
       const productData = {
-        ...newProduct,
-        price: parseFloat(newProduct.price),
-        storeId: 'store_current_user' // TODO: pegar do contexto do usuário
+        displayName: newProduct.displayName.trim(),
+        image: newProduct.image.trim() || '',
+        description: newProduct.description.trim() || '',
+        customSteps: processedSteps
       };
       
-      await apiService.createProduct(productData);
+      const response = await apiService.createProduct(productData);
       
       resetForm();
       setIsAddingProduct(false);
-      fetchProducts(); // Recarregar lista
+      fetchProducts();
+      
     } catch (error) {
-      console.error('Erro ao criar produto:', error);
-      alert('Erro ao criar produto. Tente novamente.');
+      console.error('❌ Erro ao criar produto:', error);
+      setErrors({ 
+        general: error.response?.data?.message || 'Erro ao criar produto. Tente novamente.'
+      });
     } finally {
       setIsCreatingProduct(false);
     }
   };
 
   const handleDeleteProduct = async (productId) => {
-    if (window.confirm('Tem certeza que deseja excluir este produto?')) {
+    if (window.confirm('Tem certeza que deseja excluir este produto? Esta ação não pode ser desfeita.')) {
       try {
         await apiService.deleteProduct(productId);
-        fetchProducts(); // Recarregar lista
+        fetchProducts();
       } catch (error) {
         console.error('Erro ao excluir produto:', error);
-        alert('Erro ao excluir produto. Tente novamente.');
       }
     }
   };
@@ -126,9 +243,21 @@ const ProductsManagementPage = () => {
       ...prev,
       customSteps: [
         ...prev.customSteps,
-        { name: '', scheduledFor: '', description: '' }
+        { 
+          name: '', 
+          timeValue: 1, 
+          timeUnit: 'hours',
+          description: '' 
+        }
       ]
     }));
+    
+    // Limpar erro de etapas vazias
+    setErrors(prev => {
+      const newErrors = { ...prev };
+      delete newErrors.customSteps;
+      return newErrors;
+    });
   };
 
   const updateCustomStep = (index, field, value) => {
@@ -138,6 +267,13 @@ const ProductsManagementPage = () => {
         i === index ? { ...step, [field]: value } : step
       )
     }));
+    
+    // Limpar erros relacionados
+    setErrors(prev => {
+      const newErrors = { ...prev };
+      delete newErrors[`step_${field}_${index}`];
+      return newErrors;
+    });
   };
 
   const removeCustomStep = (index) => {
@@ -147,12 +283,32 @@ const ProductsManagementPage = () => {
     }));
   };
 
+  const copyWebhookUrl = async (url) => {
+    try {
+      await navigator.clipboard.writeText(url);
+      // Feedback visual simples
+      const button = event.target.closest('button');
+      const originalText = button.textContent;
+      button.textContent = 'Copiado!';
+      setTimeout(() => {
+        button.textContent = originalText;
+      }, 2000);
+    } catch (error) {
+      const textArea = document.createElement('textarea');
+      textArea.value = url;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+    }
+  };
+
   const filteredProducts = products.filter(product => 
-    product.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.category?.toLowerCase().includes(searchTerm.toLowerCase())
+    product.displayName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    product.description?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Calcular estatísticas reais dos produtos (sem valor total)
+  // Calcular estatísticas reais dos produtos
   const totalProducts = products.length;
   const totalSteps = products.reduce((acc, p) => acc + (p.customSteps?.length || 0), 0);
   const productsWithTimeline = products.filter(p => p.customSteps && p.customSteps.length > 0).length;
@@ -181,8 +337,8 @@ const ProductsManagementPage = () => {
                 <Package className="h-6 w-6 text-purple-600" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">Gestão de Produtos</h1>
-                <p className="text-gray-600">Configure produtos e suas etapas de entrega personalizadas</p>
+                <h1 className="text-2xl font-bold text-gray-900">Produtos para E-commerce</h1>
+                <p className="text-gray-600">Configure produtos e receba pedidos automaticamente via CartPanda</p>
               </div>
             </div>
             
@@ -197,7 +353,10 @@ const ProductsManagementPage = () => {
                 />
               </div>
               
-              <Dialog open={isAddingProduct} onOpenChange={setIsAddingProduct}>
+              <Dialog open={isAddingProduct} onOpenChange={(open) => {
+                setIsAddingProduct(open);
+                if (!open) resetForm();
+              }}>
                 <DialogTrigger asChild>
                   <Button className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700">
                     <Plus className="h-4 w-4 mr-2" />
@@ -205,150 +364,297 @@ const ProductsManagementPage = () => {
                   </Button>
                 </DialogTrigger>
                 
-                {/* Modal MUITO melhorado e responsivo */}
-                <DialogContent className="sm:max-w-2xl max-h-[95vh] overflow-y-auto">
+                {/* 🎨 MODAL MELHORADO - MAIOR E MAIS PROFISSIONAL */}
+                <DialogContent className="sm:max-w-4xl w-[90vw] max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
-                    <DialogTitle className="flex items-center text-xl">
-                      <Package className="h-5 w-5 mr-2 text-purple-600" />
-                      Novo Produto
+                    <DialogTitle className="flex items-center text-2xl">
+                      <Package className="h-6 w-6 mr-3 text-purple-600" />
+                      Criar Novo Produto
                     </DialogTitle>
-                    <DialogDescription>
-                      Preencha as informações básicas do produto
+                    <DialogDescription className="text-base">
+                      Configure seu produto para receber pedidos automaticamente via CartPanda
                     </DialogDescription>
                   </DialogHeader>
                   
+                  {/* Erro geral */}
+                  {errors.general && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start space-x-3">
+                      <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-red-800 font-medium">Erro ao criar produto</p>
+                        <p className="text-red-700 text-sm mt-1">{errors.general}</p>
+                      </div>
+                    </div>
+                  )}
+                  
                   <Tabs defaultValue="basic" className="w-full">
-                    <TabsList className="grid w-full grid-cols-2 mb-6">
-                      <TabsTrigger value="basic">Informações Básicas</TabsTrigger>
-                      <TabsTrigger value="steps">Etapas Personalizadas</TabsTrigger>
+                    <TabsList className="grid w-full grid-cols-2 mb-8 h-12">
+                      <TabsTrigger value="basic" className="text-base">Informações Básicas</TabsTrigger>
+                      <TabsTrigger value="steps" className="text-base">Etapas Personalizadas</TabsTrigger>
                     </TabsList>
                     
-                    <TabsContent value="basic" className="space-y-4">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="sm:col-span-2">
-                          <Label htmlFor="name">Nome do Produto *</Label>
-                          <Input
-                            id="name"
-                            value={newProduct.name}
-                            onChange={(e) => setNewProduct(prev => ({ ...prev, name: e.target.value }))}
-                            placeholder="Ex: Whey Protein Premium"
-                            className="mt-1"
-                          />
+                    <TabsContent value="basic" className="space-y-6">
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        {/* Coluna 1 - Informações básicas */}
+                        <div className="space-y-6">
+                          <div>
+                            <Label htmlFor="displayName" className="text-base font-semibold text-gray-900">
+                              Nome do Produto *
+                            </Label>
+                            <Input
+                              id="displayName"
+                              value={newProduct.displayName}
+                              onChange={(e) => {
+                                setNewProduct(prev => ({ ...prev, displayName: e.target.value }));
+                                setErrors(prev => {
+                                  const newErrors = { ...prev };
+                                  delete newErrors.displayName;
+                                  return newErrors;
+                                });
+                              }}
+                              placeholder="Ex: Burn Jaro Premium - 6 frascos"
+                              className={`mt-2 h-12 text-base ${errors.displayName ? 'border-red-300' : ''}`}
+                            />
+                            {errors.displayName && (
+                              <p className="text-red-600 text-sm mt-2 flex items-center">
+                                <AlertCircle className="h-4 w-4 mr-1" />
+                                {errors.displayName}
+                              </p>
+                            )}
+                            <p className="text-gray-500 text-sm mt-2">Nome que seus clientes verão</p>
+                          </div>
+                          
+                          <div>
+                            <Label htmlFor="description" className="text-base font-semibold text-gray-900">
+                              Descrição
+                            </Label>
+                            <Textarea
+                              id="description"
+                              value={newProduct.description}
+                              onChange={(e) => setNewProduct(prev => ({ ...prev, description: e.target.value }))}
+                              placeholder="Descrição detalhada do produto que aparecerá no acompanhamento..."
+                              rows={4}
+                              className="mt-2 text-base"
+                            />
+                            <p className="text-gray-500 text-sm mt-2">Descrição opcional para seus clientes</p>
+                          </div>
                         </div>
                         
+                        {/* Coluna 2 - Upload de imagem */}
                         <div>
-                          <Label htmlFor="price">Preço (R$) *</Label>
-                          <Input
-                            id="price"
-                            type="number"
-                            step="0.01"
-                            value={newProduct.price}
-                            onChange={(e) => setNewProduct(prev => ({ ...prev, price: e.target.value }))}
-                            placeholder="0.00"
-                            className="mt-1"
-                          />
-                        </div>
-                        
-                        <div>
-                          <Label htmlFor="category">Categoria</Label>
-                          <Input
-                            id="category"
-                            value={newProduct.category}
-                            onChange={(e) => setNewProduct(prev => ({ ...prev, category: e.target.value }))}
-                            placeholder="Ex: Suplementos"
-                            className="mt-1"
-                          />
-                        </div>
-                        
-                        <div className="sm:col-span-2">
-                          <Label htmlFor="description">Descrição</Label>
-                          <Textarea
-                            id="description"
-                            value={newProduct.description}
-                            onChange={(e) => setNewProduct(prev => ({ ...prev, description: e.target.value }))}
-                            placeholder="Descreva seu produto..."
-                            rows={3}
-                            className="mt-1"
-                          />
-                        </div>
-                        
-                        <div className="sm:col-span-2">
-                          <Label htmlFor="imageUrl">URL da Imagem</Label>
-                          <Input
-                            id="imageUrl"
-                            value={newProduct.imageUrl}
-                            onChange={(e) => setNewProduct(prev => ({ ...prev, imageUrl: e.target.value }))}
-                            placeholder="https://exemplo.com/imagem.jpg"
-                            className="mt-1"
-                          />
+                          <Label className="text-base font-semibold text-gray-900">Imagem do Produto</Label>
+                          
+                          <div className="mt-4 space-y-6">
+                            {/* Preview da imagem */}
+                            {(imagePreview || newProduct.image) && (
+                              <div className="relative w-48 h-48 rounded-xl overflow-hidden border-2 border-gray-200 bg-gray-50 mx-auto">
+                                <img 
+                                  src={imagePreview || newProduct.image} 
+                                  alt="Preview" 
+                                  className="w-full h-full object-cover"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={handleRemoveImage}
+                                  className="absolute top-2 right-2 w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 shadow-lg transition-colors"
+                                >
+                                  <X className="h-4 w-4" />
+                                </button>
+                              </div>
+                            )}
+                            
+                            {/* Upload area */}
+                            <div className={`border-2 border-dashed rounded-xl p-8 text-center transition-colors ${
+                              errors.image ? 'border-red-300 bg-red-50' : 'border-gray-300 hover:border-purple-400 bg-gray-50'
+                            }`}>
+                              <div className="space-y-4">
+                                <div className="relative">
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={handleImageUpload}
+                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                    disabled={isUploadingImage}
+                                  />
+                                  <div className="flex flex-col items-center">
+                                    {isUploadingImage ? (
+                                      <Loader2 className="h-16 w-16 text-purple-600 animate-spin mb-4" />
+                                    ) : (
+                                      <Upload className="h-16 w-16 text-gray-400 mb-4" />
+                                    )}
+                                    <p className="text-xl font-semibold text-gray-700 mb-2">
+                                      {isUploadingImage ? 'Enviando imagem...' : 'Clique para fazer upload'}
+                                    </p>
+                                    <p className="text-gray-500">
+                                      PNG, JPG ou WebP até 5MB
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {errors.image && (
+                              <p className="text-red-600 text-sm flex items-center">
+                                <AlertCircle className="h-4 w-4 mr-1" />
+                                {errors.image}
+                              </p>
+                            )}
+                            
+                            <div className="flex items-center space-x-4">
+                              <div className="flex-1 h-px bg-gray-300"></div>
+                              <span className="text-gray-500 font-medium">OU</span>
+                              <div className="flex-1 h-px bg-gray-300"></div>
+                            </div>
+                            
+                            <div>
+                              <Label className="text-sm font-medium text-gray-700">URL da Imagem</Label>
+                              <Input
+                                placeholder="https://exemplo.com/produto.jpg"
+                                value={newProduct.image}
+                                onChange={(e) => {
+                                  setNewProduct(prev => ({ ...prev, image: e.target.value }));
+                                  setImagePreview(null);
+                                }}
+                                className="mt-2 h-12"
+                              />
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </TabsContent>
                     
-                    <TabsContent value="steps" className="space-y-4">
+                    {/* 🎯 ETAPAS MELHORADAS COM SELECT DE TEMPO */}
+                    <TabsContent value="steps" className="space-y-6">
                       <div className="flex items-center justify-between">
                         <div>
-                          <h3 className="text-lg font-semibold">Etapas Personalizadas</h3>
-                          <p className="text-sm text-gray-600">Configure o que o cliente verá no acompanhamento</p>
+                          <h3 className="text-xl font-semibold text-gray-900">Etapas Personalizadas</h3>
+                          <p className="text-gray-600 mt-1">Configure o que o cliente verá no acompanhamento</p>
+                          {errors.customSteps && (
+                            <p className="text-red-600 text-sm mt-2 flex items-center">
+                              <AlertCircle className="h-4 w-4 mr-1" />
+                              {errors.customSteps}
+                            </p>
+                          )}
                         </div>
                         <Button
                           type="button"
-                          variant="outline"
-                          size="sm"
                           onClick={addCustomStep}
+                          className="bg-purple-600 hover:bg-purple-700 h-12 px-6"
                         >
-                          <Plus className="h-3 w-3 mr-1" />
-                          Adicionar
+                          <Plus className="h-4 w-4 mr-2" />
+                          Adicionar Etapa
                         </Button>
                       </div>
                       
                       {newProduct.customSteps.length === 0 ? (
-                        <div className="text-center py-8 text-gray-500">
-                          <Sparkles className="h-12 w-12 mx-auto mb-2 text-gray-300" />
-                          <p>Nenhuma etapa personalizada configurada</p>
-                          <p className="text-sm">Adicione etapas para melhorar a experiência do cliente</p>
+                        <div className="text-center py-16 bg-gradient-to-br from-gray-50 to-purple-50 rounded-xl border-2 border-dashed border-gray-300">
+                          <Sparkles className="h-20 w-20 mx-auto mb-6 text-gray-300" />
+                          <h3 className="text-xl font-semibold text-gray-700 mb-3">
+                            Nenhuma etapa configurada
+                          </h3>
+                          <p className="text-gray-500 mb-8 text-lg">
+                            Adicione pelo menos 1 etapa para criar seu produto
+                          </p>
+                          <Button 
+                            onClick={addCustomStep}
+                            className="bg-purple-600 hover:bg-purple-700 h-12 px-8 text-base"
+                          >
+                            <Plus className="h-5 w-5 mr-2" />
+                            Criar Primeira Etapa
+                          </Button>
                         </div>
                       ) : (
-                        <div className="space-y-3 max-h-60 overflow-y-auto">
+                        <div className="space-y-6">
                           {newProduct.customSteps.map((step, index) => (
-                            <Card key={index} className="p-3 border-l-4 border-l-purple-400">
-                              <div className="space-y-2">
+                            <Card key={index} className="p-6 border-l-4 border-l-purple-400 bg-gradient-to-r from-purple-50/30 to-transparent">
+                              <div className="space-y-6">
                                 <div className="flex items-center justify-between">
-                                  <span className="text-sm font-medium text-purple-600">
-                                    Etapa {index + 1}
-                                  </span>
+                                  <div className="flex items-center space-x-4">
+                                    <div className="w-10 h-10 bg-purple-600 text-white rounded-full flex items-center justify-center text-lg font-bold">
+                                      {index + 1}
+                                    </div>
+                                    <span className="text-xl font-semibold text-purple-700">
+                                      Etapa {index + 1}
+                                    </span>
+                                  </div>
                                   <Button
                                     type="button"
                                     variant="ghost"
                                     size="sm"
                                     onClick={() => removeCustomStep(index)}
-                                    className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
+                                    className="text-red-500 hover:text-red-700 hover:bg-red-50 h-10 w-10"
                                   >
-                                    <Trash2 className="h-3 w-3" />
+                                    <Trash2 className="h-5 w-5" />
                                   </Button>
                                 </div>
                                 
-                                <Input
-                                  placeholder="Nome da etapa"
-                                  value={step.name}
-                                  onChange={(e) => updateCustomStep(index, 'name', e.target.value)}
-                                  className="text-sm"
-                                />
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                  <div>
+                                    <Label className="text-base font-semibold text-gray-900">
+                                      Nome da Etapa *
+                                    </Label>
+                                    <Input
+                                      placeholder="Ex: Separando produtos"
+                                      value={step.name}
+                                      onChange={(e) => updateCustomStep(index, 'name', e.target.value)}
+                                      className={`mt-2 h-12 text-base ${errors[`step_name_${index}`] ? 'border-red-300' : ''}`}
+                                    />
+                                    {errors[`step_name_${index}`] && (
+                                      <p className="text-red-600 text-sm mt-2 flex items-center">
+                                        <AlertCircle className="h-4 w-4 mr-1" />
+                                        {errors[`step_name_${index}`]}
+                                      </p>
+                                    )}
+                                  </div>
+                                  
+                                  <div>
+                                    <Label className="text-base font-semibold text-gray-900">
+                                      Tempo de Execução *
+                                    </Label>
+                                    <div className="flex space-x-3 mt-2">
+                                      <Input
+                                        type="number"
+                                        min="1"
+                                        placeholder="1"
+                                        value={step.timeValue || ''}
+                                        onChange={(e) => updateCustomStep(index, 'timeValue', parseInt(e.target.value) || 1)}
+                                        className={`w-24 h-12 text-base ${errors[`step_time_${index}`] ? 'border-red-300' : ''}`}
+                                      />
+                                      <Select
+                                        value={step.timeUnit || 'hours'}
+                                        onValueChange={(value) => updateCustomStep(index, 'timeUnit', value)}
+                                      >
+                                        <SelectTrigger className={`flex-1 h-12 text-base ${errors[`step_unit_${index}`] ? 'border-red-300' : ''}`}>
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="minutes">Minutos</SelectItem>
+                                          <SelectItem value="hours">Horas</SelectItem>
+                                          <SelectItem value="days">Dias</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                    {(errors[`step_time_${index}`] || errors[`step_unit_${index}`]) && (
+                                      <p className="text-red-600 text-sm mt-2 flex items-center">
+                                        <AlertCircle className="h-4 w-4 mr-1" />
+                                        {errors[`step_time_${index}`] || errors[`step_unit_${index}`]}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
                                 
-                                <Input
-                                  placeholder="Tempo (ex: 30 minutes, 2 hours)"
-                                  value={step.scheduledFor}
-                                  onChange={(e) => updateCustomStep(index, 'scheduledFor', e.target.value)}
-                                  className="text-sm"
-                                />
-                                
-                                <Textarea
-                                  placeholder="Descrição para o cliente"
-                                  value={step.description}
-                                  onChange={(e) => updateCustomStep(index, 'description', e.target.value)}
-                                  rows={2}
-                                  className="text-sm"
-                                />
+                                <div>
+                                  <Label className="text-base font-semibold text-gray-900">
+                                    Descrição para o Cliente
+                                  </Label>
+                                  <Textarea
+                                    placeholder="Descrição opcional que o cliente verá nesta etapa..."
+                                    value={step.description}
+                                    onChange={(e) => updateCustomStep(index, 'description', e.target.value)}
+                                    rows={3}
+                                    className="mt-2 text-base"
+                                  />
+                                </div>
                               </div>
                             </Card>
                           ))}
@@ -357,29 +663,33 @@ const ProductsManagementPage = () => {
                     </TabsContent>
                   </Tabs>
                   
-                  <DialogFooter className="gap-2">
+                  <DialogFooter className="gap-4 pt-6 border-t">
                     <Button 
                       variant="outline" 
                       onClick={() => {
                         setIsAddingProduct(false);
                         resetForm();
                       }}
-                      disabled={isCreatingProduct}
+                      disabled={isCreatingProduct || isUploadingImage}
+                      className="h-12 px-8"
                     >
                       Cancelar
                     </Button>
                     <Button 
                       onClick={handleCreateProduct}
-                      className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
-                      disabled={!newProduct.name || !newProduct.price || isCreatingProduct}
+                      className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 h-12 px-8"
+                      disabled={isCreatingProduct || isUploadingImage}
                     >
                       {isCreatingProduct ? (
                         <>
                           <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          Criando...
+                          Criando Produto...
                         </>
                       ) : (
-                        'Criar Produto'
+                        <>
+                          <CheckCircle className="h-4 w-4 mr-2" />
+                          Criar Produto
+                        </>
                       )}
                     </Button>
                   </DialogFooter>
@@ -389,7 +699,7 @@ const ProductsManagementPage = () => {
           </div>
         </div>
 
-        {/* Stats Cards - SEM valor total dos produtos */}
+        {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card>
             <CardContent className="p-4 flex items-center">
@@ -460,10 +770,10 @@ const ProductsManagementPage = () => {
                 {filteredProducts.map((product) => (
                   <Card key={product.id} className="hover:shadow-lg transition-shadow group">
                     <div className="aspect-square bg-gradient-to-br from-purple-50 to-indigo-50 flex items-center justify-center rounded-t-lg">
-                      {product.imageUrl ? (
+                      {product.image ? (
                         <img 
-                          src={product.imageUrl} 
-                          alt={product.name}
+                          src={product.image} 
+                          alt={product.displayName}
                           className="w-full h-full object-cover rounded-t-lg"
                           onError={(e) => {
                             e.target.style.display = 'none';
@@ -481,12 +791,7 @@ const ProductsManagementPage = () => {
                     <CardContent className="p-4">
                       <div className="space-y-3">
                         <div className="flex items-start justify-between">
-                          <h3 className="font-semibold text-lg leading-tight">{product.name}</h3>
-                          {product.category && (
-                            <Badge variant="outline" className="text-xs shrink-0 ml-2">
-                              {product.category}
-                            </Badge>
-                          )}
+                          <h3 className="font-semibold text-lg leading-tight">{product.displayName}</h3>
                         </div>
                         
                         {product.description && (
@@ -495,7 +800,6 @@ const ProductsManagementPage = () => {
                           </p>
                         )}
                         
-                        {/* Removido o preço - mostrar apenas info das etapas */}
                         <div className="flex items-center justify-end">
                           <div className="flex items-center text-xs text-gray-500">
                             <Clock className="h-3 w-3 mr-1" />
@@ -507,7 +811,7 @@ const ProductsManagementPage = () => {
                         {product.customSteps && product.customSteps.length > 0 && (
                           <div className="p-2 bg-gray-50 rounded-lg">
                             <p className="text-xs font-medium text-gray-700 mb-1">Timeline:</p>
-                            <div className="flex items-center space-x-1">
+                            <div className="flex items-center space-x-1 mb-2">
                               {product.customSteps.slice(0, 4).map((_, index) => (
                                 <div key={index} className="w-2 h-2 rounded-full bg-purple-400"></div>
                               ))}
@@ -516,13 +820,42 @@ const ProductsManagementPage = () => {
                               )}
                               <ArrowRight className="h-3 w-3 text-gray-400 ml-1" />
                             </div>
-                            <div className="mt-1 space-y-1">
-                              {product.customSteps.map((step, index) => (
+                            <div className="space-y-1">
+                              {product.customSteps.slice(0, 3).map((step, index) => (
                                 <div key={index} className="text-xs text-gray-600">
-                                  {index + 1}. {step.name}
+                                  {index + 1}. {step.name} ({step.scheduledFor})
                                 </div>
                               ))}
+                              {product.customSteps.length > 3 && (
+                                <div className="text-xs text-gray-500">
+                                  +{product.customSteps.length - 3} mais...
+                                </div>
+                              )}
                             </div>
+                          </div>
+                        )}
+                        
+                        {/* Webhook Button */}
+                        {product.webhookUrl && (
+                          <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center space-x-2">
+                                <Globe className="h-4 w-4 text-blue-600" />
+                                <span className="text-xs font-medium text-blue-800">CartPanda Webhook</span>
+                              </div>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => copyWebhookUrl(product.webhookUrl)}
+                                className="h-7 text-xs"
+                              >
+                                <Copy className="h-3 w-3 mr-1" />
+                                Copiar
+                              </Button>
+                            </div>
+                            <p className="text-xs text-blue-600 mt-1 font-mono truncate">
+                              {product.webhookUrl}
+                            </p>
                           </div>
                         )}
                         
