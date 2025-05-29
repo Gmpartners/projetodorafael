@@ -41,23 +41,21 @@ import { apiService } from '@/services/apiService';
 import webPushService from '@/services/webPushService';
 import notificationTemplates from '@/services/notificationTemplates';
 import { toast } from 'sonner';
+import { formatDate, formatRelativeTime } from '@/utils/dateFormatter';
 
 const CustomerDashboard = () => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   
-  // Email-based data instead of Firebase Auth
   const [customerEmail, setCustomerEmail] = useState('');
   const [customerData, setCustomerData] = useState(null);
   
-  // Estados para notificações
   const [showNotificationCard, setShowNotificationCard] = useState(false);
   const [notificationStatus, setNotificationStatus] = useState('checking');
   
   const storeId = 'E47OkrK3IcNu1Ys8gD4CA29RrHk2';
   
-  // Estados para dados REAIS da API
   const [customerOrders, setCustomerOrders] = useState([]);
   const [dashboardStats, setDashboardStats] = useState({
     totalOrders: 0,
@@ -66,14 +64,12 @@ const CustomerDashboard = () => {
     messages: 0
   });
 
-  // Estados para animações
   const [statsAnimation, setStatsAnimation] = useState(false);
 
   useEffect(() => {
     setTimeout(() => setStatsAnimation(true), 300);
   }, []);
 
-  // Load customer data from localStorage
   useEffect(() => {
     const storedEmail = localStorage.getItem('customerEmail');
     const storedData = localStorage.getItem('customerData');
@@ -101,7 +97,6 @@ const CustomerDashboard = () => {
     }
   }, [navigate]);
 
-  // Verificar status das notificações
   const checkNotificationStatus = async () => {
     try {
       const status = await webPushService.checkSubscription();
@@ -122,7 +117,6 @@ const CustomerDashboard = () => {
     }
   };
 
-  // Activate notifications
   const handleActivateNotifications = async () => {
     try {
       await webPushService.initialize();
@@ -150,12 +144,12 @@ const CustomerDashboard = () => {
           }
         }, 2000);
         
-        toast.success('🎉 Notifications activated!', {
-          description: 'You will receive alerts about your orders'
+        toast.success('🎉 Notificações ativadas!', {
+          description: 'Você receberá alertas sobre seus pedidos'
         });
       }
     } catch (error) {
-      toast.error('❌ Failed to activate notifications', {
+      toast.error('❌ Falha ao ativar notificações', {
         description: error.message
       });
     }
@@ -179,12 +173,12 @@ const CustomerDashboard = () => {
         
         localStorage.setItem('customerData', JSON.stringify(response.data));
         
-        toast.success('✅ Data updated successfully');
+        toast.success('✅ Dados atualizados com sucesso');
       }
     } catch (error) {
       console.error('❌ Error refreshing data:', error);
-      setError('Failed to refresh order data');
-      toast.error('❌ Failed to refresh data');
+      setError('Falha ao atualizar dados');
+      toast.error('❌ Falha ao atualizar dados');
     } finally {
       setIsLoading(false);
     }
@@ -196,13 +190,12 @@ const CustomerDashboard = () => {
     navigate('/customer/lookup');
   };
 
-  // 🔥 CORRIGIDO: Funções para extrair dados do produto
   const getProductName = (order) => {
     return order.productDetails?.displayName || 
            order.productDetails?.title || 
            order.productName || 
            order.product?.name || 
-           'Store Product';
+           'Produto da Loja';
   };
 
   const getProductImage = (order) => {
@@ -217,22 +210,18 @@ const CustomerDashboard = () => {
            (order.orderId || order.id || order.externalOrderId || 'N/A').toString().slice(-6);
   };
 
-  // 🔥 CORRIGIDO: Função para calcular progresso dinâmico
   const calculateOrderProgress = (order) => {
     if (order.customSteps && order.customSteps.length > 0) {
       const completedSteps = order.customSteps.filter(step => step.completed).length;
       const currentStepIndex = order.customSteps.findIndex(step => step.current || step.active);
       
       if (currentStepIndex >= 0) {
-        // Se há etapa atual, calcular progresso até ela
         return Math.floor((100 / order.customSteps.length) * (currentStepIndex + 0.5));
       } else if (completedSteps > 0) {
-        // Se só há etapas completas
         return Math.floor((100 / order.customSteps.length) * completedSteps);
       }
     }
     
-    // Fallback para progresso da API
     return order.progress || 0;
   };
 
@@ -254,7 +243,7 @@ const CustomerDashboard = () => {
 
   const getStatusText = (order) => {
     const progress = calculateOrderProgress(order);
-    if (progress >= 100) return 'Delivered';
+    if (progress >= 100) return 'Entregue';
     
     if (order.currentStep?.name) return order.currentStep.name;
     if (order.customSteps) {
@@ -264,29 +253,16 @@ const CustomerDashboard = () => {
       const nextStep = order.customSteps.find(step => !step.completed);
       if (nextStep) return nextStep.name;
     }
-    return order.status || 'Processing';
-  };
-
-  const formatDate = (dateString) => {
-    if (!dateString) return 'Today';
-    try {
-      const date = dateString.seconds ? new Date(dateString.seconds * 1000) : new Date(dateString);
-      return date.toLocaleDateString('en-US', {
-        day: '2-digit',
-        month: 'short'
-      });
-    } catch {
-      return 'Today';
-    }
+    return order.status || 'Processando';
   };
 
   const getStepIcon = (stepName) => {
     if (!stepName) return Clock;
     const name = stepName.toLowerCase();
-    if (name.includes('confirmed') || name.includes('received')) return CheckCircle;
-    if (name.includes('preparing') || name.includes('packing')) return Package;
-    if (name.includes('shipped') || name.includes('transit')) return Truck;
-    if (name.includes('delivered')) return CheckCircle;
+    if (name.includes('confirmad') || name.includes('recebid')) return CheckCircle;
+    if (name.includes('preparando') || name.includes('embalando')) return Package;
+    if (name.includes('enviado') || name.includes('transito')) return Truck;
+    if (name.includes('entregue')) return CheckCircle;
     return Clock;
   };
 
@@ -310,7 +286,7 @@ const CustomerDashboard = () => {
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-500 border-t-transparent mx-auto mb-3"></div>
-          <p className="text-slate-600 text-sm font-medium">Loading your orders...</p>
+          <p className="text-slate-600 text-sm font-medium">Carregando seus pedidos...</p>
         </div>
       </div>
     );
@@ -318,7 +294,6 @@ const CustomerDashboard = () => {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Header */}
       <header className="bg-gradient-to-r from-blue-500 to-indigo-600 px-4 pt-8 pb-6 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-24 h-24 bg-white/5 rounded-full -translate-y-12 translate-x-12"></div>
         <div className="absolute bottom-0 left-0 w-16 h-16 bg-white/5 rounded-full translate-y-8 -translate-x-8"></div>
@@ -328,7 +303,7 @@ const CustomerDashboard = () => {
             <div>
               <div className="flex items-center space-x-2 mb-1">
                 <p className="text-blue-100 text-sm font-normal">
-                  Hello,
+                  Olá,
                 </p>
                 {notificationStatus === 'active' && (
                   <div className="bg-green-500/20 px-2 py-1 rounded-full flex items-center space-x-1">
@@ -338,7 +313,7 @@ const CustomerDashboard = () => {
                 )}
               </div>
               <h1 className="text-white text-xl font-semibold">
-                {customerData?.customer?.name || 'Customer'}
+                {customerData?.customer?.name || 'Cliente'}
               </h1>
             </div>
             
@@ -353,14 +328,13 @@ const CustomerDashboard = () => {
           </div>
           
           <p className="text-blue-100/80 text-sm max-w-xs">
-            Track your orders in real-time
+            Acompanhe seus pedidos em tempo real
           </p>
         </div>
       </header>
 
       <main className="px-4 py-5 -mt-3 relative z-10">
         
-        {/* Customer Info Card */}
         <Card className="mb-6 bg-white shadow-sm border border-slate-200">
           <CardContent className="p-4">
             <div className="flex items-start space-x-3">
@@ -383,7 +357,7 @@ const CustomerDashboard = () => {
                 {customerData?.customer?.documentId && (
                   <div className="flex items-center space-x-2">
                     <User className="h-4 w-4 text-slate-400" />
-                    <span className="text-sm text-slate-600">ID: {customerData.customer.documentId}</span>
+                    <span className="text-sm text-slate-600">CPF: {customerData.customer.documentId}</span>
                   </div>
                 )}
               </div>
@@ -391,7 +365,6 @@ const CustomerDashboard = () => {
           </CardContent>
         </Card>
         
-        {/* Notification Card */}
         {showNotificationCard && notificationStatus === 'available' && (
           <Card className="mb-6 border-2 border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 shadow-lg">
             <CardContent className="p-4">
@@ -401,11 +374,11 @@ const CustomerDashboard = () => {
                 </div>
                 <div className="flex-1">
                   <h3 className="font-semibold text-blue-900 mb-1 flex items-center">
-                    Enable Notifications!
-                    <span className="ml-2 bg-blue-200 text-blue-800 text-xs px-2 py-1 rounded-full">NEW</span>
+                    Ative as Notificações!
+                    <span className="ml-2 bg-blue-200 text-blue-800 text-xs px-2 py-1 rounded-full">NOVO</span>
                   </h3>
                   <p className="text-blue-700 text-sm mb-3">
-                    Get instant alerts about your order updates directly in your browser!
+                    Receba alertas instantâneos sobre atualizações dos seus pedidos!
                   </p>
                   <div className="flex space-x-3">
                     <Button 
@@ -413,7 +386,7 @@ const CustomerDashboard = () => {
                       className="bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-2"
                     >
                       <Sparkles className="h-4 w-4 mr-2" />
-                      Enable Notifications
+                      Ativar Notificações
                     </Button>
                     <Button 
                       variant="outline"
@@ -421,7 +394,7 @@ const CustomerDashboard = () => {
                       onClick={() => setShowNotificationCard(false)}
                       className="border-blue-300 text-blue-700 hover:bg-blue-100"
                     >
-                      Later
+                      Depois
                     </Button>
                   </div>
                 </div>
@@ -438,13 +411,12 @@ const CustomerDashboard = () => {
           </Card>
         )}
 
-        {/* Notification Status */}
         {notificationStatus === 'active' && (
           <Alert className="mb-6 border-emerald-200 bg-emerald-50">
             <CheckCircle className="h-4 w-4 text-emerald-600" />
             <AlertDescription className="text-emerald-800 flex items-center justify-between">
               <span>
-                <strong>🎉 Notifications active!</strong> You'll receive alerts about your orders.
+                <strong>🎉 Notificações ativas!</strong> Você receberá alertas sobre seus pedidos.
               </span>
               <Sparkles className="h-4 w-4 text-emerald-600" />
             </AlertDescription>
@@ -455,18 +427,17 @@ const CustomerDashboard = () => {
           <Alert className="mb-6 border-amber-200 bg-amber-50">
             <AlertCircle className="h-4 w-4 text-amber-600" />
             <AlertDescription className="text-amber-800">
-              <strong>⚠️ Notifications blocked.</strong> Enable in browser settings to receive alerts.
+              <strong>⚠️ Notificações bloqueadas.</strong> Ative nas configurações do navegador.
             </AlertDescription>
           </Alert>
         )}
 
-        {/* Stats cards */}
         <div className="grid grid-cols-4 gap-2.5 mb-6">
           {[
-            { label: 'Orders', value: dashboardStats.totalOrders, icon: Package },
-            { label: 'In Progress', value: dashboardStats.inProgress, icon: Activity },
-            { label: 'Completed', value: dashboardStats.completed, icon: CheckCircle },
-            { label: 'Messages', value: dashboardStats.messages, icon: MessageSquare }
+            { label: 'Pedidos', value: dashboardStats.totalOrders, icon: Package },
+            { label: 'Em Andamento', value: dashboardStats.inProgress, icon: Activity },
+            { label: 'Concluídos', value: dashboardStats.completed, icon: CheckCircle },
+            { label: 'Mensagens', value: dashboardStats.messages, icon: MessageSquare }
           ].map((stat, index) => {
             const IconComponent = stat.icon;
             
@@ -476,7 +447,6 @@ const CustomerDashboard = () => {
                 ${statsAnimation ? 'animate-fadeInUp' : 'opacity-0'}
               `} style={{animationDelay: `${index * 100}ms`}}>
                 
-                {/* Icon with gradient background */}
                 <div className={`
                   w-8 h-8 mx-auto mb-2 rounded-lg bg-gradient-to-br ${getStatGradient(index)} 
                   flex items-center justify-center shadow-sm
@@ -484,12 +454,10 @@ const CustomerDashboard = () => {
                   <IconComponent className="h-4 w-4 text-white" />
                 </div>
                 
-                {/* Value */}
                 <div className="text-lg font-semibold text-slate-800">
                   {stat.value}
                 </div>
                 
-                {/* Label */}
                 <div className="text-xs text-slate-500 font-medium">
                   {stat.label}
                 </div>
@@ -498,9 +466,8 @@ const CustomerDashboard = () => {
           })}
         </div>
 
-        {/* My Orders Section */}
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-slate-800 text-lg font-medium">My Orders</h2>
+          <h2 className="text-slate-800 text-lg font-medium">Meus Pedidos</h2>
           <Button 
             variant="ghost" 
             size="sm"
@@ -512,14 +479,13 @@ const CustomerDashboard = () => {
           </Button>
         </div>
         
-        {/* Error handling */}
         {error && (
           <Card className="bg-red-50/50 border-red-100 mb-4">
             <CardContent className="p-4">
               <div className="flex items-center">
                 <AlertCircle className="h-4 w-4 text-red-500 mr-2 flex-shrink-0" />
                 <div>
-                  <p className="text-red-800 text-sm font-medium">Error loading data</p>
+                  <p className="text-red-800 text-sm font-medium">Erro ao carregar dados</p>
                   <p className="text-red-600 text-xs mt-1">{error}</p>
                   <Button 
                     onClick={refreshData} 
@@ -527,7 +493,7 @@ const CustomerDashboard = () => {
                     size="sm"
                   >
                     <RefreshCw className="h-3 w-3 mr-1" />
-                    Try Again
+                    Tentar Novamente
                   </Button>
                 </div>
               </div>
@@ -540,13 +506,13 @@ const CustomerDashboard = () => {
             <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <Package className="h-8 w-8 text-slate-400" />
             </div>
-            <h3 className="font-medium text-slate-800 mb-2">No orders found</h3>
+            <h3 className="font-medium text-slate-800 mb-2">Nenhum pedido encontrado</h3>
             <p className="text-slate-500 text-sm mb-4">
-              You don't have any orders yet, or they're being processed
+              Você ainda não tem pedidos ou eles estão sendo processados
             </p>
             <Button onClick={refreshData} variant="outline" size="sm">
               <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh
+              Atualizar
             </Button>
           </div>
         ) : (
@@ -565,7 +531,6 @@ const CustomerDashboard = () => {
                 >
                   <CardContent className="p-4">
                     <div className="flex items-start space-x-3">
-                      {/* 🔥 CORRIGIDO: Imagem do PRODUTO */}
                       <div className="w-11 h-11 rounded-lg flex items-center justify-center flex-shrink-0 border border-blue-100 overflow-hidden">
                         {productImage ? (
                           <img 
@@ -579,7 +544,7 @@ const CustomerDashboard = () => {
                           />
                         ) : null}
                         <div className={`${productImage ? 'hidden' : 'flex'} bg-gradient-to-br from-blue-50 to-indigo-50 items-center justify-center text-lg w-full h-full`}>
-                          📦
+                          <Package className="h-5 w-5 text-indigo-400" />
                         </div>
                       </div>
                       
@@ -587,9 +552,8 @@ const CustomerDashboard = () => {
                         <div className="flex items-start justify-between mb-2">
                           <div className="flex-1">
                             <div className="flex items-center space-x-2 mb-1">
-                              {/* 🔥 CORRIGIDO: Número do pedido correto */}
                               <h3 className="font-medium text-slate-800 text-sm">
-                                Order #{orderNumber}
+                                Pedido #{orderNumber}
                               </h3>
                               {currentProgress >= 100 && (
                                 <div className="w-3 h-3 bg-emerald-500 rounded-full flex items-center justify-center">
@@ -601,21 +565,20 @@ const CustomerDashboard = () => {
                               )}
                             </div>
                             
-                            {/* 🔥 CORRIGIDO: Nome do produto */}
                             <p className="text-slate-600 text-sm font-medium">
                               {productName}
                             </p>
                             
                             {(order.quantity > 1) && (
                               <p className="text-slate-400 text-xs">
-                                {order.quantity} items
+                                {order.quantity} itens
                               </p>
                             )}
                           </div>
                           
                           <div className="text-right flex-shrink-0">
                             <span className="text-slate-400 text-xs">
-                              {formatDate(order.createdAt || order.orderDate)}
+                              {formatDate(order.createdAt || order.orderDate, 'short')}
                             </span>
                             <ArrowRight className="h-3 w-3 text-slate-400 mt-1 ml-auto transition-colors" />
                           </div>
@@ -628,7 +591,6 @@ const CustomerDashboard = () => {
                               {getStatusText(order)}
                             </span>
                           </div>
-                          {/* 🔥 CORRIGIDO: Progresso dinâmico */}
                           <span className="text-slate-500 text-xs font-medium">
                             {currentProgress}%
                           </span>
@@ -636,7 +598,6 @@ const CustomerDashboard = () => {
                         
                         <div className="space-y-2">
                           <div className="relative">
-                            {/* 🔥 CORRIGIDO: Barra de progresso dinâmica */}
                             <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
                               <div 
                                 className={`h-2 rounded-full bg-gradient-to-r ${getProgressBarColor(order)} transition-all duration-700 ease-out`}
@@ -676,14 +637,12 @@ const CustomerDashboard = () => {
                           
                           <div className="flex items-center justify-between pt-1">
                             <p className="text-xs text-slate-400">
-                              {order.currentStep?.description || 
-                               (order.customSteps && order.customSteps.find(step => step.current || step.active)?.description) ||
-                               'Track your progress'}
+                              {formatRelativeTime(order.createdAt || order.orderDate)}
                             </p>
                             
                             {currentProgress < 100 && (
                               <span className="text-xs text-blue-500 font-medium">
-                                In Progress
+                                Em Andamento
                               </span>
                             )}
                           </div>
@@ -700,7 +659,6 @@ const CustomerDashboard = () => {
         <div className="h-20"></div>
       </main>
 
-      {/* Bottom Navigation */}
       <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200/60 px-4 py-2">
         <div className="flex justify-center items-center max-w-sm mx-auto">
           <button 
@@ -708,7 +666,7 @@ const CustomerDashboard = () => {
             onClick={() => navigate('/customer/dashboard')}
           >
             <Package className="h-5 w-5" />
-            <span className="text-xs mt-1 font-medium">Orders</span>
+            <span className="text-xs mt-1 font-medium">Pedidos</span>
           </button>
           
           <button 
@@ -716,7 +674,7 @@ const CustomerDashboard = () => {
             onClick={() => navigate('/customer/chat-list', { state: { customerEmail, customerData } })}
           >
             <MessageSquare className="h-5 w-5" />
-            <span className="text-xs mt-1">Messages</span>
+            <span className="text-xs mt-1">Mensagens</span>
             {dashboardStats.messages > 0 && (
               <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center">
                 <span className="text-xs text-white font-medium">{dashboardStats.messages}</span>
@@ -729,7 +687,7 @@ const CustomerDashboard = () => {
             onClick={handleBack}
           >
             <ArrowLeft className="h-5 w-5" />
-            <span className="text-xs mt-1">Back</span>
+            <span className="text-xs mt-1">Voltar</span>
           </button>
         </div>
       </div>

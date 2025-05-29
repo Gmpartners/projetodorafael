@@ -42,9 +42,18 @@ import {
   Settings,
   Target,
   Shield,
-  Search
+  Search,
+  RefreshCw
 } from 'lucide-react';
 import { apiService } from '@/services/apiService';
+import { 
+  formatDate, 
+  formatRelativeTime, 
+  formatDuration, 
+  formatStepDate,
+  shouldShowStepTime,
+  formatStepTime 
+} from '@/utils/dateFormatter';
 
 const OrderDetailsCustomer = () => {
   const { orderId } = useParams();
@@ -55,11 +64,9 @@ const OrderDetailsCustomer = () => {
   const [error, setError] = useState(null);
   const [pulseStep, setPulseStep] = useState(0);
 
-  // Get customer email from localStorage or state
   const customerEmail = location.state?.customerEmail || localStorage.getItem('customerEmail');
   const storeId = 'E47OkrK3IcNu1Ys8gD4CA29RrHk2';
 
-  // Pulse animation for current step
   useEffect(() => {
     const interval = setInterval(() => {
       setPulseStep(prev => (prev + 1) % 3);
@@ -109,16 +116,13 @@ const OrderDetailsCustomer = () => {
     }
   };
 
-  // 🔥 CORRIGIDO: Função que usa dados REAIS da API
   const getEnhancedSteps = (orderDetails) => {
     const baseProgress = orderDetails.progress || 0;
     
-    // ✅ USAR DADOS REAIS: customSteps da API
     if (orderDetails.customSteps && orderDetails.customSteps.length > 0) {
       console.log('📊 Using REAL customSteps from API:', orderDetails.customSteps);
       
       return orderDetails.customSteps.map((step, index) => {
-        // Determinar status baseado na API
         let status = 'pending';
         if (step.completed) {
           status = 'completed';
@@ -126,87 +130,98 @@ const OrderDetailsCustomer = () => {
           status = 'current';
         }
         
-        // 🔥 CORRIGIDO: Calcular progresso DINÂMICO por etapa
+        const formattedDate = formatStepDate(step);
+        const showTime = shouldShowStepTime(step);
+        const timeDisplay = showTime ? formatStepTime(step) : '';
+        
         const totalSteps = orderDetails.customSteps.length;
         const stepProgress = Math.floor((100 / totalSteps) * (index + 1));
         
         return {
           id: index + 1,
           name: step.name,
-          description: step.description || `Step ${index + 1} in your order process`,
+          description: step.description || `Etapa ${index + 1} do seu pedido`,
           icon: getStepIcon(step.name),
           progress: stepProgress,
           status: status,
-          estimatedTime: step.estimatedTime || step.scheduledFor || 'Processing',
+          estimatedTime: formattedDate,
+          timeDisplay: timeDisplay,
+          showTime: showTime,
           color: getStepColor(status, index),
-          scheduledDate: step.scheduledDate,
-          completedDate: step.completedDate
+          scheduledAt: step.scheduledAt,
+          completedAt: step.completedAt,
+          estimatedDuration: step.estimatedDuration
         };
       });
     }
     
-    // ✅ FALLBACK: Se não tiver customSteps, usar estrutura genérica baseada no progresso
     console.log('⚠️  No customSteps found, using fallback based on progress:', baseProgress);
     
     const genericSteps = [
       {
         id: 1,
-        name: "Order Placed",
-        description: "Your order has been successfully placed and payment confirmed",
+        name: "Pedido Realizado",
+        description: "Seu pedido foi realizado com sucesso",
         icon: ShoppingBag,
         progress: 16.67,
         status: "completed",
-        estimatedTime: "Completed",
+        estimatedTime: "Concluído",
+        showTime: false,
         color: "emerald"
       },
       {
         id: 2,
-        name: "Order Confirmed",
-        description: "We've received your order and are preparing to process it",
+        name: "Confirmado",
+        description: "Recebemos seu pedido e estamos preparando",
         icon: CheckCircle2,
         progress: 33.33,
         status: baseProgress >= 33.33 ? "completed" : "current",
-        estimatedTime: baseProgress >= 33.33 ? "Completed" : "Processing",
+        estimatedTime: baseProgress >= 33.33 ? "Concluído" : "Em processamento",
+        showTime: false,
         color: "emerald"
       },
       {
         id: 3,
-        name: "Processing",
-        description: "Your order is being prepared and quality checked",
+        name: "Em Preparação",
+        description: "Seu pedido está sendo preparado com cuidado",
         icon: Settings,
         progress: 50,
         status: baseProgress >= 50 ? "completed" : baseProgress >= 33.33 ? "current" : "pending",
-        estimatedTime: baseProgress >= 50 ? "Completed" : "In Progress",
+        estimatedTime: baseProgress >= 50 ? "Concluído" : "Estimativa: 2 horas",
+        showTime: false,
         color: "blue"
       },
       {
         id: 4,
-        name: "Packaging",
-        description: "Your order is being carefully packaged for shipping",
+        name: "Embalando",
+        description: "Produto sendo embalado para envio",
         icon: Package,
         progress: 66.67,
         status: baseProgress >= 66.67 ? "completed" : baseProgress >= 50 ? "current" : "pending",
-        estimatedTime: baseProgress >= 66.67 ? "Completed" : "Processing",
+        estimatedTime: baseProgress >= 66.67 ? "Concluído" : "Estimativa: 4 horas",
+        showTime: false,
         color: "violet"
       },
       {
         id: 5,
-        name: "Shipped",
-        description: "Your package is on its way to your delivery address",
+        name: "Enviado",
+        description: "Seu pedido está a caminho",
         icon: TruckIcon,
         progress: 83.33,
         status: baseProgress >= 83.33 ? "completed" : baseProgress >= 66.67 ? "current" : "pending",
-        estimatedTime: baseProgress >= 83.33 ? "Shipped" : "Preparing",
+        estimatedTime: baseProgress >= 83.33 ? "Enviado" : "Estimativa: 1 dia",
+        showTime: false,
         color: "orange"
       },
       {
         id: 6,
-        name: "Delivered",
-        description: "Successfully delivered to your address",
+        name: "Entregue",
+        description: "Pedido entregue com sucesso",
         icon: Home,
         progress: 100,
         status: baseProgress >= 100 ? "completed" : baseProgress >= 83.33 ? "current" : "pending",
-        estimatedTime: baseProgress >= 100 ? "Delivered" : "In Transit",
+        estimatedTime: baseProgress >= 100 ? "Entregue" : "Estimativa: 3 dias",
+        showTime: false,
         color: "emerald"
       }
     ];
@@ -214,34 +229,30 @@ const OrderDetailsCustomer = () => {
     return genericSteps;
   };
 
-  // Função para determinar ícone baseado no nome da etapa
   const getStepIcon = (stepName) => {
     if (!stepName) return Clock;
     
     const name = stepName.toLowerCase();
     
-    // Mapeamento inteligente de nomes para ícones
-    if (name.includes('placed') || name.includes('received')) return ShoppingBag;
-    if (name.includes('confirmed') || name.includes('accepted')) return CheckCircle2;
-    if (name.includes('payment') || name.includes('paid')) return ShieldCheck;
-    if (name.includes('processing') || name.includes('preparing')) return Settings;
-    if (name.includes('separating') || name.includes('picking')) return Search;
-    if (name.includes('quality') || name.includes('check')) return Eye;
-    if (name.includes('packaging') || name.includes('packing')) return Package;
-    if (name.includes('ready') || name.includes('pickup')) return PackageCheck;
-    if (name.includes('shipped') || name.includes('transit') || name.includes('sending')) return TruckIcon;
-    if (name.includes('delivery') || name.includes('delivered')) return Home;
+    if (name.includes('pedido') && (name.includes('realizado') || name.includes('recebido'))) return ShoppingBag;
+    if (name.includes('confirmad') || name.includes('aceito')) return CheckCircle2;
+    if (name.includes('pagamento') || name.includes('pago')) return ShieldCheck;
+    if (name.includes('processando') || name.includes('preparando')) return Settings;
+    if (name.includes('separando') || name.includes('picking')) return Search;
+    if (name.includes('qualidade') || name.includes('conferindo')) return Eye;
+    if (name.includes('embalando') || name.includes('empacotando')) return Package;
+    if (name.includes('pronto') || name.includes('despachado')) return PackageCheck;
+    if (name.includes('enviado') || name.includes('transito') || name.includes('transportadora')) return TruckIcon;
+    if (name.includes('saiu') && name.includes('entrega')) return TruckIcon;
+    if (name.includes('entregue') || name.includes('finalizado')) return Home;
     
-    // Ícones por posição se não conseguir determinar pelo nome
     return Clock;
   };
 
-  // Função para determinar cor baseada no status
   const getStepColor = (status, index) => {
     if (status === 'completed') return 'emerald';
     if (status === 'current') return 'blue';
     
-    // Cores alternadas para etapas pendentes
     const colors = ['blue', 'violet', 'orange', 'amber'];
     return colors[index % colors.length] || 'blue';
   };
@@ -269,78 +280,26 @@ const OrderDetailsCustomer = () => {
   };
 
   const formatCurrency = (value) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
-      currency: 'USD'
+      currency: 'BRL'
     }).format(value || 0);
   };
 
-  // 🔥 CORRIGIDO: Função de formatação de data
-  const formatDate = (dateString) => {
-    if (!dateString) return 'Date not available';
-    try {
-      let date;
-      if (dateString.seconds) {
-        // Timestamp do Firestore
-        date = new Date(dateString.seconds * 1000);
-      } else if (typeof dateString === 'string') {
-        // String ISO
-        date = new Date(dateString);
-      } else {
-        // Objeto Date
-        date = new Date(dateString);
-      }
-      
-      // Verificar se a data é válida
-      if (isNaN(date.getTime())) {
-        return 'Date not available';
-      }
-      
-      return date.toLocaleDateString('en-US', {
-        day: '2-digit',
-        month: 'long',
-        year: 'numeric'
-      });
-    } catch (error) {
-      console.error('Error formatting date:', error);
-      return 'Date not available';
-    }
-  };
-
-  const formatDateShort = (dateString) => {
-    if (!dateString) return 'N/A';
-    try {
-      const date = dateString.seconds ? new Date(dateString.seconds * 1000) : new Date(dateString);
-      return date.toLocaleDateString('en-US', {
-        day: '2-digit',
-        month: 'short',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-    } catch {
-      return 'N/A';
-    }
-  };
-
-  // 🔥 CORRIGIDO: Função para calcular progresso DINÂMICO
   const calculateCurrentProgress = (orderDetails, enhancedSteps) => {
     if (!enhancedSteps || enhancedSteps.length === 0) return 0;
     
-    // Se tiver customSteps, usar progresso real
     if (orderDetails.customSteps && orderDetails.customSteps.length > 0) {
       const completedSteps = orderDetails.customSteps.filter(step => step.completed).length;
       const currentStepIndex = orderDetails.customSteps.findIndex(step => step.current || step.active);
       
       if (currentStepIndex >= 0) {
-        // Se há etapa atual, calcular progresso até ela
         return Math.floor((100 / orderDetails.customSteps.length) * (currentStepIndex + 0.5));
       } else if (completedSteps > 0) {
-        // Se só há etapas completas
         return Math.floor((100 / orderDetails.customSteps.length) * completedSteps);
       }
     }
     
-    // Fallback para progresso da API
     return orderDetails.progress || 0;
   };
 
@@ -396,23 +355,20 @@ const OrderDetailsCustomer = () => {
     return colors[step.color] || colors.blue;
   };
 
-  // 🔥 CORRIGIDO: Função para obter número do pedido correto
   const getOrderNumber = (orderDetails) => {
     return orderDetails.externalOrderNumber || 
            orderDetails.orderNumber || 
            (orderDetails.orderId || orderDetails.id || orderDetails.externalOrderId || 'N/A').toString().slice(-6);
   };
 
-  // 🔥 CORRIGIDO: Função para obter nome do produto
   const getProductName = (orderDetails) => {
     return orderDetails.productDetails?.displayName || 
            orderDetails.productDetails?.title || 
            orderDetails.productName || 
            orderDetails.product?.name || 
-           'Product';
+           'Produto';
   };
 
-  // 🔥 CORRIGIDO: Função para obter imagem do produto
   const getProductImage = (orderDetails) => {
     return orderDetails.productDetails?.image || 
            orderDetails.product?.image || 
@@ -429,8 +385,8 @@ const OrderDetailsCustomer = () => {
               <div className="h-8 w-8 bg-blue-200 rounded-full mx-auto opacity-20"></div>
             </div>
           </div>
-          <p className="text-slate-600 text-sm font-medium">Loading order details...</p>
-          <p className="text-xs text-slate-400 mt-1">Order: {orderId}</p>
+          <p className="text-slate-600 text-sm font-medium">Carregando detalhes do pedido...</p>
+          <p className="text-xs text-slate-400 mt-1">Pedido: {orderId}</p>
         </div>
       </div>
     );
@@ -442,16 +398,16 @@ const OrderDetailsCustomer = () => {
         <Card className="w-full max-w-md">
           <CardContent className="p-6 text-center">
             <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-slate-900 mb-2">Order not found</h3>
-            <p className="text-slate-500 mb-4 text-sm">{error || 'This order does not exist or you do not have access to it.'}</p>
+            <h3 className="text-lg font-semibold text-slate-900 mb-2">Pedido não encontrado</h3>
+            <p className="text-slate-500 mb-4 text-sm">{error || 'Este pedido não existe ou você não tem acesso.'}</p>
             <div className="space-y-2">
               <Button onClick={() => navigate('/customer/dashboard')} className="w-full bg-blue-600 hover:bg-blue-700">
                 <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Orders
+                Voltar aos Pedidos
               </Button>
               <Button onClick={fetchOrderDetails} variant="outline" className="w-full">
-                <Loader2 className="h-4 w-4 mr-2" />
-                Try Again
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Tentar Novamente
               </Button>
             </div>
           </CardContent>
@@ -460,27 +416,19 @@ const OrderDetailsCustomer = () => {
     );
   }
 
-  // ✅ USAR DADOS REAIS: Obter etapas da API
   const enhancedSteps = getEnhancedSteps(orderDetails);
   const currentStepIndex = enhancedSteps.findIndex(step => step.status === 'current');
   const completedSteps = enhancedSteps.filter(step => step.status === 'completed').length;
-  
-  // 🔥 CORRIGIDO: Calcular progresso DINÂMICO
   const currentProgress = calculateCurrentProgress(orderDetails, enhancedSteps);
-
-  // ✅ DADOS REAIS: Status atual baseado na API
   const currentStepName = orderDetails.currentStepName || 
                           enhancedSteps.find(s => s.status === 'current')?.name || 
-                          'Processing';
-
-  // 🔥 CORRIGIDO: Dados do produto
+                          'Processando';
   const productName = getProductName(orderDetails);
   const productImage = getProductImage(orderDetails);
   const orderNumber = getOrderNumber(orderDetails);
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* 🔥 CORRIGIDO: Header focado no PRODUTO */}
       <header className="bg-gradient-to-r from-blue-500 via-indigo-600 to-purple-600 px-4 pt-8 pb-6 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -translate-y-16 translate-x-16 animate-pulse"></div>
         <div className="absolute bottom-0 left-0 w-20 h-20 bg-white/5 rounded-full translate-y-10 -translate-x-10 animate-pulse delay-500"></div>
@@ -496,12 +444,11 @@ const OrderDetailsCustomer = () => {
             >
               <ArrowLeft className="h-4 w-4" />
             </Button>
-            <h1 className="text-white text-lg font-medium">Order Details</h1>
+            <h1 className="text-white text-lg font-medium">Detalhes do Pedido</h1>
           </div>
           
           <div className="flex items-center justify-between">
             <div className="flex items-center">
-              {/* 🔥 CORRIGIDO: Imagem do PRODUTO */}
               <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mr-3 backdrop-blur-sm border border-white/20 shadow-lg overflow-hidden">
                 {productImage ? (
                   <img 
@@ -515,12 +462,11 @@ const OrderDetailsCustomer = () => {
                   />
                 ) : null}
                 <div className={`${productImage ? 'hidden' : 'flex'} items-center justify-center text-xl w-full h-full`}>
-                  📦
+                  <Package className="h-6 w-6 text-white/80" />
                 </div>
               </div>
               <div>
                 <div className="flex items-center">
-                  {/* 🔥 CORRIGIDO: Nome do PRODUTO */}
                   <h2 className="text-white text-lg font-medium mr-2">
                     {productName}
                   </h2>
@@ -530,9 +476,12 @@ const OrderDetailsCustomer = () => {
                 </div>
                 <div className="flex items-center mt-1">
                   <span className="text-blue-100 text-sm flex items-center">
-                    <Clock className="h-3 w-3 mr-1" />
-                    {/* 🔥 CORRIGIDO: Número do pedido */}
-                    Order #{orderNumber}
+                    <Calendar className="h-3 w-3 mr-1" />
+                    {formatDate(orderDetails.createdAt, 'date')}
+                  </span>
+                  <span className="mx-2 text-blue-200">•</span>
+                  <span className="text-blue-100 text-sm">
+                    Pedido #{orderNumber}
                   </span>
                 </div>
               </div>
@@ -541,50 +490,43 @@ const OrderDetailsCustomer = () => {
         </div>
       </header>
 
-      {/* Content */}
       <main className="px-4 py-5 -mt-3 relative z-10">
-        {/* ✅ DADOS REAIS: Order Progress Card */}
         <Card className="bg-white shadow-lg mb-6 border-0 overflow-hidden">
           <div className="bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 p-1">
             <CardContent className="p-6 bg-white m-0 rounded-lg">
               <div className="flex justify-between items-center mb-6">
                 <div>
-                  {/* 🔥 CORRIGIDO: Nome do produto no título */}
                   <h3 className="text-blue-600 font-semibold text-xl flex items-center">
-                    <Sparkles className="h-5 w-5 mr-2 text-blue-500" />
-                    {productName}
+                    <Activity className="h-5 w-5 mr-2 text-blue-500" />
+                    Acompanhamento do Pedido
                   </h3>
                   <p className="text-slate-500 text-sm mt-1">
-                    {/* 🔥 CORRIGIDO: Data formatada */}
-                    Created on {formatDate(orderDetails.createdAt)}
+                    Pedido realizado {formatRelativeTime(orderDetails.createdAt)}
                   </p>
                 </div>
                 <div className="text-right">
-                  {/* 🔥 CORRIGIDO: Progresso dinâmico */}
                   <div className={`text-2xl font-bold ${getStatusColor(currentProgress)}`}>
                     {currentProgress}%
                   </div>
                   <div className="text-xs text-slate-500 mt-1">
-                    {completedSteps} of {enhancedSteps.length} steps
+                    {completedSteps} de {enhancedSteps.length} etapas
                   </div>
                 </div>
               </div>
               
-              {/* Enhanced Progress Bar with Segments */}
               <div className="mb-6">
                 <div className="flex items-center justify-between mb-2">
                   <span className={`font-semibold text-sm ${getStatusColor(currentProgress)} flex items-center`}>
-                    <Activity className="h-4 w-4 mr-1" />
-                    {currentProgress >= 100 ? 'Order Completed!' : currentStepName}
+                    <Zap className="h-4 w-4 mr-1" />
+                    {currentProgress >= 100 ? 'Pedido Concluído!' : currentStepName}
                   </span>
                   <span className="text-slate-600 font-medium text-sm flex items-center">
                     <Timer className="h-3 w-3 mr-1" />
-                    {currentProgress >= 100 ? 'Delivered' : 
-                     enhancedSteps.find(s => s.status === 'current')?.estimatedTime || 'Processing...'}
+                    {currentProgress >= 100 ? 'Entregue' : 
+                     enhancedSteps.find(s => s.status === 'current')?.estimatedTime || 'Processando...'}
                   </span>
                 </div>
                 
-                {/* 🔥 CORRIGIDO: Progress bar com progresso dinâmico */}
                 <div className="relative">
                   <div className="w-full bg-slate-100 rounded-full h-4 overflow-hidden shadow-inner">
                     <div 
@@ -596,14 +538,16 @@ const OrderDetailsCustomer = () => {
                     </div>
                   </div>
                   
-                  {/* 🔥 CORRIGIDO: Progress markers dinâmicos */}
                   <div className="flex justify-between mt-2">
                     {enhancedSteps.map((step, index) => {
                       const stepPercentage = Math.floor((100 / enhancedSteps.length) * (index + 1));
                       return (
                         <div key={index} className="flex flex-col items-center">
-                          <div className={`w-2 h-2 rounded-full ${currentProgress >= stepPercentage ? 'bg-blue-500' : 'bg-slate-300'} transition-colors duration-500`}></div>
-                          <span className="text-xs text-slate-400 mt-1">{stepPercentage}%</span>
+                          <div className={`w-2 h-2 rounded-full transition-all duration-500 ${
+                            currentProgress >= stepPercentage 
+                              ? 'bg-blue-500 scale-125' 
+                              : 'bg-slate-300'
+                          }`}></div>
                         </div>
                       );
                     })}
@@ -611,7 +555,6 @@ const OrderDetailsCustomer = () => {
                 </div>
               </div>
               
-              {/* Current Step Description */}
               {enhancedSteps.find(s => s.status === 'current') && (
                 <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-xl border border-blue-100 relative overflow-hidden">
                   <div className="absolute top-0 right-0 w-20 h-20 bg-blue-200/20 rounded-full -translate-y-10 translate-x-10"></div>
@@ -623,7 +566,7 @@ const OrderDetailsCustomer = () => {
                     </div>
                     <div className="flex-1">
                       <h4 className="font-semibold text-slate-800 mb-1 flex items-center">
-                        Currently: {enhancedSteps.find(s => s.status === 'current').name}
+                        Em andamento: {enhancedSteps.find(s => s.status === 'current').name}
                         <div className="ml-2 flex space-x-1">
                           <div className={`w-2 h-2 bg-blue-500 rounded-full animate-pulse ${pulseStep === 0 ? 'opacity-100' : 'opacity-30'}`}></div>
                           <div className={`w-2 h-2 bg-blue-500 rounded-full animate-pulse ${pulseStep === 1 ? 'opacity-100' : 'opacity-30'}`}></div>
@@ -635,7 +578,7 @@ const OrderDetailsCustomer = () => {
                       </p>
                       <div className="flex items-center text-xs text-slate-500">
                         <Clock className="h-3 w-3 mr-1" />
-                        Estimated completion: {enhancedSteps.find(s => s.status === 'current').estimatedTime}
+                        {enhancedSteps.find(s => s.status === 'current').estimatedTime}
                       </div>
                     </div>
                   </div>
@@ -645,21 +588,20 @@ const OrderDetailsCustomer = () => {
           </div>
         </Card>
 
-        {/* ✅ DADOS REAIS: Enhanced Timeline */}
         <Card className="bg-white shadow-lg mb-6 border-0">
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-6">
               <h3 className="font-semibold text-slate-800 text-lg flex items-center">
                 <Zap className="h-5 w-5 mr-2 text-blue-500" />
-                Order Journey
+                Jornada do Pedido
                 {orderDetails.customSteps && orderDetails.customSteps.length > 0 && (
                   <span className="ml-2 bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full">
-                    Real-time
+                    Tempo real
                   </span>
                 )}
               </h3>
               <div className="text-sm text-slate-500 bg-slate-50 px-3 py-1 rounded-full">
-                {completedSteps}/{enhancedSteps.length} completed
+                {completedSteps}/{enhancedSteps.length} concluídas
               </div>
             </div>
             
@@ -670,7 +612,6 @@ const OrderDetailsCustomer = () => {
                 
                 return (
                   <div key={step.id} className="flex items-start relative group">
-                    {/* Connecting line */}
                     {!isLast && (
                       <div className={`absolute left-6 top-12 w-0.5 h-8 transition-all duration-500
                         ${step.status === 'completed' ? 'bg-gradient-to-b from-emerald-400 to-emerald-500' : 
@@ -682,7 +623,6 @@ const OrderDetailsCustomer = () => {
                       </div>
                     )}
                     
-                    {/* Step icon with enhanced styling */}
                     <div className="relative">
                       <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 mr-4 border-2 transition-all duration-300 shadow-lg
                         ${step.status === 'completed' ? `${colors.bg} border-emerald-200 ${colors.glow} shadow-lg` : 
@@ -694,12 +634,10 @@ const OrderDetailsCustomer = () => {
                           }`
                         })}
                         
-                        {/* Animated ring for current step */}
                         {step.status === 'current' && (
                           <div className="absolute inset-0 rounded-xl border-2 border-blue-300 animate-ping"></div>
                         )}
                         
-                        {/* Completion checkmark overlay */}
                         {step.status === 'completed' && (
                           <div className="absolute -top-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center border-2 border-white">
                             <CheckCircle2 className="h-3 w-3 text-white" />
@@ -708,7 +646,6 @@ const OrderDetailsCustomer = () => {
                       </div>
                     </div>
                     
-                    {/* Step content with enhanced styling */}
                     <div className="flex-1 min-w-0 pb-4">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center">
@@ -721,13 +658,8 @@ const OrderDetailsCustomer = () => {
                           {step.status === 'current' && (
                             <div className="ml-3 flex items-center">
                               <span className="inline-block bg-blue-100 text-blue-700 px-2 py-1 rounded-full text-xs font-medium animate-pulse">
-                                In Progress
+                                Em andamento
                               </span>
-                              <div className="ml-2 flex space-x-1">
-                                <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce"></div>
-                                <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
-                                <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
-                              </div>
                             </div>
                           )}
                           
@@ -737,10 +669,9 @@ const OrderDetailsCustomer = () => {
                         </div>
                         
                         <div className="text-right">
-                          {step.status === 'completed' ? (
-                            <div className="flex items-center text-emerald-600">
-                              <CheckCircle2 className="h-4 w-4 mr-1" />
-                              <span className="text-sm font-medium">Done</span>
+                          {step.showTime ? (
+                            <div className="text-sm text-emerald-600 font-medium">
+                              {step.timeDisplay}
                             </div>
                           ) : (
                             <span className={`text-sm font-medium
@@ -757,10 +688,16 @@ const OrderDetailsCustomer = () => {
                         {step.description}
                       </p>
                       
-                      {/* Progress indicator for current step */}
                       {step.status === 'current' && (
                         <div className="w-full bg-blue-100 rounded-full h-2 overflow-hidden">
                           <div className="h-2 bg-gradient-to-r from-blue-400 to-blue-600 rounded-full animate-pulse" style={{width: '60%'}}></div>
+                        </div>
+                      )}
+                      
+                      {step.status === 'completed' && step.completedAt && (
+                        <div className="mt-2 text-xs text-emerald-600 flex items-center">
+                          <CheckCircle2 className="h-3 w-3 mr-1" />
+                          Concluída {formatRelativeTime(step.completedAt)} • {formatDate(step.completedAt, 'short')}
                         </div>
                       )}
                     </div>
@@ -771,7 +708,6 @@ const OrderDetailsCustomer = () => {
           </CardContent>
         </Card>
 
-        {/* Chat with store - Enhanced */}
         <Card className="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 shadow-lg mb-6 border-0 overflow-hidden">
           <div className="absolute top-0 right-0 w-32 h-32 bg-blue-200/20 rounded-full -translate-y-16 translate-x-16"></div>
           <CardContent className="p-6 relative">
@@ -781,8 +717,8 @@ const OrderDetailsCustomer = () => {
                   <MessageCircle className="h-6 w-6 text-white" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-blue-800 text-lg">Chat with Store</h3>
-                  <p className="text-blue-600 text-sm">Ask questions about your order</p>
+                  <h3 className="font-semibold text-blue-800 text-lg">Fale com a Loja</h3>
+                  <p className="text-blue-600 text-sm">Tire dúvidas sobre seu pedido</p>
                 </div>
               </div>
               {(orderDetails.unreadMessages || 0) > 0 && (
@@ -802,12 +738,12 @@ const OrderDetailsCustomer = () => {
                 </div>
                 <div className="text-sm">
                   <p className="text-blue-800 font-semibold mb-1 flex items-center">
-                    Customer Support Available
+                    Suporte Disponível
                     <div className="ml-2 w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                   </p>
                   <p className="text-blue-700">
-                    Our team is ready to help with questions about delivery, 
-                    products, or any issues related to your order.
+                    Nossa equipe está pronta para ajudar com dúvidas sobre entrega, 
+                    produtos ou qualquer questão sobre seu pedido.
                   </p>
                 </div>
               </div>
@@ -819,22 +755,20 @@ const OrderDetailsCustomer = () => {
               size="lg"
             >
               <MessageSquare className="h-5 w-5 mr-2" />
-              Start Conversation
+              Iniciar Conversa
               <Send className="h-4 w-4 ml-2" />
             </Button>
           </CardContent>
         </Card>
 
-        {/* ✅ DADOS REAIS: Product details */}
         <Card className="bg-white shadow-lg mb-6 border-0">
           <CardContent className="p-6">
             <h3 className="text-slate-800 font-semibold mb-5 text-lg flex items-center">
               <Gift className="h-5 w-5 mr-2 text-slate-600" />
-              Product Details
+              Detalhes do Produto
             </h3>
             
             <div className="flex items-center">
-              {/* 🔥 CORRIGIDO: Imagem do produto */}
               {productImage ? (
                 <div className="w-20 h-20 rounded-xl mr-4 flex-shrink-0 border border-blue-100 shadow-sm overflow-hidden">
                   <img 
@@ -846,18 +780,17 @@ const OrderDetailsCustomer = () => {
                       e.target.nextSibling.style.display = 'flex';
                     }}
                   />
-                  <div className="hidden w-full h-full bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 items-center justify-center text-3xl">
-                    📦
+                  <div className="hidden w-full h-full bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 items-center justify-center">
+                    <Package className="h-8 w-8 text-indigo-400" />
                   </div>
                 </div>
               ) : (
-                <div className="w-20 h-20 rounded-xl bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center text-3xl mr-4 flex-shrink-0 border border-blue-100 shadow-sm">
-                  📦
+                <div className="w-20 h-20 rounded-xl bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center mr-4 flex-shrink-0 border border-blue-100 shadow-sm">
+                  <Package className="h-8 w-8 text-indigo-400" />
                 </div>
               )}
               
               <div className="flex-1">
-                {/* 🔥 CORRIGIDO: Nome do produto */}
                 <h4 className="font-semibold text-slate-800 text-lg">
                   {productName}
                 </h4>
@@ -865,11 +798,11 @@ const OrderDetailsCustomer = () => {
                   {orderDetails.productDetails?.description || 
                    orderDetails.product?.description || 
                    orderDetails.description ||
-                   'Store product'}
+                   'Produto da loja'}
                 </p>
                 <div className="flex items-center space-x-6">
                   <div className="flex items-center">
-                    <span className="text-sm text-slate-500 mr-1">Quantity:</span>
+                    <span className="text-sm text-slate-500 mr-1">Quantidade:</span>
                     <span className="font-semibold text-slate-800">
                       {orderDetails.productDetails?.quantity || orderDetails.quantity || 1}
                     </span>
@@ -891,18 +824,17 @@ const OrderDetailsCustomer = () => {
           </CardContent>
         </Card>
 
-        {/* ✅ DADOS REAIS: Customer and address info */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           {(orderDetails.customer || orderDetails.customerName || customerEmail) && (
             <Card className="bg-white shadow-lg border-0">
               <CardContent className="p-5">
                 <div className="flex items-center mb-4">
                   <User className="h-5 w-5 text-slate-500 mr-2" />
-                  <span className="font-semibold text-slate-700">Customer Information</span>
+                  <span className="font-semibold text-slate-700">Informações do Cliente</span>
                 </div>
                 <div className="space-y-3">
                   <p className="text-slate-900 font-semibold">
-                    {orderDetails.customer?.name || orderDetails.customerName || 'Customer'}
+                    {orderDetails.customer?.name || orderDetails.customerName || 'Cliente'}
                   </p>
                   <p className="text-slate-600 text-sm flex items-center">
                     <Mail className="h-4 w-4 mr-2 text-slate-400" />
@@ -916,8 +848,8 @@ const OrderDetailsCustomer = () => {
                   )}
                   {orderDetails.customer?.documentId && (
                     <p className="text-slate-600 text-sm flex items-center">
-                      <User className="h-4 w-4 mr-2 text-slate-400" />
-                      ID: {orderDetails.customer.documentId}
+                      <Shield className="h-4 w-4 mr-2 text-slate-400" />
+                      CPF: {orderDetails.customer.documentId}
                     </p>
                   )}
                 </div>
@@ -930,7 +862,7 @@ const OrderDetailsCustomer = () => {
               <CardContent className="p-5">
                 <div className="flex items-center mb-4">
                   <MapPin className="h-5 w-5 text-slate-500 mr-2" />
-                  <span className="font-semibold text-slate-700">Shipping Address</span>
+                  <span className="font-semibold text-slate-700">Endereço de Entrega</span>
                 </div>
                 <div className="text-sm text-slate-600 space-y-1">
                   <p className="font-medium">{orderDetails.shippingAddress.street}</p>
@@ -941,8 +873,8 @@ const OrderDetailsCustomer = () => {
                     <p>{orderDetails.shippingAddress.neighborhood}</p>
                   }
                   <p>{orderDetails.shippingAddress.city} - {orderDetails.shippingAddress.state}</p>
-                  <p className="font-mono text-xs bg-slate-100 inline-block px-2 py-1 rounded">
-                    {orderDetails.shippingAddress.zipCode}
+                  <p className="font-mono text-xs bg-slate-100 inline-block px-2 py-1 rounded mt-2">
+                    CEP: {orderDetails.shippingAddress.zipCode}
                   </p>
                 </div>
               </CardContent>
@@ -953,7 +885,6 @@ const OrderDetailsCustomer = () => {
         <div className="h-20"></div>
       </main>
 
-      {/* Enhanced Bottom Navigation */}
       <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200/60 px-4 py-3 shadow-lg">
         <div className="flex justify-center items-center max-w-sm mx-auto">
           <button 
@@ -961,7 +892,7 @@ const OrderDetailsCustomer = () => {
             onClick={() => navigate('/customer/dashboard')}
           >
             <Package className="h-5 w-5" />
-            <span className="text-xs mt-1">Orders</span>
+            <span className="text-xs mt-1">Pedidos</span>
           </button>
           
           <button 
@@ -982,7 +913,7 @@ const OrderDetailsCustomer = () => {
             onClick={() => navigate('/customer/lookup')}
           >
             <ArrowLeft className="h-5 w-5" />
-            <span className="text-xs mt-1">Back</span>
+            <span className="text-xs mt-1">Voltar</span>
           </button>
         </div>
       </div>
