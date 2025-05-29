@@ -196,25 +196,69 @@ const CustomerDashboard = () => {
     navigate('/customer/lookup');
   };
 
+  // 🔥 CORRIGIDO: Funções para extrair dados do produto
+  const getProductName = (order) => {
+    return order.productDetails?.displayName || 
+           order.productDetails?.title || 
+           order.productName || 
+           order.product?.name || 
+           'Store Product';
+  };
+
+  const getProductImage = (order) => {
+    return order.productDetails?.image || 
+           order.product?.image || 
+           null;
+  };
+
+  const getOrderNumber = (order) => {
+    return order.externalOrderNumber || 
+           order.orderNumber || 
+           (order.orderId || order.id || order.externalOrderId || 'N/A').toString().slice(-6);
+  };
+
+  // 🔥 CORRIGIDO: Função para calcular progresso dinâmico
+  const calculateOrderProgress = (order) => {
+    if (order.customSteps && order.customSteps.length > 0) {
+      const completedSteps = order.customSteps.filter(step => step.completed).length;
+      const currentStepIndex = order.customSteps.findIndex(step => step.current || step.active);
+      
+      if (currentStepIndex >= 0) {
+        // Se há etapa atual, calcular progresso até ela
+        return Math.floor((100 / order.customSteps.length) * (currentStepIndex + 0.5));
+      } else if (completedSteps > 0) {
+        // Se só há etapas completas
+        return Math.floor((100 / order.customSteps.length) * completedSteps);
+      }
+    }
+    
+    // Fallback para progresso da API
+    return order.progress || 0;
+  };
+
   const getStatusColor = (order) => {
-    if (order.progress >= 100) return 'text-emerald-600';
-    if (order.progress >= 66) return 'text-violet-600';
-    if (order.progress >= 33) return 'text-blue-600';
+    const progress = calculateOrderProgress(order);
+    if (progress >= 100) return 'text-emerald-600';
+    if (progress >= 66) return 'text-violet-600';
+    if (progress >= 33) return 'text-blue-600';
     return 'text-amber-600';
   };
 
   const getProgressBarColor = (order) => {
-    if (order.progress >= 100) return 'from-emerald-400 via-emerald-500 to-emerald-600';
-    if (order.progress >= 66) return 'from-violet-400 via-violet-500 to-violet-600';
-    if (order.progress >= 33) return 'from-blue-400 via-blue-500 to-blue-600';
+    const progress = calculateOrderProgress(order);
+    if (progress >= 100) return 'from-emerald-400 via-emerald-500 to-emerald-600';
+    if (progress >= 66) return 'from-violet-400 via-violet-500 to-violet-600';
+    if (progress >= 33) return 'from-blue-400 via-blue-500 to-blue-600';
     return 'from-amber-400 via-amber-500 to-amber-600';
   };
 
   const getStatusText = (order) => {
-    if (order.progress >= 100) return 'Delivered';
+    const progress = calculateOrderProgress(order);
+    if (progress >= 100) return 'Delivered';
+    
     if (order.currentStep?.name) return order.currentStep.name;
     if (order.customSteps) {
-      const currentStep = order.customSteps.find(step => step.current);
+      const currentStep = order.customSteps.find(step => step.current || step.active);
       if (currentStep) return currentStep.name;
       
       const nextStep = order.customSteps.find(step => !step.completed);
@@ -507,124 +551,149 @@ const CustomerDashboard = () => {
           </div>
         ) : (
           <div className="space-y-3">
-            {customerOrders.map((order, index) => (
-              <Card 
-                key={order.id || index}
-                className="bg-white border border-slate-100 shadow-sm transition-all duration-200 cursor-pointer"
-                onClick={() => navigate(`/customer/orders/${order.id || order.orderId}`, { state: { customerEmail } })}
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-start space-x-3">
-                    <div className="w-11 h-11 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg flex items-center justify-center text-lg flex-shrink-0 border border-blue-100">
-                      🏪
-                    </div>
-                    
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2 mb-1">
-                            <h3 className="font-medium text-slate-800 text-sm">
-                              Order #{(order.orderId || order.id).toString().slice(-6)}
-                            </h3>
-                            {order.progress >= 100 && (
-                              <div className="w-3 h-3 bg-emerald-500 rounded-full flex items-center justify-center">
-                                <CheckCircle className="w-2 h-2 text-white" />
-                              </div>
-                            )}
-                            {(order.unreadMessages || 0) > 0 && (
-                              <div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></div>
+            {customerOrders.map((order, index) => {
+              const productName = getProductName(order);
+              const productImage = getProductImage(order);
+              const orderNumber = getOrderNumber(order);
+              const currentProgress = calculateOrderProgress(order);
+              
+              return (
+                <Card 
+                  key={order.id || index}
+                  className="bg-white border border-slate-100 shadow-sm transition-all duration-200 cursor-pointer"
+                  onClick={() => navigate(`/customer/orders/${order.id || order.orderId}`, { state: { customerEmail } })}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-start space-x-3">
+                      {/* 🔥 CORRIGIDO: Imagem do PRODUTO */}
+                      <div className="w-11 h-11 rounded-lg flex items-center justify-center flex-shrink-0 border border-blue-100 overflow-hidden">
+                        {productImage ? (
+                          <img 
+                            src={productImage} 
+                            alt={productName}
+                            className="w-full h-full object-cover rounded-lg"
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                              e.target.nextSibling.style.display = 'flex';
+                            }}
+                          />
+                        ) : null}
+                        <div className={`${productImage ? 'hidden' : 'flex'} bg-gradient-to-br from-blue-50 to-indigo-50 items-center justify-center text-lg w-full h-full`}>
+                          📦
+                        </div>
+                      </div>
+                      
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-2 mb-1">
+                              {/* 🔥 CORRIGIDO: Número do pedido correto */}
+                              <h3 className="font-medium text-slate-800 text-sm">
+                                Order #{orderNumber}
+                              </h3>
+                              {currentProgress >= 100 && (
+                                <div className="w-3 h-3 bg-emerald-500 rounded-full flex items-center justify-center">
+                                  <CheckCircle className="w-2 h-2 text-white" />
+                                </div>
+                              )}
+                              {(order.unreadMessages || 0) > 0 && (
+                                <div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></div>
+                              )}
+                            </div>
+                            
+                            {/* 🔥 CORRIGIDO: Nome do produto */}
+                            <p className="text-slate-600 text-sm font-medium">
+                              {productName}
+                            </p>
+                            
+                            {(order.quantity > 1) && (
+                              <p className="text-slate-400 text-xs">
+                                {order.quantity} items
+                              </p>
                             )}
                           </div>
                           
-                          <p className="text-slate-600 text-sm font-medium">
-                            {order.productName || order.productDetails?.name || order.product?.name || 'Store Product'}
-                          </p>
-                          
-                          {(order.quantity > 1) && (
-                            <p className="text-slate-400 text-xs">
-                              {order.quantity} items
-                            </p>
-                          )}
+                          <div className="text-right flex-shrink-0">
+                            <span className="text-slate-400 text-xs">
+                              {formatDate(order.createdAt || order.orderDate)}
+                            </span>
+                            <ArrowRight className="h-3 w-3 text-slate-400 mt-1 ml-auto transition-colors" />
+                          </div>
                         </div>
                         
-                        <div className="text-right flex-shrink-0">
-                          <span className="text-slate-400 text-xs">
-                            {formatDate(order.createdAt || order.orderDate)}
-                          </span>
-                          <ArrowRight className="h-3 w-3 text-slate-400 mt-1 ml-auto transition-colors" />
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center space-x-2">
-                          <Sparkles className={`h-3 w-3 ${getStatusColor(order)}`} />
-                          <span className={`text-sm font-medium ${getStatusColor(order)}`}>
-                            {getStatusText(order)}
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center space-x-2">
+                            <Sparkles className={`h-3 w-3 ${getStatusColor(order)}`} />
+                            <span className={`text-sm font-medium ${getStatusColor(order)}`}>
+                              {getStatusText(order)}
+                            </span>
+                          </div>
+                          {/* 🔥 CORRIGIDO: Progresso dinâmico */}
+                          <span className="text-slate-500 text-xs font-medium">
+                            {currentProgress}%
                           </span>
                         </div>
-                        <span className="text-slate-500 text-xs font-medium">
-                          {order.progress || 0}%
-                        </span>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <div className="relative">
-                          <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
-                            <div 
-                              className={`h-2 rounded-full bg-gradient-to-r ${getProgressBarColor(order)} transition-all duration-700 ease-out`}
-                              style={{ width: `${order.progress || 0}%` }}
-                            >
+                        
+                        <div className="space-y-2">
+                          <div className="relative">
+                            {/* 🔥 CORRIGIDO: Barra de progresso dinâmica */}
+                            <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                              <div 
+                                className={`h-2 rounded-full bg-gradient-to-r ${getProgressBarColor(order)} transition-all duration-700 ease-out`}
+                                style={{ width: `${currentProgress}%` }}
+                              >
+                              </div>
                             </div>
                           </div>
-                        </div>
-                        
-                        {order.customSteps && order.customSteps.length > 0 && (
-                          <div className="flex justify-between items-center pt-2">
-                            {order.customSteps.slice(0, 4).map((step, stepIndex) => {
-                              const StepIcon = getStepIcon(step.name);
-                              return (
-                                <div key={stepIndex} className="flex flex-col items-center">
-                                  <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs border border-white shadow-sm
-                                    ${step.completed 
-                                      ? 'bg-emerald-500 text-white' 
-                                      : step.current 
-                                        ? 'bg-blue-500 text-white' 
-                                        : 'bg-slate-200 text-slate-400'}`}>
-                                    <StepIcon className="h-2.5 w-2.5" />
-                                  </div>
-                                  <span className={`text-xs mt-1 text-center max-w-14 leading-tight
-                                    ${step.completed 
-                                      ? 'text-emerald-600 font-medium' 
-                                      : step.current 
-                                        ? 'text-blue-600 font-medium' 
-                                        : 'text-slate-400'}`}>
-                                    {step.name.length > 6 ? step.name.substring(0, 4) + '...' : step.name}
-                                  </span>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                        
-                        <div className="flex items-center justify-between pt-1">
-                          <p className="text-xs text-slate-400">
-                            {order.currentStep?.description || 
-                             (order.customSteps && order.customSteps.find(step => step.current)?.description) ||
-                             'Track your progress'}
-                          </p>
                           
-                          {order.progress < 100 && (
-                            <span className="text-xs text-blue-500 font-medium">
-                              In Progress
-                            </span>
+                          {order.customSteps && order.customSteps.length > 0 && (
+                            <div className="flex justify-between items-center pt-2">
+                              {order.customSteps.slice(0, 4).map((step, stepIndex) => {
+                                const StepIcon = getStepIcon(step.name);
+                                return (
+                                  <div key={stepIndex} className="flex flex-col items-center">
+                                    <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs border border-white shadow-sm
+                                      ${step.completed 
+                                        ? 'bg-emerald-500 text-white' 
+                                        : step.current || step.active
+                                          ? 'bg-blue-500 text-white' 
+                                          : 'bg-slate-200 text-slate-400'}`}>
+                                      <StepIcon className="h-2.5 w-2.5" />
+                                    </div>
+                                    <span className={`text-xs mt-1 text-center max-w-14 leading-tight
+                                      ${step.completed 
+                                        ? 'text-emerald-600 font-medium' 
+                                        : step.current || step.active
+                                          ? 'text-blue-600 font-medium' 
+                                          : 'text-slate-400'}`}>
+                                      {step.name.length > 6 ? step.name.substring(0, 4) + '...' : step.name}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
                           )}
+                          
+                          <div className="flex items-center justify-between pt-1">
+                            <p className="text-xs text-slate-400">
+                              {order.currentStep?.description || 
+                               (order.customSteps && order.customSteps.find(step => step.current || step.active)?.description) ||
+                               'Track your progress'}
+                            </p>
+                            
+                            {currentProgress < 100 && (
+                              <span className="text-xs text-blue-500 font-medium">
+                                In Progress
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         )}
         

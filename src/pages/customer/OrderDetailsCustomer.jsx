@@ -126,8 +126,9 @@ const OrderDetailsCustomer = () => {
           status = 'current';
         }
         
-        // Calcular progresso por etapa
-        const stepProgress = Math.floor((100 / orderDetails.customSteps.length) * (index + 1));
+        // 🔥 CORRIGIDO: Calcular progresso DINÂMICO por etapa
+        const totalSteps = orderDetails.customSteps.length;
+        const stepProgress = Math.floor((100 / totalSteps) * (index + 1));
         
         return {
           id: index + 1,
@@ -153,7 +154,7 @@ const OrderDetailsCustomer = () => {
         name: "Order Placed",
         description: "Your order has been successfully placed and payment confirmed",
         icon: ShoppingBag,
-        progress: 10,
+        progress: 16.67,
         status: "completed",
         estimatedTime: "Completed",
         color: "emerald"
@@ -163,9 +164,9 @@ const OrderDetailsCustomer = () => {
         name: "Order Confirmed",
         description: "We've received your order and are preparing to process it",
         icon: CheckCircle2,
-        progress: 25,
-        status: baseProgress >= 25 ? "completed" : "current",
-        estimatedTime: baseProgress >= 25 ? "Completed" : "Processing",
+        progress: 33.33,
+        status: baseProgress >= 33.33 ? "completed" : "current",
+        estimatedTime: baseProgress >= 33.33 ? "Completed" : "Processing",
         color: "emerald"
       },
       {
@@ -174,7 +175,7 @@ const OrderDetailsCustomer = () => {
         description: "Your order is being prepared and quality checked",
         icon: Settings,
         progress: 50,
-        status: baseProgress >= 50 ? "completed" : baseProgress >= 25 ? "current" : "pending",
+        status: baseProgress >= 50 ? "completed" : baseProgress >= 33.33 ? "current" : "pending",
         estimatedTime: baseProgress >= 50 ? "Completed" : "In Progress",
         color: "blue"
       },
@@ -183,9 +184,9 @@ const OrderDetailsCustomer = () => {
         name: "Packaging",
         description: "Your order is being carefully packaged for shipping",
         icon: Package,
-        progress: 75,
-        status: baseProgress >= 75 ? "completed" : baseProgress >= 50 ? "current" : "pending",
-        estimatedTime: baseProgress >= 75 ? "Completed" : "Processing",
+        progress: 66.67,
+        status: baseProgress >= 66.67 ? "completed" : baseProgress >= 50 ? "current" : "pending",
+        estimatedTime: baseProgress >= 66.67 ? "Completed" : "Processing",
         color: "violet"
       },
       {
@@ -193,9 +194,9 @@ const OrderDetailsCustomer = () => {
         name: "Shipped",
         description: "Your package is on its way to your delivery address",
         icon: TruckIcon,
-        progress: 90,
-        status: baseProgress >= 90 ? "completed" : baseProgress >= 75 ? "current" : "pending",
-        estimatedTime: baseProgress >= 90 ? "Shipped" : "Preparing",
+        progress: 83.33,
+        status: baseProgress >= 83.33 ? "completed" : baseProgress >= 66.67 ? "current" : "pending",
+        estimatedTime: baseProgress >= 83.33 ? "Shipped" : "Preparing",
         color: "orange"
       },
       {
@@ -204,7 +205,7 @@ const OrderDetailsCustomer = () => {
         description: "Successfully delivered to your address",
         icon: Home,
         progress: 100,
-        status: baseProgress >= 100 ? "completed" : baseProgress >= 90 ? "current" : "pending",
+        status: baseProgress >= 100 ? "completed" : baseProgress >= 83.33 ? "current" : "pending",
         estimatedTime: baseProgress >= 100 ? "Delivered" : "In Transit",
         color: "emerald"
       }
@@ -274,16 +275,34 @@ const OrderDetailsCustomer = () => {
     }).format(value || 0);
   };
 
+  // 🔥 CORRIGIDO: Função de formatação de data
   const formatDate = (dateString) => {
     if (!dateString) return 'Date not available';
     try {
-      const date = dateString.seconds ? new Date(dateString.seconds * 1000) : new Date(dateString);
+      let date;
+      if (dateString.seconds) {
+        // Timestamp do Firestore
+        date = new Date(dateString.seconds * 1000);
+      } else if (typeof dateString === 'string') {
+        // String ISO
+        date = new Date(dateString);
+      } else {
+        // Objeto Date
+        date = new Date(dateString);
+      }
+      
+      // Verificar se a data é válida
+      if (isNaN(date.getTime())) {
+        return 'Date not available';
+      }
+      
       return date.toLocaleDateString('en-US', {
         day: '2-digit',
         month: 'long',
         year: 'numeric'
       });
-    } catch {
+    } catch (error) {
+      console.error('Error formatting date:', error);
       return 'Date not available';
     }
   };
@@ -301,6 +320,28 @@ const OrderDetailsCustomer = () => {
     } catch {
       return 'N/A';
     }
+  };
+
+  // 🔥 CORRIGIDO: Função para calcular progresso DINÂMICO
+  const calculateCurrentProgress = (orderDetails, enhancedSteps) => {
+    if (!enhancedSteps || enhancedSteps.length === 0) return 0;
+    
+    // Se tiver customSteps, usar progresso real
+    if (orderDetails.customSteps && orderDetails.customSteps.length > 0) {
+      const completedSteps = orderDetails.customSteps.filter(step => step.completed).length;
+      const currentStepIndex = orderDetails.customSteps.findIndex(step => step.current || step.active);
+      
+      if (currentStepIndex >= 0) {
+        // Se há etapa atual, calcular progresso até ela
+        return Math.floor((100 / orderDetails.customSteps.length) * (currentStepIndex + 0.5));
+      } else if (completedSteps > 0) {
+        // Se só há etapas completas
+        return Math.floor((100 / orderDetails.customSteps.length) * completedSteps);
+      }
+    }
+    
+    // Fallback para progresso da API
+    return orderDetails.progress || 0;
   };
 
   const getProgressColor = (progress) => {
@@ -355,6 +396,29 @@ const OrderDetailsCustomer = () => {
     return colors[step.color] || colors.blue;
   };
 
+  // 🔥 CORRIGIDO: Função para obter número do pedido correto
+  const getOrderNumber = (orderDetails) => {
+    return orderDetails.externalOrderNumber || 
+           orderDetails.orderNumber || 
+           (orderDetails.orderId || orderDetails.id || orderDetails.externalOrderId || 'N/A').toString().slice(-6);
+  };
+
+  // 🔥 CORRIGIDO: Função para obter nome do produto
+  const getProductName = (orderDetails) => {
+    return orderDetails.productDetails?.displayName || 
+           orderDetails.productDetails?.title || 
+           orderDetails.productName || 
+           orderDetails.product?.name || 
+           'Product';
+  };
+
+  // 🔥 CORRIGIDO: Função para obter imagem do produto
+  const getProductImage = (orderDetails) => {
+    return orderDetails.productDetails?.image || 
+           orderDetails.product?.image || 
+           null;
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -400,15 +464,23 @@ const OrderDetailsCustomer = () => {
   const enhancedSteps = getEnhancedSteps(orderDetails);
   const currentStepIndex = enhancedSteps.findIndex(step => step.status === 'current');
   const completedSteps = enhancedSteps.filter(step => step.status === 'completed').length;
+  
+  // 🔥 CORRIGIDO: Calcular progresso DINÂMICO
+  const currentProgress = calculateCurrentProgress(orderDetails, enhancedSteps);
 
   // ✅ DADOS REAIS: Status atual baseado na API
   const currentStepName = orderDetails.currentStepName || 
                           enhancedSteps.find(s => s.status === 'current')?.name || 
                           'Processing';
 
+  // 🔥 CORRIGIDO: Dados do produto
+  const productName = getProductName(orderDetails);
+  const productImage = getProductImage(orderDetails);
+  const orderNumber = getOrderNumber(orderDetails);
+
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Header */}
+      {/* 🔥 CORRIGIDO: Header focado no PRODUTO */}
       <header className="bg-gradient-to-r from-blue-500 via-indigo-600 to-purple-600 px-4 pt-8 pb-6 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -translate-y-16 translate-x-16 animate-pulse"></div>
         <div className="absolute bottom-0 left-0 w-20 h-20 bg-white/5 rounded-full translate-y-10 -translate-x-10 animate-pulse delay-500"></div>
@@ -429,13 +501,28 @@ const OrderDetailsCustomer = () => {
           
           <div className="flex items-center justify-between">
             <div className="flex items-center">
-              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center text-xl mr-3 backdrop-blur-sm border border-white/20 shadow-lg">
-                🏪
+              {/* 🔥 CORRIGIDO: Imagem do PRODUTO */}
+              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mr-3 backdrop-blur-sm border border-white/20 shadow-lg overflow-hidden">
+                {productImage ? (
+                  <img 
+                    src={productImage} 
+                    alt={productName}
+                    className="w-full h-full object-cover rounded-xl"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      e.target.nextSibling.style.display = 'flex';
+                    }}
+                  />
+                ) : null}
+                <div className={`${productImage ? 'hidden' : 'flex'} items-center justify-center text-xl w-full h-full`}>
+                  📦
+                </div>
               </div>
               <div>
                 <div className="flex items-center">
+                  {/* 🔥 CORRIGIDO: Nome do PRODUTO */}
                   <h2 className="text-white text-lg font-medium mr-2">
-                    {orderDetails.storeName || 'Store'}
+                    {productName}
                   </h2>
                   <div className="w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center animate-pulse">
                     <CheckCircle className="w-3 h-3 text-white" />
@@ -444,7 +531,8 @@ const OrderDetailsCustomer = () => {
                 <div className="flex items-center mt-1">
                   <span className="text-blue-100 text-sm flex items-center">
                     <Clock className="h-3 w-3 mr-1" />
-                    Order #{(orderDetails.orderId || orderDetails.id || orderDetails.externalOrderId || 'N/A').toString().slice(-6)}
+                    {/* 🔥 CORRIGIDO: Número do pedido */}
+                    Order #{orderNumber}
                   </span>
                 </div>
               </div>
@@ -461,20 +549,20 @@ const OrderDetailsCustomer = () => {
             <CardContent className="p-6 bg-white m-0 rounded-lg">
               <div className="flex justify-between items-center mb-6">
                 <div>
+                  {/* 🔥 CORRIGIDO: Nome do produto no título */}
                   <h3 className="text-blue-600 font-semibold text-xl flex items-center">
                     <Sparkles className="h-5 w-5 mr-2 text-blue-500" />
-                    {orderDetails.productDetails?.displayName || 
-                     orderDetails.productDetails?.title || 
-                     orderDetails.productName || 
-                     `Order #${(orderDetails.orderId || orderDetails.id || orderDetails.externalOrderId || 'N/A').toString().slice(-6)}`}
+                    {productName}
                   </h3>
                   <p className="text-slate-500 text-sm mt-1">
+                    {/* 🔥 CORRIGIDO: Data formatada */}
                     Created on {formatDate(orderDetails.createdAt)}
                   </p>
                 </div>
                 <div className="text-right">
-                  <div className={`text-2xl font-bold ${getStatusColor(orderDetails.progress || 0)}`}>
-                    {orderDetails.progress || 0}%
+                  {/* 🔥 CORRIGIDO: Progresso dinâmico */}
+                  <div className={`text-2xl font-bold ${getStatusColor(currentProgress)}`}>
+                    {currentProgress}%
                   </div>
                   <div className="text-xs text-slate-500 mt-1">
                     {completedSteps} of {enhancedSteps.length} steps
@@ -485,37 +573,40 @@ const OrderDetailsCustomer = () => {
               {/* Enhanced Progress Bar with Segments */}
               <div className="mb-6">
                 <div className="flex items-center justify-between mb-2">
-                  <span className={`font-semibold text-sm ${getStatusColor(orderDetails.progress || 0)} flex items-center`}>
+                  <span className={`font-semibold text-sm ${getStatusColor(currentProgress)} flex items-center`}>
                     <Activity className="h-4 w-4 mr-1" />
-                    {orderDetails.progress >= 100 ? 'Order Completed!' : currentStepName}
+                    {currentProgress >= 100 ? 'Order Completed!' : currentStepName}
                   </span>
                   <span className="text-slate-600 font-medium text-sm flex items-center">
                     <Timer className="h-3 w-3 mr-1" />
-                    {orderDetails.progress >= 100 ? 'Delivered' : 
+                    {currentProgress >= 100 ? 'Delivered' : 
                      enhancedSteps.find(s => s.status === 'current')?.estimatedTime || 'Processing...'}
                   </span>
                 </div>
                 
-                {/* Multi-segment progress bar */}
+                {/* 🔥 CORRIGIDO: Progress bar com progresso dinâmico */}
                 <div className="relative">
                   <div className="w-full bg-slate-100 rounded-full h-4 overflow-hidden shadow-inner">
                     <div 
-                      className={`h-4 rounded-full bg-gradient-to-r ${getProgressColor(orderDetails.progress || 0)} transition-all duration-1000 ease-out relative overflow-hidden`}
-                      style={{ width: `${orderDetails.progress || 0}%` }}
+                      className={`h-4 rounded-full bg-gradient-to-r ${getProgressColor(currentProgress)} transition-all duration-1000 ease-out relative overflow-hidden`}
+                      style={{ width: `${currentProgress}%` }}
                     >
                       <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-pulse"></div>
                       <div className="absolute inset-0 bg-gradient-to-r from-white/20 via-transparent to-white/20 animate-shimmer"></div>
                     </div>
                   </div>
                   
-                  {/* Progress markers */}
+                  {/* 🔥 CORRIGIDO: Progress markers dinâmicos */}
                   <div className="flex justify-between mt-2">
-                    {[0, 25, 50, 75, 100].map((marker) => (
-                      <div key={marker} className="flex flex-col items-center">
-                        <div className={`w-2 h-2 rounded-full ${(orderDetails.progress || 0) >= marker ? 'bg-blue-500' : 'bg-slate-300'} transition-colors duration-500`}></div>
-                        <span className="text-xs text-slate-400 mt-1">{marker}%</span>
-                      </div>
-                    ))}
+                    {enhancedSteps.map((step, index) => {
+                      const stepPercentage = Math.floor((100 / enhancedSteps.length) * (index + 1));
+                      return (
+                        <div key={index} className="flex flex-col items-center">
+                          <div className={`w-2 h-2 rounded-full ${currentProgress >= stepPercentage ? 'bg-blue-500' : 'bg-slate-300'} transition-colors duration-500`}></div>
+                          <span className="text-xs text-slate-400 mt-1">{stepPercentage}%</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -743,11 +834,12 @@ const OrderDetailsCustomer = () => {
             </h3>
             
             <div className="flex items-center">
-              {orderDetails.productDetails?.image ? (
+              {/* 🔥 CORRIGIDO: Imagem do produto */}
+              {productImage ? (
                 <div className="w-20 h-20 rounded-xl mr-4 flex-shrink-0 border border-blue-100 shadow-sm overflow-hidden">
                   <img 
-                    src={orderDetails.productDetails.image} 
-                    alt={orderDetails.productDetails.displayName || 'Product'}
+                    src={productImage} 
+                    alt={productName}
                     className="w-full h-full object-cover"
                     onError={(e) => {
                       e.target.style.display = 'none';
@@ -765,11 +857,9 @@ const OrderDetailsCustomer = () => {
               )}
               
               <div className="flex-1">
+                {/* 🔥 CORRIGIDO: Nome do produto */}
                 <h4 className="font-semibold text-slate-800 text-lg">
-                  {orderDetails.productDetails?.displayName || 
-                   orderDetails.productDetails?.title || 
-                   orderDetails.productName || 
-                   orderDetails.product?.name || 'Product'}
+                  {productName}
                 </h4>
                 <p className="text-slate-600 text-sm mt-1 mb-3">
                   {orderDetails.productDetails?.description || 
