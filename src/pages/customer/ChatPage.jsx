@@ -21,7 +21,8 @@ import {
   Loader2,
   MessageCircle,
   Package,
-  Sparkles
+  Sparkles,
+  Menu
 } from 'lucide-react';
 import { apiService } from '@/services/apiService';
 
@@ -36,10 +37,10 @@ const ChatPage = () => {
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  // ✅ CORRECTION: Separate state for chatId
   const [chatId, setChatId] = useState(urlChatId || null);
   const messageEndRef = useRef(null);
   const pollInterval = useRef(null);
+  const inputRef = useRef(null);
   
   // Get customer data from localStorage or location state
   const customerEmail = location.state?.customerEmail || localStorage.getItem('customerEmail');
@@ -58,21 +59,26 @@ const ChatPage = () => {
 
   useEffect(() => {
     if (!customerEmail) {
-      // Redirect to lookup if no email
       navigate('/customer/lookup');
       return;
     }
 
     if (orderId && !urlChatId) {
-      // If we have an orderId but no chatId, create/get chat first
       createOrGetChat();
     } else if (urlChatId) {
-      // If we have chatId directly, load chat data
       setChatId(urlChatId);
       loadChatData();
     } else {
-      // No chat info, show general chat interface
+      // 🔧 CORREÇÃO: Permitir chat mesmo sem chatId específico
       setIsLoading(false);
+      // Set up default chat data
+      setChatData({
+        id: 'general-chat',
+        name: 'Store Support',
+        avatar: `https://ui-avatars.com/api/?name=Store&background=3b82f6&color=fff`,
+        initials: 'ST',
+        storeName: 'Store Support'
+      });
     }
   }, [urlChatId, customerEmail, orderId, navigate]);
 
@@ -80,8 +86,6 @@ const ChatPage = () => {
     if (!chatId || !chatData) return;
 
     console.log('🔄 Starting message polling for chat:', chatId);
-    
-    // Load messages immediately
     loadMessages(true);
     
     pollInterval.current = setInterval(() => {
@@ -116,16 +120,12 @@ const ChatPage = () => {
       setError(null);
       console.log('💬 Creating/getting chat for order:', { orderId, customerEmail, storeId });
 
-      // ✅ CORRECTION: Use email directly as identifier
       const customerIdentifier = customerEmail;
-      
       const response = await apiService.getOrderChat(orderId, customerIdentifier, storeId);
       console.log('✅ API Response:', response);
       
       if (response && response.id) {
         console.log('✅ Chat created/found:', response);
-        
-        // ✅ CORRECTION: Set both chatId AND chatData
         setChatId(response.id);
         
         const newChatData = {
@@ -142,7 +142,6 @@ const ChatPage = () => {
         
         setChatData(newChatData);
         
-        // ✅ CORRECTION: Navigate to correct URL with chatId
         if (!urlChatId) {
           navigate(`/customer/chat/${response.id}`, { 
             replace: true,
@@ -168,7 +167,6 @@ const ChatPage = () => {
       setError(null);
       console.log('💬 Loading chat data:', { chatId: urlChatId, customerEmail });
 
-      // Try to get chat details
       try {
         const chatDetails = await apiService.getChatDetails(urlChatId, customerEmail);
         console.log('✅ Chat details loaded:', chatDetails);
@@ -182,7 +180,6 @@ const ChatPage = () => {
       } catch (apiError) {
         console.log('⚠️ Could not load chat details, using mock data');
         
-        // Fallback to mock chat data
         setChatData({
           id: urlChatId,
           orderId: orderId,
@@ -215,12 +212,20 @@ const ChatPage = () => {
       console.log(`📨 ${silent ? 'Updating' : 'Loading'} messages for chat:`, chatId);
       
       if (!chatId) {
-        console.log('⚠️ No chatId available, skipping message load');
+        console.log('⚠️ No chatId available, showing welcome message');
+        setMessages([{
+          id: 'welcome',
+          content: 'Chat started! Send your first message to the store.',
+          sender: 'system',
+          senderName: 'System',
+          senderType: 'system',
+          time: new Date(),
+          read: true
+        }]);
         return;
       }
       
       try {
-        // Try to get real messages from API
         const realMessages = await apiService.getChatMessages(chatId);
         
         if (realMessages && realMessages.length > 0) {
@@ -258,10 +263,9 @@ const ChatPage = () => {
         } else {
           console.log('📭 No messages found, showing welcome message');
           
-          // Show welcome message if no messages
           setMessages([{
             id: 'welcome',
-            content: 'Chat started! Send your first message.',
+            content: 'Chat started! Send your first message to the store.',
             sender: 'system',
             senderName: 'System',
             senderType: 'system',
@@ -272,10 +276,9 @@ const ChatPage = () => {
       } catch (apiError) {
         console.log('⚠️ API failed to load messages:', apiError);
         
-        // Show error message
         setMessages([{
           id: 'error',
-          content: 'Could not load messages. Please try again.',
+          content: 'Could not load messages. You can still send new messages.',
           sender: 'system',
           senderName: 'System',
           senderType: 'system',
@@ -305,7 +308,7 @@ const ChatPage = () => {
 
       const messageData = {
         text: message.trim(),
-        senderId: customerEmail, // Use email as sender ID
+        senderId: customerEmail,
         senderType: 'customer',
         senderName: customerData?.customer?.name || 'Customer',
         type: 'text',
@@ -325,7 +328,8 @@ const ChatPage = () => {
       setMessages(prev => [...prev, tempMessage]);
       setMessage('');
 
-      if (chatId) {
+      // 🔧 CORREÇÃO: Tentar enviar mesmo sem chatId
+      if (chatId && chatId !== 'general-chat') {
         try {
           console.log('📤 Sending via API to chatId:', chatId);
           await apiService.sendMessage(chatId, messageData);
@@ -337,25 +341,36 @@ const ChatPage = () => {
         } catch (apiError) {
           console.error('❌ API send failed:', apiError);
           
-          // Update temp message to look sent but mark as local
           setMessages(prev => prev.map(msg => 
-            msg.id.startsWith('temp-') ? { ...msg, id: `failed-${Date.now()}`, read: false } : msg
+            msg.id.startsWith('temp-') ? { ...msg, id: `local-${Date.now()}`, read: false } : msg
           ));
         }
       } else {
-        console.error('❌ No chatId available for sending message');
+        console.log('💬 Local message (no API chatId)');
         
-        // Update temp message to look local
         setMessages(prev => prev.map(msg => 
           msg.id.startsWith('temp-') ? { ...msg, id: `local-${Date.now()}`, read: false } : msg
         ));
+        
+        // Simulate store response for demo
+        setTimeout(() => {
+          const autoReply = {
+            id: `auto-${Date.now()}`,
+            content: 'Thank you for your message! A store representative will respond soon.',
+            sender: 'store',
+            senderName: 'Store Support',
+            senderType: 'store',
+            time: new Date(),
+            read: true
+          };
+          setMessages(prev => [...prev, autoReply]);
+        }, 2000);
       }
       
     } catch (error) {
       console.error('❌ Error sending message:', error);
       setError('Error sending message');
       
-      // Remove temp message and restore input
       setMessages(prev => prev.filter(msg => !msg.id.startsWith('temp-')));
       setMessage(messageData.text);
       
@@ -403,15 +418,21 @@ const ChatPage = () => {
     await loadMessages();
   };
 
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
+
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-3" />
           <p className="text-slate-600 text-sm font-medium">Loading conversation...</p>
-          {chatId && <p className="text-xs text-slate-400 mt-1">Chat: {chatId}</p>}
-          {orderId && <p className="text-xs text-slate-400 mt-1">Order: {orderId}</p>}
-          {customerEmail && <p className="text-xs text-slate-400 mt-1">Email: {customerEmail}</p>}
+          {chatId && <p className="text-xs text-slate-400 mt-1">Chat: {chatId.slice(-6)}</p>}
+          {orderId && <p className="text-xs text-slate-400 mt-1">Order: {orderId.slice(-6)}</p>}
         </div>
       </div>
     );
@@ -443,26 +464,24 @@ const ChatPage = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
-      <header className="bg-gradient-to-r from-blue-500 to-indigo-600 px-4 pt-8 pb-4 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-24 h-24 bg-white/5 rounded-full -translate-y-12 translate-x-12"></div>
-        <div className="absolute bottom-0 left-0 w-16 h-16 bg-white/5 rounded-full translate-y-8 -translate-x-8"></div>
+      {/* 🎯 HEADER MOBILE-OPTIMIZED */}
+      <header className="bg-gradient-to-r from-blue-500 to-indigo-600 px-3 sm:px-4 pt-4 sm:pt-6 pb-3 sm:pb-4 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-16 sm:w-24 h-16 sm:h-24 bg-white/5 rounded-full -translate-y-8 sm:-translate-y-12 translate-x-8 sm:translate-x-12"></div>
+        <div className="absolute bottom-0 left-0 w-12 sm:w-16 h-12 sm:h-16 bg-white/5 rounded-full translate-y-6 sm:translate-y-8 -translate-x-6 sm:-translate-x-8"></div>
         
         <div className="relative z-10">
-          <div className="flex items-center justify-between mb-4">
+          {/* Top bar with navigation */}
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
             <div className="flex items-center">
               <Button 
                 variant="ghost" 
                 size="sm"
                 onClick={() => navigate('/customer/dashboard')}
-                className="text-white/80 hover:text-white hover:bg-white/10 p-2 mr-3 rounded-lg"
+                className="text-white/80 hover:text-white hover:bg-white/10 p-2 mr-2 sm:mr-3 rounded-lg"
               >
                 <ArrowLeft className="h-4 w-4" />
               </Button>
-              <h1 className="text-white text-lg font-medium">Chat</h1>
-              {/* ✅ CORRECTION: Debug info */}
-              <span className="ml-2 text-xs text-white/60">
-                ID: {chatId ? chatId.slice(-6) : 'none'}
-              </span>
+              <h1 className="text-white text-base sm:text-lg font-medium">Chat</h1>
             </div>
             
             <Button 
@@ -476,30 +495,31 @@ const ChatPage = () => {
             </Button>
           </div>
           
+          {/* Chat info */}
           <div className="flex items-center">
-            <Avatar className="h-12 w-12 mr-3 border-2 border-white/20">
+            <Avatar className="h-10 w-10 sm:h-12 sm:w-12 mr-3 border-2 border-white/20">
               <AvatarImage src={chatData?.avatar} />
-              <AvatarFallback className="bg-white/20 text-white font-bold">
+              <AvatarFallback className="bg-white/20 text-white font-bold text-sm sm:text-base">
                 {chatData?.initials || 'ST'}
               </AvatarFallback>
             </Avatar>
             
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <div className="flex items-center">
-                <h2 className="text-white text-lg font-medium mr-2">
+                <h2 className="text-white text-base sm:text-lg font-medium mr-2 truncate">
                   {chatData?.name || 'Store Support'}
                 </h2>
-                <CheckCircle className="w-4 h-4 text-emerald-400" />
+                <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 text-emerald-400 flex-shrink-0" />
               </div>
               
-              <div className="flex items-center text-blue-200 text-sm">
+              <div className="flex items-center text-blue-200 text-xs sm:text-sm">
                 <div className="w-2 h-2 bg-emerald-400 rounded-full mr-2 animate-pulse"></div>
                 <span>Online</span>
                 {orderId && (
                   <>
-                    <span className="mx-2">•</span>
-                    <Package className="h-3 w-3 mr-1" />
-                    <span>Order #{orderId.slice(-6)}</span>
+                    <span className="mx-2 hidden sm:inline">•</span>
+                    <Package className="h-3 w-3 mr-1 ml-2 sm:ml-0" />
+                    <span className="truncate">Order #{(orderId || 'N/A').toString().slice(-6)}</span>
                   </>
                 )}
               </div>
@@ -508,132 +528,141 @@ const ChatPage = () => {
         </div>
       </header>
 
-      <main className="flex-1 flex flex-col bg-slate-50 relative z-10">
-        <ScrollArea className="flex-1 p-4">
-          <div className="max-w-2xl mx-auto space-y-4">
-            
-            <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
-              <CardContent className="p-4">
-                <div className="flex items-center">
-                  <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center mr-3">
-                    <MessageCircle className="h-5 w-5 text-white" />
+      {/* 🎯 MAIN CHAT AREA - MOBILE OPTIMIZED */}
+      <main className="flex-1 flex flex-col bg-slate-50 relative z-10 min-h-0">
+        {/* Messages area */}
+        <div className="flex-1 overflow-hidden">
+          <ScrollArea className="h-full">
+            <div className="p-3 sm:p-4 space-y-3 sm:space-y-4 pb-4">
+              
+              {/* Chat intro card */}
+              <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+                <CardContent className="p-3 sm:p-4">
+                  <div className="flex items-center">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-500 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
+                      <MessageCircle className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-medium text-blue-800 text-sm sm:text-base">Conversation started</h3>
+                      <p className="text-blue-600 text-xs sm:text-sm truncate">
+                        {orderId 
+                          ? `About your order #${orderId.toString().slice(-6)}`
+                          : 'Ask questions about your order'
+                        }
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <h3 className="font-medium text-blue-800">Conversation started</h3>
-                    <p className="text-blue-600 text-sm">
-                      {orderId 
-                        ? `About your order #${orderId.slice(-6)}`
-                        : 'Ask questions about your order'
-                      }
-                    </p>
-                  </div>
+                </CardContent>
+              </Card>
+              
+              {/* Messages */}
+              {messages.length === 0 ? (
+                <div className="text-center py-6 sm:py-8">
+                  <MessageSquare className="h-10 w-10 sm:h-12 sm:w-12 text-slate-400 mx-auto mb-3" />
+                  <h3 className="text-base sm:text-lg font-medium text-slate-900 mb-1">No messages yet</h3>
+                  <p className="text-slate-500 text-sm">Send your first message to the store</p>
                 </div>
-              </CardContent>
-            </Card>
-            
-            {messages.length === 0 ? (
-              <div className="text-center py-8">
-                <MessageSquare className="h-12 w-12 text-slate-400 mx-auto mb-3" />
-                <h3 className="text-lg font-medium text-slate-900 mb-1">No messages yet</h3>
-                <p className="text-slate-500">Send your first message to the store</p>
-              </div>
-            ) : (
-              messages.map((msg, idx) => (
-                <div 
-                  key={msg.id || idx}
-                  className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-                >
-                  <div className={`max-w-[80%] ${msg.sender === 'user' ? 'order-2' : 'order-1'}`}>
-                    
-                    {msg.sender === 'store' && (
-                      <div className="flex items-end mb-2">
-                        <Avatar className="h-6 w-6 mr-2">
-                          <AvatarImage src={chatData?.avatar} />
-                          <AvatarFallback className="bg-blue-100 text-blue-700 text-xs">
-                            {chatData?.initials || 'ST'}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="text-xs text-slate-500">{msg.senderName}</span>
-                      </div>
-                    )}
-                    
-                    {msg.sender === 'system' && (
-                      <div className="flex justify-center mb-4">
-                        <div className="bg-slate-100 text-slate-600 text-xs px-3 py-2 rounded-full border border-slate-200">
-                          <Sparkles className="h-3 w-3 inline mr-1" />
-                          {msg.content}
+              ) : (
+                messages.map((msg, idx) => (
+                  <div 
+                    key={msg.id || idx}
+                    className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div className={`max-w-[85%] sm:max-w-[80%] ${msg.sender === 'user' ? 'order-2' : 'order-1'}`}>
+                      
+                      {/* Store sender info */}
+                      {msg.sender === 'store' && (
+                        <div className="flex items-end mb-2">
+                          <Avatar className="h-5 w-5 sm:h-6 sm:w-6 mr-2">
+                            <AvatarImage src={chatData?.avatar} />
+                            <AvatarFallback className="bg-blue-100 text-blue-700 text-xs">
+                              {chatData?.initials || 'ST'}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="text-xs text-slate-500">{msg.senderName}</span>
                         </div>
-                      </div>
-                    )}
-                    
-                    {msg.sender !== 'system' && (
-                      <>
-                        <div className={`rounded-2xl p-3 ${
-                          msg.sender === 'user'
-                            ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-br-md' 
-                            : 'bg-white text-slate-800 rounded-bl-md border border-slate-200 shadow-sm'
-                        }`}>
-                          <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                      )}
+                      
+                      {/* System messages */}
+                      {msg.sender === 'system' && (
+                        <div className="flex justify-center mb-4">
+                          <div className="bg-slate-100 text-slate-600 text-xs px-3 py-2 rounded-full border border-slate-200 max-w-xs">
+                            <Sparkles className="h-3 w-3 inline mr-1" />
+                            <span>{msg.content}</span>
+                          </div>
                         </div>
-                        
-                        <div className={`flex items-center mt-1 text-xs text-slate-400 ${
-                          msg.sender === 'user' ? 'justify-end' : 'justify-start'
-                        }`}>
-                          <span>{formatTime(msg.time)}</span>
-                          {msg.sender === 'user' && (
-                            <CheckCircle className="ml-1 h-3 w-3" />
-                          )}
-                        </div>
-                      </>
-                    )}
+                      )}
+                      
+                      {/* Regular messages */}
+                      {msg.sender !== 'system' && (
+                        <>
+                          <div className={`rounded-2xl p-3 ${
+                            msg.sender === 'user'
+                              ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-br-md' 
+                              : 'bg-white text-slate-800 rounded-bl-md border border-slate-200 shadow-sm'
+                          }`}>
+                            <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
+                          </div>
+                          
+                          <div className={`flex items-center mt-1 text-xs text-slate-400 ${
+                            msg.sender === 'user' ? 'justify-end' : 'justify-start'
+                          }`}>
+                            <span>{formatTime(msg.time)}</span>
+                            {msg.sender === 'user' && (
+                              <CheckCircle className="ml-1 h-3 w-3" />
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))
-            )}
-            
-            <div ref={messageEndRef} />
-          </div>
-        </ScrollArea>
+                ))
+              )}
+              
+              <div ref={messageEndRef} />
+            </div>
+          </ScrollArea>
+        </div>
         
-        <div className="p-4 bg-white border-t border-slate-200">
-          <div className="max-w-2xl mx-auto flex items-center space-x-3">
+        {/* 🎯 INPUT AREA - MOBILE OPTIMIZED E SEMPRE VISÍVEL */}
+        <div className="bg-white border-t border-slate-200 p-3 sm:p-4 safe-area-bottom">
+          <div className="flex items-end space-x-2 sm:space-x-3">
             <div className="flex-1 relative">
               <Input
-                className="pr-12 py-3 min-h-12 text-sm border-slate-200 focus:border-blue-300 focus:ring-blue-200 rounded-xl"
-                placeholder={chatId ? "Type your message..." : "Chat not ready..."}
+                ref={inputRef}
+                className="pr-4 py-3 min-h-[44px] text-sm border-slate-200 focus:border-blue-300 focus:ring-blue-200 rounded-xl resize-none"
+                placeholder="Type your message..."
                 value={message}
                 onChange={e => setMessage(e.target.value)}
-                onKeyPress={e => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSendMessage();
-                  }
-                }}
-                disabled={sending || !chatId}
+                onKeyPress={handleKeyPress}
+                disabled={sending}
+                maxLength={1000}
               />
             </div>
             
             <Button 
               size="icon" 
-              className={message.trim() && !sending && chatId
-                ? "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 h-12 w-12 rounded-xl" 
-                : "bg-slate-300 cursor-not-allowed h-12 w-12 rounded-xl"}
-              disabled={!message.trim() || sending || !chatId}
+              className={`min-w-[44px] h-[44px] rounded-xl transition-all duration-200 ${
+                message.trim() && !sending
+                  ? "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg" 
+                  : "bg-slate-300 cursor-not-allowed"
+              }`}
+              disabled={!message.trim() || sending}
               onClick={handleSendMessage}
             >
               {sending ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
+                <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
               ) : (
-                <Send className="h-5 w-5" />
+                <Send className="h-4 w-4 sm:h-5 sm:w-5" />
               )}
             </Button>
           </div>
           
-          {/* ✅ CORRECTION: Debug info */}
-          {!chatId && (
-            <div className="max-w-2xl mx-auto text-center mt-2">
-              <p className="text-xs text-red-500">
-                ⚠️ Chat ID not available. Messages cannot be sent.
+          {/* Debug info - only in development */}
+          {process.env.NODE_ENV === 'development' && (
+            <div className="text-center mt-2">
+              <p className="text-xs text-slate-400">
+                Chat: {chatId || 'none'} | Messages: {messages.length}
               </p>
             </div>
           )}

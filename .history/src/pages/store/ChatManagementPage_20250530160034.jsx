@@ -218,9 +218,10 @@ const ChatManagementPage = () => {
         {/* Header Otimizado - com dados reais */}
         <FadeInUp delay={0}>
           <div className="relative">
-            <Card className="p-4 sm:p-6 border-0 overflow-hidden bg-gradient-to-r from-purple-50 via-blue-50 to-indigo-50">
+            <GlassCard variant="gradient" className="p-4 sm:p-6 border-0 overflow-hidden">
               {/* Background Pattern */}
-              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-purple-200/20 to-transparent rounded-full transform translate-x-16 -translate-y-8" />
+              <div className="absolute inset-0 bg-gradient-to-r from-purple-600/5 via-blue-600/5 to-indigo-600/5" />
+              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-purple-400/10 to-transparent rounded-full transform translate-x-16 -translate-y-8" />
               
               <div className="relative flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
                 <div className="space-y-2">
@@ -258,7 +259,7 @@ const ChatManagementPage = () => {
                       placeholder="Buscar conversas..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10 h-10 w-full sm:w-56 border-zinc-200 focus:border-purple-300 focus:ring-purple-200 bg-white"
+                      className="pl-10 h-10 w-full sm:w-56 border-zinc-200 focus:border-purple-300 focus:ring-purple-200 bg-white/80 backdrop-blur-sm"
                     />
                   </div>
                   
@@ -284,7 +285,7 @@ const ChatManagementPage = () => {
                   </div>
                 </div>
               </div>
-            </Card>
+            </GlassCard>
           </div>
         </FadeInUp>
 
@@ -310,10 +311,10 @@ const ChatManagementPage = () => {
 
         {/* Tabs Principal - CORRIGIDO */}
         <FadeInUp delay={200}>
-          <div className="bg-white rounded-xl border border-gray-200 shadow-xl overflow-hidden">
+          <div className="bg-white/80 backdrop-blur-sm rounded-xl border border-white/50 shadow-xl overflow-hidden">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
               <div className="p-4 sm:p-6 border-b border-gray-100">
-                <TabsList className="w-full max-w-2xl mx-auto bg-gray-100 p-1 rounded-xl shadow-inner border border-gray-200 grid grid-cols-3">
+                <TabsList className="w-full max-w-2xl mx-auto bg-gradient-to-r from-zinc-100/80 to-zinc-200/80 backdrop-blur-sm p-1 rounded-xl shadow-inner border border-white/50 grid grid-cols-3">
                   <TabsTrigger 
                     value="overview" 
                     className="data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all duration-300 rounded-lg font-semibold h-10 px-4 text-sm"
@@ -371,7 +372,7 @@ const ChatManagementPage = () => {
 
                   {/* Quick Actions - LAYOUT CORRIGIDO */}
                   <FadeInUp delay={800}>
-                    <Card className="p-4 sm:p-6 py-8 border shadow-lg min-h-[300px]">
+                    <GlassCard className="p-4 sm:p-6 py-8 border-0 shadow-premium min-h-[300px]">
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 space-y-2 sm:space-y-0">
                         <div className="flex items-center space-x-3">
                           <div className="p-2 rounded-lg bg-gradient-to-br from-emerald-100 to-emerald-200 shadow-md">
@@ -451,7 +452,7 @@ const ChatManagementPage = () => {
                           );
                         })}
                       </div>
-                    </Card>
+                    </GlassCard>
                   </FadeInUp>
                 </TabsContent>
                 
@@ -496,7 +497,7 @@ const ChatManagementPage = () => {
                   <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                     {/* Configurações de Notificação - LAYOUT CORRIGIDO */}
                     <FadeInUp delay={0}>
-                      <Card className="p-6 py-8 border shadow-lg h-fit min-h-[400px]">
+                      <GlassCard className="p-6 py-8 border-0 shadow-premium h-fit min-h-[400px]">
                         <div className="flex items-center space-x-3 mb-8">
                           <div className="p-3 rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 shadow-lg">
                             <BellIcon className="h-6 w-6 text-blue-700" />
@@ -559,12 +560,12 @@ const ChatManagementPage = () => {
                             </HoverLift>
                           ))}
                         </div>
-                      </Card>
+                      </GlassCard>
                     </FadeInUp>
                     
                     {/* Configurações de Equipe - LAYOUT CORRIGIDO */}
                     <FadeInUp delay={200}>
-                      <Card className="p-6 py-8 border shadow-lg h-fit min-h-[400px]">
+                      <GlassCard className="p-6 py-8 border-0 shadow-premium h-fit min-h-[400px]">
                         <div className="flex items-center justify-between mb-8">
                           <div className="flex items-center space-x-3">
                             <div className="p-3 rounded-xl bg-gradient-to-br from-emerald-100 to-emerald-200 shadow-lg">
@@ -618,7 +619,7 @@ const ChatManagementPage = () => {
                             <span className="font-medium">Adicionar Membro da Equipe</span>
                           </Button>
                         </div>
-                      </Card>
+                      </GlassCard>
                     </FadeInUp>
                   </div>
                 </TabsContent>

@@ -391,7 +391,82 @@ const CreateNotification = () => {
               </p>
             </div>
 
-
+            {/* Sistema de Botões Personalizados */}
+            <div className="space-y-3">
+              <Label className="text-sm font-semibold">🎯 Botões Personalizados</Label>
+              
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
+                <p className="text-sm text-blue-800 font-medium">
+                  Adicione até 2 botões personalizados na notificação
+                </p>
+                
+                {/* Formulário para adicionar novo botão */}
+                <div className="grid grid-cols-12 gap-2">
+                  <div className="col-span-5">
+                    <Input
+                      placeholder="Texto do botão"
+                      value={newButtonTitle}
+                      onChange={(e) => setNewButtonTitle(e.target.value)}
+                      maxLength={20}
+                      className="h-10"
+                    />
+                  </div>
+                  <div className="col-span-5">
+                    <Input
+                      placeholder="ID da ação (opcional)"
+                      value={newButtonAction}
+                      onChange={(e) => setNewButtonAction(e.target.value)}
+                      maxLength={20}
+                      className="h-10"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <Button
+                      type="button"
+                      onClick={addCustomButton}
+                      disabled={!newButtonTitle.trim() || customButtons.length >= 2}
+                      className="w-full h-10 px-4 bg-blue-600 hover:bg-blue-700"
+                    >
+                      <PlusIcon className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+                
+                {/* Lista de botões adicionados */}
+                {customButtons.length > 0 && (
+                  <div className="space-y-2">
+                    {customButtons.map((button, index) => (
+                      <div key={index} className="bg-white rounded-lg p-3 border border-blue-200 flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <MousePointer className="h-4 w-4 text-blue-600" />
+                          <div>
+                            <p className="text-sm font-semibold text-blue-900">{button.title}</p>
+                            <p className="text-xs text-blue-600">Ação: {button.action}</p>
+                          </div>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          className="text-red-500 hover:text-red-700 h-10 w-10 p-0"
+                          onClick={() => removeCustomButton(index)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                <div className="space-y-1">
+                  <p className="text-xs text-blue-600">
+                    💡 Desktop: Os botões aparecem como ações clicáveis
+                  </p>
+                  <p className="text-xs text-amber-600">
+                    📱 Mobile: Os botões aparecem como texto no corpo da notificação
+                  </p>
+                </div>
+              </div>
+            </div>
 
             {/* Uploads de Imagem */}
             <div className="grid grid-cols-2 gap-4">
