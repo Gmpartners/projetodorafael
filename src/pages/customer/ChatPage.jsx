@@ -36,7 +36,7 @@ const ChatPage = () => {
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  // ✅ CORREÇÃO: Estado separado para chatId
+  // ✅ CORRECTION: Separate state for chatId
   const [chatId, setChatId] = useState(urlChatId || null);
   const messageEndRef = useRef(null);
   const pollInterval = useRef(null);
@@ -116,7 +116,7 @@ const ChatPage = () => {
       setError(null);
       console.log('💬 Creating/getting chat for order:', { orderId, customerEmail, storeId });
 
-      // ✅ CORREÇÃO: Usar email diretamente como identificador
+      // ✅ CORRECTION: Use email directly as identifier
       const customerIdentifier = customerEmail;
       
       const response = await apiService.getOrderChat(orderId, customerIdentifier, storeId);
@@ -125,7 +125,7 @@ const ChatPage = () => {
       if (response && response.id) {
         console.log('✅ Chat created/found:', response);
         
-        // ✅ CORREÇÃO: Definir chatId E chatData
+        // ✅ CORRECTION: Set both chatId AND chatData
         setChatId(response.id);
         
         const newChatData = {
@@ -142,7 +142,7 @@ const ChatPage = () => {
         
         setChatData(newChatData);
         
-        // ✅ CORREÇÃO: Navegar para URL correta com chatId
+        // ✅ CORRECTION: Navigate to correct URL with chatId
         if (!urlChatId) {
           navigate(`/customer/chat/${response.id}`, { 
             replace: true,
@@ -261,9 +261,9 @@ const ChatPage = () => {
           // Show welcome message if no messages
           setMessages([{
             id: 'welcome',
-            content: 'Chat iniciado! Envie sua primeira mensagem.',
+            content: 'Chat started! Send your first message.',
             sender: 'system',
-            senderName: 'Sistema',
+            senderName: 'System',
             senderType: 'system',
             time: new Date(),
             read: true
@@ -275,9 +275,9 @@ const ChatPage = () => {
         // Show error message
         setMessages([{
           id: 'error',
-          content: 'Não foi possível carregar mensagens. Tente novamente.',
+          content: 'Could not load messages. Please try again.',
           sender: 'system',
-          senderName: 'Sistema',
+          senderName: 'System',
           senderType: 'system',
           time: new Date(),
           read: true
@@ -459,7 +459,7 @@ const ChatPage = () => {
                 <ArrowLeft className="h-4 w-4" />
               </Button>
               <h1 className="text-white text-lg font-medium">Chat</h1>
-              {/* ✅ CORREÇÃO: Debug info */}
+              {/* ✅ CORRECTION: Debug info */}
               <span className="ml-2 text-xs text-white/60">
                 ID: {chatId ? chatId.slice(-6) : 'none'}
               </span>
@@ -629,7 +629,7 @@ const ChatPage = () => {
             </Button>
           </div>
           
-          {/* ✅ CORREÇÃO: Debug info */}
+          {/* ✅ CORRECTION: Debug info */}
           {!chatId && (
             <div className="max-w-2xl mx-auto text-center mt-2">
               <p className="text-xs text-red-500">

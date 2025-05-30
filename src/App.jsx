@@ -1,11 +1,13 @@
 import React, { lazy, Suspense, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import CustomerBottomBar from '@/components/customer/CustomerBottomBar';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { SidebarProvider } from '@/contexts/SidebarContext';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { CustomerChatProvider } from '@/contexts/CustomerChatContext';
 import { StoreChatProvider } from '@/contexts/StoreChatContext';
 import ServiceWorkerManager from '@/components/common/ServiceWorkerManager';
+import { Toaster } from "sonner"; // ✅ ADICIONADO: Toast notifications
 import './index.css';
 
 // Páginas de autenticação
@@ -194,6 +196,11 @@ const PublicRoute = ({ children }) => {
 };
 
 function AppContent() {
+  const location = useLocation();
+  
+  // Verificar se estamos em uma rota de customer
+  const isCustomerRoute = location.pathname.startsWith('/customer');
+  
   return (
     <>
       {/* 🆕 v7.0: Service Worker Manager Global */}
@@ -248,6 +255,14 @@ function AppContent() {
           element={
             <PublicRoute>
               <ChatPage />
+            </PublicRoute>
+          } 
+        />
+        <Route 
+          path="/customer/profile" 
+          element={
+            <PublicRoute>
+              <ProfilePage />
             </PublicRoute>
           } 
         />
@@ -350,6 +365,9 @@ function AppContent() {
         {/* Fallback for unknown routes - também usa redirecionamento inteligente */}
         <Route path="*" element={<SmartRedirect />} />
       </Routes>
+      
+      {/* 🆕 Customer Bottom Bar - só aparece em rotas de customer */}
+      {isCustomerRoute && <CustomerBottomBar />}
     </>
   );
 }
@@ -364,6 +382,21 @@ function App() {
               <Suspense fallback={<LoadingFallback />}>
                 <AppContent />
               </Suspense>
+              {/* ✅ ADICIONADO: Toaster para notificações */}
+              <Toaster 
+                position="top-right"
+                expand={true}
+                richColors={true}
+                closeButton={true}
+                toastOptions={{
+                  duration: 4000,
+                  style: {
+                    background: 'white',
+                    border: '1px solid #e5e7eb',
+                    fontSize: '14px',
+                  },
+                }}
+              />
             </Router>
           </ChatContextProvider>
         </AuthProvider>

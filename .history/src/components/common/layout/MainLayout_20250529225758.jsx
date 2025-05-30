@@ -29,7 +29,7 @@ const MainLayout = ({ children, userType = 'store', pageTitle = "Dashboard" }) =
   };
 
   return (
-   
+    {/* ✅ CORREÇÃO: Container principal sem height fixed */}
     <div className="flex min-h-screen bg-zinc-50 w-full max-w-[100vw] box-border">
       {/* Desktop Sidebar */}
       <div className={cn(

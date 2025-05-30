@@ -78,7 +78,7 @@ const ProfilePage = () => {
       </header>
 
       {/* Main content */}
-      <main className="container mx-auto px-4 pb-20 -mt-6 relative z-10">
+      <main className="container mx-auto px-4 pb-32 -mt-6 relative z-10">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Navigation sidebar */}
           <div className="md:col-span-1">
@@ -419,35 +419,6 @@ const ProfilePage = () => {
           </div>
         </div>
       </main>
-
-      {/* Navigation bar for mobile */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 py-2 px-6 md:hidden z-20 shadow-lg">
-        <div className="flex justify-between items-center max-w-md mx-auto">
-          <button 
-            className="flex flex-col items-center text-gray-500 hover:text-purple-600 transition-colors"
-            onClick={() => window.location.href = '/customer/dashboard'}
-          >
-            <FileText className="h-6 w-6" />
-            <span className="text-xs mt-1">Orders</span>
-          </button>
-          
-          <button 
-            className="flex flex-col items-center text-gray-500 hover:text-purple-600 transition-colors"
-            onClick={() => window.location.href = '/customer/chat'}
-          >
-            <MessageSquare className="h-6 w-6" />
-            <span className="text-xs mt-1">Chat</span>
-          </button>
-          
-          <button 
-            className="flex flex-col items-center text-purple-600"
-            onClick={() => window.location.href = '/customer/profile'}
-          >
-            <User className="h-6 w-6" />
-            <span className="text-xs mt-1">Profile</span>
-          </button>
-        </div>
-      </div>
 
       {/* CSS Animations */}
       <style jsx>{`

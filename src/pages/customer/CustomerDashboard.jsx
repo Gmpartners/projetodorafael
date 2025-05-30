@@ -144,12 +144,12 @@ const CustomerDashboard = () => {
           }
         }, 2000);
         
-        toast.success('🎉 Notificações ativadas!', {
-          description: 'Você receberá alertas sobre seus pedidos'
+        toast.success('🎉 Notifications activated!', {
+          description: 'You will receive alerts about your orders'
         });
       }
     } catch (error) {
-      toast.error('❌ Falha ao ativar notificações', {
+      toast.error('❌ Failed to activate notifications', {
         description: error.message
       });
     }
@@ -173,12 +173,12 @@ const CustomerDashboard = () => {
         
         localStorage.setItem('customerData', JSON.stringify(response.data));
         
-        toast.success('✅ Dados atualizados com sucesso');
+        toast.success('✅ Data updated successfully');
       }
     } catch (error) {
       console.error('❌ Error refreshing data:', error);
-      setError('Falha ao atualizar dados');
-      toast.error('❌ Falha ao atualizar dados');
+      setError('Failed to update data');
+      toast.error('❌ Failed to update data');
     } finally {
       setIsLoading(false);
     }
@@ -195,7 +195,7 @@ const CustomerDashboard = () => {
            order.productDetails?.title || 
            order.productName || 
            order.product?.name || 
-           'Produto da Loja';
+           'Store Product';
   };
 
   const getProductImage = (order) => {
@@ -243,7 +243,7 @@ const CustomerDashboard = () => {
 
   const getStatusText = (order) => {
     const progress = calculateOrderProgress(order);
-    if (progress >= 100) return 'Entregue';
+    if (progress >= 100) return 'Delivered';
     
     if (order.currentStep?.name) return order.currentStep.name;
     if (order.customSteps) {
@@ -253,16 +253,16 @@ const CustomerDashboard = () => {
       const nextStep = order.customSteps.find(step => !step.completed);
       if (nextStep) return nextStep.name;
     }
-    return order.status || 'Processando';
+    return order.status || 'Processing';
   };
 
   const getStepIcon = (stepName) => {
     if (!stepName) return Clock;
     const name = stepName.toLowerCase();
-    if (name.includes('confirmad') || name.includes('recebid')) return CheckCircle;
-    if (name.includes('preparando') || name.includes('embalando')) return Package;
-    if (name.includes('enviado') || name.includes('transito')) return Truck;
-    if (name.includes('entregue')) return CheckCircle;
+    if (name.includes('confirm') || name.includes('received')) return CheckCircle;
+    if (name.includes('preparing') || name.includes('packing')) return Package;
+    if (name.includes('shipped') || name.includes('transit')) return Truck;
+    if (name.includes('delivered')) return CheckCircle;
     return Clock;
   };
 
@@ -286,7 +286,7 @@ const CustomerDashboard = () => {
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-2 border-blue-500 border-t-transparent mx-auto mb-3"></div>
-          <p className="text-slate-600 text-sm font-medium">Carregando seus pedidos...</p>
+          <p className="text-slate-600 text-sm font-medium">Loading your orders...</p>
         </div>
       </div>
     );
@@ -303,7 +303,7 @@ const CustomerDashboard = () => {
             <div>
               <div className="flex items-center space-x-2 mb-1">
                 <p className="text-blue-100 text-sm font-normal">
-                  Olá,
+                  Hello,
                 </p>
                 {notificationStatus === 'active' && (
                   <div className="bg-green-500/20 px-2 py-1 rounded-full flex items-center space-x-1">
@@ -313,7 +313,7 @@ const CustomerDashboard = () => {
                 )}
               </div>
               <h1 className="text-white text-xl font-semibold">
-                {customerData?.customer?.name || 'Cliente'}
+                {customerData?.customer?.name || 'Customer'}
               </h1>
             </div>
             
@@ -328,12 +328,12 @@ const CustomerDashboard = () => {
           </div>
           
           <p className="text-blue-100/80 text-sm max-w-xs">
-            Acompanhe seus pedidos em tempo real
+            Track your orders in real time
           </p>
         </div>
       </header>
 
-      <main className="px-4 py-5 -mt-3 relative z-10">
+      <main className="px-4 py-5 -mt-3 relative z-10 pb-24">
         
         <Card className="mb-6 bg-white shadow-sm border border-slate-200">
           <CardContent className="p-4">
@@ -357,7 +357,7 @@ const CustomerDashboard = () => {
                 {customerData?.customer?.documentId && (
                   <div className="flex items-center space-x-2">
                     <User className="h-4 w-4 text-slate-400" />
-                    <span className="text-sm text-slate-600">CPF: {customerData.customer.documentId}</span>
+                    <span className="text-sm text-slate-600">ID: {customerData.customer.documentId}</span>
                   </div>
                 )}
               </div>
@@ -374,11 +374,11 @@ const CustomerDashboard = () => {
                 </div>
                 <div className="flex-1">
                   <h3 className="font-semibold text-blue-900 mb-1 flex items-center">
-                    Ative as Notificações!
-                    <span className="ml-2 bg-blue-200 text-blue-800 text-xs px-2 py-1 rounded-full">NOVO</span>
+                    Enable Notifications!
+                    <span className="ml-2 bg-blue-200 text-blue-800 text-xs px-2 py-1 rounded-full">NEW</span>
                   </h3>
                   <p className="text-blue-700 text-sm mb-3">
-                    Receba alertas instantâneos sobre atualizações dos seus pedidos!
+                    Get instant alerts about your order updates!
                   </p>
                   <div className="flex space-x-3">
                     <Button 
@@ -386,7 +386,7 @@ const CustomerDashboard = () => {
                       className="bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-2"
                     >
                       <Sparkles className="h-4 w-4 mr-2" />
-                      Ativar Notificações
+                      Enable Notifications
                     </Button>
                     <Button 
                       variant="outline"
@@ -394,7 +394,7 @@ const CustomerDashboard = () => {
                       onClick={() => setShowNotificationCard(false)}
                       className="border-blue-300 text-blue-700 hover:bg-blue-100"
                     >
-                      Depois
+                      Later
                     </Button>
                   </div>
                 </div>
@@ -416,7 +416,7 @@ const CustomerDashboard = () => {
             <CheckCircle className="h-4 w-4 text-emerald-600" />
             <AlertDescription className="text-emerald-800 flex items-center justify-between">
               <span>
-                <strong>🎉 Notificações ativas!</strong> Você receberá alertas sobre seus pedidos.
+                <strong>🎉 Notifications active!</strong> You will receive alerts about your orders.
               </span>
               <Sparkles className="h-4 w-4 text-emerald-600" />
             </AlertDescription>
@@ -427,17 +427,17 @@ const CustomerDashboard = () => {
           <Alert className="mb-6 border-amber-200 bg-amber-50">
             <AlertCircle className="h-4 w-4 text-amber-600" />
             <AlertDescription className="text-amber-800">
-              <strong>⚠️ Notificações bloqueadas.</strong> Ative nas configurações do navegador.
+              <strong>⚠️ Notifications blocked.</strong> Enable in browser settings.
             </AlertDescription>
           </Alert>
         )}
 
         <div className="grid grid-cols-4 gap-2.5 mb-6">
           {[
-            { label: 'Pedidos', value: dashboardStats.totalOrders, icon: Package },
-            { label: 'Em Andamento', value: dashboardStats.inProgress, icon: Activity },
-            { label: 'Concluídos', value: dashboardStats.completed, icon: CheckCircle },
-            { label: 'Mensagens', value: dashboardStats.messages, icon: MessageSquare }
+            { label: 'Orders', value: dashboardStats.totalOrders, icon: Package },
+            { label: 'In Progress', value: dashboardStats.inProgress, icon: Activity },
+            { label: 'Completed', value: dashboardStats.completed, icon: CheckCircle },
+            { label: 'Messages', value: dashboardStats.messages, icon: MessageSquare }
           ].map((stat, index) => {
             const IconComponent = stat.icon;
             
@@ -467,7 +467,7 @@ const CustomerDashboard = () => {
         </div>
 
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-slate-800 text-lg font-medium">Meus Pedidos</h2>
+          <h2 className="text-slate-800 text-lg font-medium">My Orders</h2>
           <Button 
             variant="ghost" 
             size="sm"
@@ -485,7 +485,7 @@ const CustomerDashboard = () => {
               <div className="flex items-center">
                 <AlertCircle className="h-4 w-4 text-red-500 mr-2 flex-shrink-0" />
                 <div>
-                  <p className="text-red-800 text-sm font-medium">Erro ao carregar dados</p>
+                  <p className="text-red-800 text-sm font-medium">Error loading data</p>
                   <p className="text-red-600 text-xs mt-1">{error}</p>
                   <Button 
                     onClick={refreshData} 
@@ -493,7 +493,7 @@ const CustomerDashboard = () => {
                     size="sm"
                   >
                     <RefreshCw className="h-3 w-3 mr-1" />
-                    Tentar Novamente
+                    Try Again
                   </Button>
                 </div>
               </div>
@@ -506,13 +506,13 @@ const CustomerDashboard = () => {
             <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <Package className="h-8 w-8 text-slate-400" />
             </div>
-            <h3 className="font-medium text-slate-800 mb-2">Nenhum pedido encontrado</h3>
+            <h3 className="font-medium text-slate-800 mb-2">No orders found</h3>
             <p className="text-slate-500 text-sm mb-4">
-              Você ainda não tem pedidos ou eles estão sendo processados
+              You don't have any orders yet or they are being processed
             </p>
             <Button onClick={refreshData} variant="outline" size="sm">
               <RefreshCw className="h-4 w-4 mr-2" />
-              Atualizar
+              Refresh
             </Button>
           </div>
         ) : (
@@ -553,7 +553,7 @@ const CustomerDashboard = () => {
                           <div className="flex-1">
                             <div className="flex items-center space-x-2 mb-1">
                               <h3 className="font-medium text-slate-800 text-sm">
-                                Pedido #{orderNumber}
+                                Order #{orderNumber}
                               </h3>
                               {currentProgress >= 100 && (
                                 <div className="w-3 h-3 bg-emerald-500 rounded-full flex items-center justify-center">
@@ -571,14 +571,14 @@ const CustomerDashboard = () => {
                             
                             {(order.quantity > 1) && (
                               <p className="text-slate-400 text-xs">
-                                {order.quantity} itens
+                                {order.quantity} items
                               </p>
                             )}
                           </div>
                           
                           <div className="text-right flex-shrink-0">
                             <span className="text-slate-400 text-xs">
-                              {isValidDate(order.createdAt || order.orderDate) ? formatDate(order.createdAt || order.orderDate, 'short') : new Date(order.createdAt || order.orderDate || Date.now()).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                              {isValidDate(order.createdAt || order.orderDate) ? formatDate(order.createdAt || order.orderDate, 'short') : new Date(order.createdAt || order.orderDate || Date.now()).toLocaleDateString('en-US', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                             </span>
                             <ArrowRight className="h-3 w-3 text-slate-400 mt-1 ml-auto transition-colors" />
                           </div>
@@ -642,7 +642,7 @@ const CustomerDashboard = () => {
                             
                             {currentProgress < 100 && (
                               <span className="text-xs text-blue-500 font-medium">
-                                Em Andamento
+                                In Progress
                               </span>
                             )}
                           </div>
@@ -655,42 +655,7 @@ const CustomerDashboard = () => {
             })}
           </div>
         )}
-        
-        <div className="h-20"></div>
       </main>
-
-      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200/60 px-4 py-2">
-        <div className="flex justify-center items-center max-w-sm mx-auto">
-          <button 
-            className="flex flex-col items-center text-blue-600 p-3"
-            onClick={() => navigate('/customer/dashboard')}
-          >
-            <Package className="h-5 w-5" />
-            <span className="text-xs mt-1 font-medium">Pedidos</span>
-          </button>
-          
-          <button 
-            className="flex flex-col items-center text-slate-400 p-3 mx-6 relative"
-            onClick={() => navigate('/customer/chat-list', { state: { customerEmail, customerData } })}
-          >
-            <MessageSquare className="h-5 w-5" />
-            <span className="text-xs mt-1">Mensagens</span>
-            {dashboardStats.messages > 0 && (
-              <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center">
-                <span className="text-xs text-white font-medium">{dashboardStats.messages}</span>
-              </div>
-            )}
-          </button>
-          
-          <button 
-            className="flex flex-col items-center text-slate-400 p-3"
-            onClick={handleBack}
-          >
-            <ArrowLeft className="h-5 w-5" />
-            <span className="text-xs mt-1">Voltar</span>
-          </button>
-        </div>
-      </div>
     </div>
   );
 };

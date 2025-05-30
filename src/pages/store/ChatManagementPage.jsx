@@ -307,11 +307,11 @@ const ChatManagementPage = () => {
           </FadeInUp>
         )}
 
-        {/* Tabs Principal - Sem scale para evitar overflow */}
+        {/* Tabs Principal - FASE 1: Container com altura dinâmica */}
         <FadeInUp delay={200}>
-          <div className="bg-white/80 backdrop-blur-sm rounded-xl border border-white/50 shadow-xl p-4">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="w-full max-w-2xl mx-auto bg-gradient-to-r from-zinc-100/80 to-zinc-200/80 backdrop-blur-sm p-2 rounded-xl shadow-inner border border-white/50">
+          <div className="bg-white/80 backdrop-blur-sm rounded-xl border border-white/50 shadow-xl p-4 flex flex-col h-[calc(100vh-200px)]">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full h-full flex flex-col">
+              <TabsList className="w-full max-w-2xl mx-auto bg-gradient-to-r from-zinc-100/80 to-zinc-200/80 backdrop-blur-sm p-2 rounded-xl shadow-inner border border-white/50 flex-shrink-0">
                 <TabsTrigger 
                   value="overview" 
                   className="flex-1 data-[state=active]:bg-white data-[state=active]:shadow-sm transition-all duration-300 rounded-lg font-semibold h-10 px-4"
@@ -341,7 +341,7 @@ const ChatManagementPage = () => {
               </TabsList>
               
               {/* Tab: Visão Geral - com dados reais (sem urgentes) */}
-              <TabsContent value="overview" className="mt-6 space-y-6">
+              <TabsContent value="overview" className="mt-6 space-y-6 flex-1 overflow-y-auto">
                 {/* Performance Cards - usando dados reais */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                   {performanceCards.map((stat, i) => (
@@ -448,12 +448,12 @@ const ChatManagementPage = () => {
                 </FadeInUp>
               </TabsContent>
               
-              {/* Tab: Conversas - Layout com altura fixa e scroll */}
-              <TabsContent value="chats" className="mt-6">
-                <div className="h-[600px]">
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
-                    {/* Lista de Conversas - altura fixa com scroll */}
-                    <div className="h-full">
+              {/* Tab: Conversas - FASE 1: Layout com altura dinâmica */}
+              <TabsContent value="chats" className="mt-6 h-full flex flex-col overflow-hidden">
+                <div className="flex flex-col h-[calc(100vh-300px)] min-h-[500px]">
+                  <div className="flex flex-1 gap-6 overflow-hidden">
+                    {/* Lista de Conversas - altura dinâmica com scroll */}
+                    <div className="w-full lg:w-1/2 h-full">
                       <FadeInUp delay={0} className="h-full">
                         <div className="h-full overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-lg">
                           <ChatList 
@@ -468,8 +468,8 @@ const ChatManagementPage = () => {
                       </FadeInUp>
                     </div>
                     
-                    {/* Janela de Chat - altura fixa com scroll */}
-                    <div className="h-full">
+                    {/* Janela de Chat - altura dinâmica com scroll */}
+                    <div className="w-full lg:w-1/2 h-full">
                       <FadeInUp delay={200} className="h-full">
                         <div className="h-full overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-lg">
                           <ChatWindow 
@@ -485,7 +485,7 @@ const ChatManagementPage = () => {
               </TabsContent>
               
               {/* Tab: Configurações - Sem configurações de urgente */}
-              <TabsContent value="settings" className="mt-6">
+              <TabsContent value="settings" className="mt-6 flex-1 overflow-y-auto">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {/* Configurações de Notificação */}
                   <FadeInUp delay={0}>

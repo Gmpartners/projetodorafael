@@ -17,10 +17,6 @@ import {
 import { 
   MessageSquare, 
   Send, 
-  Phone,
-  Video,
-  MoreVertical,
-  Search,
   Star,
   CheckCircle,
   Clock,
@@ -31,8 +27,6 @@ import {
   Smile,
   UserPlus,
   ArrowDown,
-  Volume2,
-  VolumeX,
   ImageIcon,
   FileIcon,
   Plus
@@ -57,7 +51,6 @@ const ChatWindow = ({ activeChat, onStartNewChat, onSelectResponse }) => {
   const [newMessage, setNewMessage] = useState('');
   const [showEmojiPanel, setShowEmojiPanel] = useState(false);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
-  const [soundEnabled, setSoundEnabled] = useState(true);
   const [isOnline, setIsOnline] = useState(true);
   const [isSending, setIsSending] = useState(false);
   
@@ -186,8 +179,8 @@ const ChatWindow = ({ activeChat, onStartNewChat, onSelectResponse }) => {
 
   if (!activeChat) {
     return (
-      <div className="h-full flex flex-col bg-white rounded-xl shadow-lg overflow-hidden">
-        <div className="p-4 border-b border-zinc-100 bg-gradient-to-r from-white via-purple-50/30 to-indigo-50/30">
+      <div className="h-full flex flex-col bg-white rounded-xl shadow-lg overflow-hidden max-h-full">
+        <div className="p-4 border-b border-zinc-100 bg-gradient-to-r from-white via-purple-50/30 to-indigo-50/30 flex-shrink-0">
           <div className="flex items-center space-x-3">
             <div className="p-2 rounded-lg bg-gradient-to-br from-blue-100 to-blue-200 shadow-md">
               <MessageSquare className="h-5 w-5 text-blue-700" />
@@ -215,166 +208,144 @@ const ChatWindow = ({ activeChat, onStartNewChat, onSelectResponse }) => {
   }
 
   return (
-    <div className="h-full flex flex-col bg-white rounded-xl shadow-lg overflow-hidden">
-      {/* Header fixo */}
-      <div className="p-3 border-b border-zinc-100 bg-gradient-to-r from-white via-purple-50/30 to-indigo-50/30 flex-shrink-0 relative">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="relative">
-              <Avatar className="h-10 w-10 border-2 border-white shadow-md">
-                <AvatarImage src={activeChat.avatar} />
-                <AvatarFallback className="bg-gradient-to-br from-purple-100 to-purple-200 text-purple-700 font-bold text-sm">
-                  {activeChat.initials}
-                </AvatarFallback>
-              </Avatar>
-              <div className={cn(
-                "absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white",
-                isOnline ? "bg-emerald-500" : "bg-zinc-400"
-              )} />
-            </div>
-            
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center space-x-2">
-                <h3 className="font-bold text-zinc-900 truncate">{activeChat.name}</h3>
-                {activeChat.isVerified && (
-                  <CheckCircle className="h-3 w-3 text-blue-500 flex-shrink-0" />
-                )}
-                {isOnline && (
-                  <span className="flex items-center text-xs text-emerald-600">
-                    <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full mr-1 animate-pulse"></span>
-                    Online agora
-                  </span>
-                )}
-              </div>
-              
-              <div className="flex items-center space-x-2 mt-0.5">
-                <Badge variant="outline" className="text-xs px-1.5 py-0.5 border-purple-200 text-purple-700 bg-purple-50">
-                  {activeChat.orderId}
-                </Badge>
-                {getOrderStatusBadge(activeChat.orderStatus)}
-              </div>
-            </div>
+    <div className="h-full flex flex-col bg-white rounded-xl shadow-lg overflow-hidden max-h-full">
+      {/* Header simplificado - ícones ilustrativos removidos */}
+      <div className="p-3 border-b border-zinc-100 bg-gradient-to-r from-white via-purple-50/30 to-indigo-50/30 flex-shrink-0">
+        <div className="flex items-center space-x-3">
+          <div className="relative">
+            <Avatar className="h-10 w-10 border-2 border-white shadow-md">
+              <AvatarImage src={activeChat.avatar} />
+              <AvatarFallback className="bg-gradient-to-br from-purple-100 to-purple-200 text-purple-700 font-bold text-sm">
+                {activeChat.initials}
+              </AvatarFallback>
+            </Avatar>
+            <div className={cn(
+              "absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white",
+              isOnline ? "bg-emerald-500" : "bg-zinc-400"
+            )} />
           </div>
           
-          <div className="flex items-center space-x-1">
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="h-8 w-8 text-zinc-500 hover:text-zinc-700"
-              onClick={() => setSoundEnabled(!soundEnabled)}
-            >
-              {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
-            </Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-500 hover:text-zinc-700">
-              <Search className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-500 hover:text-zinc-700">
-              <Phone className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-500 hover:text-zinc-700">
-              <Video className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-500 hover:text-zinc-700">
-              <MoreVertical className="h-4 w-4" />
-            </Button>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center space-x-2">
+              <h3 className="font-bold text-zinc-900 truncate">{activeChat.name}</h3>
+              {activeChat.isVerified && (
+                <CheckCircle className="h-3 w-3 text-blue-500 flex-shrink-0" />
+              )}
+              {isOnline && (
+                <span className="flex items-center text-xs text-emerald-600">
+                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full mr-1 animate-pulse"></span>
+                  Online agora
+                </span>
+              )}
+            </div>
+            
+            <div className="flex items-center space-x-2 mt-0.5">
+              <Badge variant="outline" className="text-xs px-1.5 py-0.5 border-purple-200 text-purple-700 bg-purple-50">
+                {activeChat.orderId}
+              </Badge>
+              {getOrderStatusBadge(activeChat.orderStatus)}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Área de mensagens com scroll fixo */}
-      <div className="flex-1 overflow-hidden bg-gradient-to-br from-zinc-50/30 to-white relative" style={{ height: '400px' }}>
+      {/* Área de mensagens com scroll dinâmico */}
+      <div className="flex-1 overflow-hidden bg-gradient-to-br from-zinc-50/30 to-white relative min-h-0">
         <ScrollArea 
           ref={scrollAreaRef}
-          className="h-full"
+          className="h-full w-full chat-scrollbar"
+          viewportProps={{ className: "h-full" }}
           onScroll={handleScroll}
         >
-          <div className="p-3 space-y-3">
-            {/* Info do chat */}
-            <div className="bg-gradient-to-r from-purple-50/70 to-indigo-50/70 border border-purple-100 rounded-lg p-3 transition-all hover:shadow-md">
-              <div className="flex items-center space-x-3">
-                <Avatar className="h-8 w-8 border-2 border-white shadow-sm">
-                  <AvatarImage src={activeChat.avatar} />
-                  <AvatarFallback className="bg-gradient-to-br from-purple-100 to-purple-200 text-purple-700 font-semibold text-xs">
-                    {activeChat.initials}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center space-x-2">
-                    <h4 className="font-semibold text-zinc-900 text-sm truncate">{activeChat.name}</h4>
-                    {activeChat.hasRating && (
-                      <div className="flex items-center space-x-1">
-                        <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" />
-                        <span className="text-xs text-zinc-600">{activeChat.rating}</span>
-                      </div>
-                    )}
+          <div className="h-full overflow-y-auto overflow-x-hidden">
+            <div className="p-3 space-y-3 min-h-full">
+              {/* Info do chat */}
+              <div className="bg-gradient-to-r from-purple-50/70 to-indigo-50/70 border border-purple-100 rounded-lg p-3 transition-all hover:shadow-md">
+                <div className="flex items-center space-x-3">
+                  <Avatar className="h-8 w-8 border-2 border-white shadow-sm">
+                    <AvatarImage src={activeChat.avatar} />
+                    <AvatarFallback className="bg-gradient-to-br from-purple-100 to-purple-200 text-purple-700 font-semibold text-xs">
+                      {activeChat.initials}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center space-x-2">
+                      <h4 className="font-semibold text-zinc-900 text-sm truncate">{activeChat.name}</h4>
+                      {activeChat.hasRating && (
+                        <div className="flex items-center space-x-1">
+                          <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" />
+                          <span className="text-xs text-zinc-600">{activeChat.rating}</span>
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-xs text-zinc-600 truncate">Conversa sobre {activeChat.orderId}</p>
                   </div>
-                  <p className="text-xs text-zinc-600 truncate">Conversa sobre {activeChat.orderId}</p>
-                </div>
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  className="h-7 text-xs text-purple-600 hover:bg-purple-100"
-                  onClick={handleMarkAsRead}
-                >
-                  Marcar como lida
-                </Button>
-              </div>
-            </div>
-            
-            {/* Lista de mensagens */}
-            <div className="space-y-3">
-              {isLoading && messages.length === 0 ? (
-                <div className="text-center text-zinc-500 py-8">
-                  <Clock className="h-8 w-8 mx-auto mb-2 animate-spin" />
-                  <p>Carregando mensagens...</p>
-                </div>
-              ) : messages.length === 0 ? (
-                <div className="text-center text-zinc-500 py-8">
-                  <MessageSquare className="h-8 w-8 mx-auto mb-2" />
-                  <p>Nenhuma mensagem ainda</p>
-                  <p className="text-sm">Seja o primeiro a enviar uma mensagem!</p>
-                </div>
-              ) : (
-                messages.map((message) => (
-                  <div
-                    key={message.id}
-                    className={cn(
-                      "flex",
-                      message.sender === 'store' || message.senderType === 'store' ? 'justify-end' : 'justify-start'
-                    )}
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    className="h-7 text-xs text-purple-600 hover:bg-purple-100"
+                    onClick={handleMarkAsRead}
                   >
-                    <div className={cn(
-                      "max-w-[75%] rounded-xl p-3 shadow-sm transition-all hover:shadow-md",
-                      message.sender === 'store' || message.senderType === 'store'
-                        ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-br-md'
-                        : message.senderType === 'system'
-                        ? 'bg-zinc-100 text-zinc-700 rounded-lg text-center text-sm'
-                        : 'bg-white border border-zinc-200 text-zinc-900 rounded-bl-md'
-                    )}>
-                      <p className="text-sm whitespace-pre-wrap leading-relaxed">
-                        {message.content || message.text}
-                      </p>
+                    Marcar como lida
+                  </Button>
+                </div>
+              </div>
+              
+              {/* Lista de mensagens */}
+              <div className="space-y-3">
+                {isLoading && messages.length === 0 ? (
+                  <div className="text-center text-zinc-500 py-8">
+                    <Clock className="h-8 w-8 mx-auto mb-2 animate-spin" />
+                    <p>Carregando mensagens...</p>
+                  </div>
+                ) : messages.length === 0 ? (
+                  <div className="text-center text-zinc-500 py-8">
+                    <MessageSquare className="h-8 w-8 mx-auto mb-2" />
+                    <p>Nenhuma mensagem ainda</p>
+                    <p className="text-sm">Seja o primeiro a enviar uma mensagem!</p>
+                  </div>
+                ) : (
+                  messages.map((message) => (
+                    <div
+                      key={message.id}
+                      className={cn(
+                        "flex",
+                        message.sender === 'store' || message.senderType === 'store' ? 'justify-end' : 'justify-start'
+                      )}
+                    >
                       <div className={cn(
-                        "flex items-center justify-between mt-2 text-xs",
-                        message.sender === 'store' || message.senderType === 'store' 
-                          ? 'text-purple-100' 
-                          : 'text-zinc-500'
+                        "max-w-[75%] rounded-xl p-3 shadow-sm transition-all hover:shadow-md",
+                        message.sender === 'store' || message.senderType === 'store'
+                          ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-br-md'
+                          : message.senderType === 'system'
+                          ? 'bg-zinc-100 text-zinc-700 rounded-lg text-center text-sm'
+                          : 'bg-white border border-zinc-200 text-zinc-900 rounded-bl-md'
                       )}>
-                        <span>{formatMessageTime(message.time || message.timestamp)}</span>
-                        {(message.sender === 'store' || message.senderType === 'store') && message.status && MESSAGE_STATUS[message.status] && (
-                          <div className="flex items-center space-x-1">
-                            {React.createElement(MESSAGE_STATUS[message.status], {
-                              className: cn("h-3 w-3", message.status === 'sending' && "animate-spin")
-                            })}
-                          </div>
-                        )}
+                        <p className="text-sm whitespace-pre-wrap leading-relaxed">
+                          {message.content || message.text}
+                        </p>
+                        <div className={cn(
+                          "flex items-center justify-between mt-2 text-xs",
+                          message.sender === 'store' || message.senderType === 'store' 
+                            ? 'text-purple-100' 
+                            : 'text-zinc-500'
+                        )}>
+                          <span>{formatMessageTime(message.time || message.timestamp)}</span>
+                          {(message.sender === 'store' || message.senderType === 'store') && message.status && MESSAGE_STATUS[message.status] && (
+                            <div className="flex items-center space-x-1">
+                              {React.createElement(MESSAGE_STATUS[message.status], {
+                                className: cn("h-3 w-3", message.status === 'sending' && "animate-spin")
+                              })}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))
-              )}
-              
-              <div ref={messagesEndRef} />
+                  ))
+                )}
+                
+                <div ref={messagesEndRef} />
+              </div>
             </div>
           </div>
         </ScrollArea>

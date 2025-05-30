@@ -257,7 +257,7 @@ const ChatListPage = () => {
       </header>
 
       {/* Content */}
-      <main className="px-4 py-5 -mt-3 relative z-10">
+      <main className="px-4 py-5 -mt-3 relative z-10 pb-24">
         
         {/* Info card */}
         <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200 mb-6">
@@ -401,37 +401,7 @@ const ChatListPage = () => {
             })}
           </div>
         )}
-        
-        <div className="h-20"></div>
       </main>
-
-      {/* Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200/60 px-4 py-2">
-        <div className="flex justify-center items-center max-w-sm mx-auto">
-          <button 
-            className="flex flex-col items-center text-slate-400 p-3"
-            onClick={() => navigate('/customer/dashboard')}
-          >
-            <Package className="h-5 w-5" />
-            <span className="text-xs mt-1">Orders</span>
-          </button>
-          
-          <button 
-            className="flex flex-col items-center text-blue-600 p-3 mx-6 bg-blue-50 rounded-lg border border-blue-200"
-          >
-            <MessageSquare className="h-5 w-5" />
-            <span className="text-xs mt-1 font-medium">Messages</span>
-          </button>
-          
-          <button 
-            className="flex flex-col items-center text-slate-400 p-3"
-            onClick={() => navigate('/customer/dashboard')}
-          >
-            <ArrowLeft className="h-5 w-5" />
-            <span className="text-xs mt-1">Back</span>
-          </button>
-        </div>
-      </div>
     </div>
   );
 };

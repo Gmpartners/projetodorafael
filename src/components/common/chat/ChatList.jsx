@@ -331,7 +331,7 @@ const ChatList = ({
 
   if (!chats && isLoading) {
     return (
-      <div className="h-full flex flex-col bg-white rounded-xl shadow-lg overflow-hidden">
+      <div className="h-full flex flex-col bg-white rounded-xl shadow-lg overflow-hidden max-h-full">
         <div className="p-3 border-b border-zinc-100">
           <LoadingSkeleton rows={1} showAvatar={false} />
         </div>
@@ -343,7 +343,7 @@ const ChatList = ({
   }
   
   return (
-    <div className="h-full flex flex-col bg-white rounded-xl shadow-lg overflow-hidden">
+    <div className="h-full flex flex-col bg-white rounded-xl shadow-lg overflow-hidden max-h-full">
       <div className="p-3 border-b border-zinc-100 bg-gradient-to-r from-white via-purple-50/30 to-indigo-50/30 flex-shrink-0">
         <div className="flex justify-between items-center mb-2">
           <div className="flex items-center space-x-2">
@@ -445,99 +445,115 @@ const ChatList = ({
           </TabsList>
         </div>
         
-        <div className="flex-1 overflow-hidden bg-white">
+        {/* FASE 3: Área de conversas com scroll otimizado */}
+        <div className="flex-1 overflow-hidden bg-white min-h-0">
           <TabsContent value="all" className="flex-1 m-0 h-full data-[state=active]:flex data-[state=active]:flex-col overflow-hidden">
-            <div className="flex-1 overflow-hidden bg-white">
-              <ScrollArea className="h-full">
-                {isLoading && chats.length === 0 ? (
-                  <div className="p-2 bg-white">
-                    <LoadingSkeleton rows={4} showAvatar />
-                  </div>
-                ) : filteredChats.length > 0 ? (
-                  <div className="divide-y divide-zinc-100 bg-white">
-                    {filteredChats.map((chat, index) => (
-                      <ChatListItem
-                        key={chat.id}
-                        chat={chat}
-                        activeChat={activeChat}
-                        onClick={handleSelectChat}
+            <div className="flex-1 overflow-hidden bg-white min-h-0">
+              <ScrollArea 
+                className="h-full w-full chat-list-area" 
+                viewportProps={{ className: "h-full" }}
+              >
+                <div className="h-full overflow-y-auto overflow-x-hidden">
+                  {isLoading && chats.length === 0 ? (
+                    <div className="p-2 bg-white">
+                      <LoadingSkeleton rows={4} showAvatar />
+                    </div>
+                  ) : filteredChats.length > 0 ? (
+                    <div className="divide-y divide-zinc-100 bg-white">
+                      {filteredChats.map((chat, index) => (
+                        <ChatListItem
+                          key={chat.id}
+                          chat={chat}
+                          activeChat={activeChat}
+                          onClick={handleSelectChat}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-3 bg-white">
+                      <EmptyState
+                        icon={MessageSquare}
+                        title="Nenhuma conversa"
+                        description={searchTerm ? 'Tente outro termo.' : 'Inicie uma nova.'}
+                        variant="primary"
                       />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="p-3 bg-white">
-                    <EmptyState
-                      icon={MessageSquare}
-                      title="Nenhuma conversa"
-                      description={searchTerm ? 'Tente outro termo.' : 'Inicie uma nova.'}
-                      variant="primary"
-                    />
-                  </div>
-                )}
+                    </div>
+                  )}
+                </div>
               </ScrollArea>
             </div>
           </TabsContent>
           
           <TabsContent value="unread" className="flex-1 m-0 h-full data-[state=active]:flex data-[state=active]:flex-col overflow-hidden">
-            <div className="flex-1 overflow-hidden bg-white">
-              <ScrollArea className="h-full">
-                {isLoading ? (
-                  <div className="p-2 bg-white">
-                    <LoadingSkeleton rows={3} showAvatar />
-                  </div>
-                ) : filteredChats.length > 0 ? (
-                  <div className="divide-y divide-zinc-100 bg-white">
-                    {filteredChats.map((chat, index) => (
-                      <ChatListItem
-                        key={chat.id}
-                        chat={chat}
-                        activeChat={activeChat}
-                        onClick={handleSelectChat}
+            <div className="flex-1 overflow-hidden bg-white min-h-0">
+              <ScrollArea 
+                className="h-full w-full chat-list-area" 
+                viewportProps={{ className: "h-full" }}
+              >
+                <div className="h-full overflow-y-auto overflow-x-hidden">
+                  {isLoading ? (
+                    <div className="p-2 bg-white">
+                      <LoadingSkeleton rows={3} showAvatar />
+                    </div>
+                  ) : filteredChats.length > 0 ? (
+                    <div className="divide-y divide-zinc-100 bg-white">
+                      {filteredChats.map((chat, index) => (
+                        <ChatListItem
+                          key={chat.id}
+                          chat={chat}
+                          activeChat={activeChat}
+                          onClick={handleSelectChat}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-3 bg-white">
+                      <EmptyState
+                        icon={CheckCircle}
+                        title="Tudo em dia!"
+                        description="Não há mensagens não lidas."
+                        variant="success"
                       />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="p-3 bg-white">
-                    <EmptyState
-                      icon={CheckCircle}
-                      title="Tudo em dia!"
-                      description="Não há mensagens não lidas."
-                      variant="success"
-                    />
-                  </div>
-                )}
+                    </div>
+                  )}
+                </div>
               </ScrollArea>
             </div>
           </TabsContent>
           
           <TabsContent value="online" className="flex-1 m-0 h-full data-[state=active]:flex data-[state=active]:flex-col overflow-hidden">
-            <div className="flex-1 overflow-hidden bg-white">
-              <ScrollArea className="h-full">
-                {isLoading ? (
-                  <div className="p-2 bg-white">
-                    <LoadingSkeleton rows={2} showAvatar />
-                  </div>
-                ) : filteredChats.length > 0 ? (
-                  <div className="divide-y divide-zinc-100 bg-white">
-                    {filteredChats.map((chat, index) => (
-                      <ChatListItem
-                        key={chat.id}
-                        chat={chat}
-                        activeChat={activeChat}
-                        onClick={handleSelectChat}
+            <div className="flex-1 overflow-hidden bg-white min-h-0">
+              <ScrollArea 
+                className="h-full w-full chat-list-area" 
+                viewportProps={{ className: "h-full" }}
+              >
+                <div className="h-full overflow-y-auto overflow-x-hidden">
+                  {isLoading ? (
+                    <div className="p-2 bg-white">
+                      <LoadingSkeleton rows={2} showAvatar />
+                    </div>
+                  ) : filteredChats.length > 0 ? (
+                    <div className="divide-y divide-zinc-100 bg-white">
+                      {filteredChats.map((chat, index) => (
+                        <ChatListItem
+                          key={chat.id}
+                          chat={chat}
+                          activeChat={activeChat}
+                          onClick={handleSelectChat}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-3 bg-white">
+                      <EmptyState
+                        icon={Users}
+                        title="Nenhum usuário online"
+                        description="Usuários estão offline."
+                        variant="default"
                       />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="p-3 bg-white">
-                    <EmptyState
-                      icon={Users}
-                      title="Nenhum usuário online"
-                      description="Usuários estão offline."
-                      variant="default"
-                    />
-                  </div>
-                )}
+                    </div>
+                  )}
+                </div>
               </ScrollArea>
             </div>
           </TabsContent>
