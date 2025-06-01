@@ -348,9 +348,12 @@ const Sidebar = ({ userType = 'store' }) => {
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div className="w-8 h-8 border-2 border-purple-100 shadow-sm rounded-full bg-purple-100 flex items-center justify-center">
-                    <UserIcon className="w-4 h-4 text-purple-600" />
-                  </div>
+                  <Avatar className="w-8 h-8 border-2 border-purple-100 shadow-sm">
+                    <AvatarImage src="https://i.pinimg.com/736x/09/7e/ef/097eefc0841bed88ddba155bad43d2e6.jpg" alt="User avatar" />
+                    <AvatarFallback className="bg-purple-100 text-purple-700 text-xs">
+                      {userProfile?.name ? userProfile.name.split(' ').map(n => n[0]).join('').substring(0, 2) : (userType === 'store' ? "LS" : "CL")}
+                    </AvatarFallback>
+                  </Avatar>
                 </TooltipTrigger>
                 <TooltipContent side="right" className="ml-2">
                   <div className="text-left">
@@ -371,9 +374,12 @@ const Sidebar = ({ userType = 'store' }) => {
             </TooltipProvider>
           ) : (
             <>
-              <div className="w-10 h-10 border-2 border-purple-100 shadow-sm rounded-full bg-purple-100 flex items-center justify-center">
-                <UserIcon className="w-5 h-5 text-purple-600" />
-              </div>
+              <Avatar className="w-10 h-10 border-2 border-purple-100 shadow-sm">
+                <AvatarImage src="https://i.pinimg.com/736x/09/7e/ef/097eefc0841bed88ddba155bad43d2e6.jpg" alt="User avatar" />
+                <AvatarFallback className="bg-purple-100 text-purple-700">
+                  {userProfile?.name ? userProfile.name.split(' ').map(n => n[0]).join('').substring(0, 2) : (userType === 'store' ? "LS" : "CL")}
+                </AvatarFallback>
+              </Avatar>
               
               <div className="flex flex-col min-w-0 flex-1">
                 <p className="text-sm font-medium text-zinc-900 truncate">
