@@ -138,13 +138,13 @@ const ProductsManagementPage = () => {
         newErrors[`step_name_${index}`] = 'Nome da etapa é obrigatório';
       }
       
-      const timeValue = Number(step.timeValue);
-      if (!timeValue || timeValue <= 0) {
-        newErrors[`step_time_${index}`] = 'Tempo deve ser maior que 0';
+      const timeValue = parseInt(step.timeValue);
+      if (isNaN(timeValue) || timeValue <= 0) {
+        newErrors[`step_time_${index}`] = 'Tempo deve ser um número maior que 0';
       }
       
-      if (!step.timeUnit) {
-        newErrors[`step_unit_${index}`] = 'Selecione a unidade de tempo';
+      if (!step.timeUnit || !['minutes', 'hours', 'days'].includes(step.timeUnit)) {
+        newErrors[`step_unit_${index}`] = 'Selecione uma unidade de tempo válida';
       }
     });
     
@@ -259,7 +259,7 @@ const ProductsManagementPage = () => {
       
       const processedSteps = newProduct.customSteps.map(step => ({
         name: step.name.trim(),
-        scheduledFor: `${Number(step.timeValue)} ${step.timeUnit}`,
+        scheduledFor: `${step.timeValue} ${step.timeUnit}`,
         description: step.description.trim()
       }));
       
@@ -314,14 +314,14 @@ const ProductsManagementPage = () => {
       let timeUnit = 'hours';
       
       if (step.timeValue && step.timeUnit) {
-        timeValue = Number(step.timeValue) || 1;
+        timeValue = parseInt(step.timeValue) || 1;
         timeUnit = step.timeUnit || 'hours';
       } 
       else if (step.scheduledFor && typeof step.scheduledFor === 'string') {
         const parts = step.scheduledFor.trim().split(' ');
         
         if (parts.length >= 2) {
-          const parsedValue = Number(parts[0]);
+          const parsedValue = parseInt(parts[0]);
           if (!isNaN(parsedValue) && parsedValue > 0) {
             timeValue = parsedValue;
             timeUnit = parts[1];
@@ -371,12 +371,19 @@ const ProductsManagementPage = () => {
   };
 
   const updateCustomStep = (index, field, value) => {
-    setNewProduct(prev => ({
-      ...prev,
-      customSteps: prev.customSteps.map((step, i) => 
-        i === index ? { ...step, [field]: value } : step
-      )
-    }));
+    setNewProduct(prev => {
+      const newSteps = prev.customSteps.map((step, i) => {
+        if (i === index) {
+          return { ...step, [field]: value };
+        }
+        return step;
+      });
+      
+      return {
+        ...prev,
+        customSteps: newSteps
+      };
+    });
     
     setErrors(prev => {
       const newErrors = { ...prev };
@@ -952,7 +959,16 @@ const ProductsManagementPage = () => {
                                         min="1"
                                         placeholder="1"
                                         value={step.timeValue || ''}
-                                        onChange={(e) => updateCustomStep(index, 'timeValue', parseInt(e.target.value) || 1)}
+                                        onChange={(e) => {
+                                          const inputValue = e.target.value;
+                                          const numericValue = inputValue === '' ? '' : parseInt(inputValue) || 1;
+                                          updateCustomStep(index, 'timeValue', numericValue);
+                                        }}
+                                        onBlur={(e) => {
+                                          if (!e.target.value || parseInt(e.target.value) <= 0) {
+                                            updateCustomStep(index, 'timeValue', 1);
+                                          }
+                                        }}
                                         className={`w-20 ${errors[`step_time_${index}`] ? 'border-red-300 bg-red-50' : ''}`}
                                       />
                                       <Select
@@ -1492,8 +1508,17 @@ const ProductsManagementPage = () => {
                                         type="number"
                                         min="1"
                                         placeholder="1"
-                                        value={step.timeValue}
-                                        onChange={(e) => updateCustomStep(index, 'timeValue', parseInt(e.target.value) || 1)}
+                                        value={step.timeValue || ''}
+                                        onChange={(e) => {
+                                          const inputValue = e.target.value;
+                                          const numericValue = inputValue === '' ? '' : parseInt(inputValue) || 1;
+                                          updateCustomStep(index, 'timeValue', numericValue);
+                                        }}
+                                        onBlur={(e) => {
+                                          if (!e.target.value || parseInt(e.target.value) <= 0) {
+                                            updateCustomStep(index, 'timeValue', 1);
+                                          }
+                                        }}
                                         className={`w-20 ${errors[`step_time_${index}`] ? 'border-red-300 bg-red-50' : ''}`}
                                       />
                                       <Select

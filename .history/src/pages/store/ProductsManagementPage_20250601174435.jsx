@@ -137,12 +137,9 @@ const ProductsManagementPage = () => {
       if (!step.name.trim()) {
         newErrors[`step_name_${index}`] = 'Nome da etapa é obrigatório';
       }
-      
-      const timeValue = Number(step.timeValue);
-      if (!timeValue || timeValue <= 0) {
+      if (!step.timeValue || step.timeValue <= 0) {
         newErrors[`step_time_${index}`] = 'Tempo deve ser maior que 0';
       }
-      
       if (!step.timeUnit) {
         newErrors[`step_unit_${index}`] = 'Selecione a unidade de tempo';
       }
@@ -259,7 +256,7 @@ const ProductsManagementPage = () => {
       
       const processedSteps = newProduct.customSteps.map(step => ({
         name: step.name.trim(),
-        scheduledFor: `${Number(step.timeValue)} ${step.timeUnit}`,
+        scheduledFor: `${step.timeValue} ${step.timeUnit}`,
         description: step.description.trim()
       }));
       
@@ -309,30 +306,14 @@ const ProductsManagementPage = () => {
   const handleEditProduct = (product) => {
     setEditingProduct(product);
     
-    const formattedSteps = (product.customSteps || []).map((step) => {
-      let timeValue = 1;
-      let timeUnit = 'hours';
-      
-      if (step.timeValue && step.timeUnit) {
-        timeValue = Number(step.timeValue) || 1;
-        timeUnit = step.timeUnit || 'hours';
-      } 
-      else if (step.scheduledFor && typeof step.scheduledFor === 'string') {
-        const parts = step.scheduledFor.trim().split(' ');
-        
-        if (parts.length >= 2) {
-          const parsedValue = Number(parts[0]);
-          if (!isNaN(parsedValue) && parsedValue > 0) {
-            timeValue = parsedValue;
-            timeUnit = parts[1];
-          }
-        }
-      }
+    const formattedSteps = (product.customSteps || []).map(step => {
+      const scheduledFor = step.scheduledFor || '';
+      const [timeValue, timeUnit] = scheduledFor.split(' ');
       
       return {
         name: step.name || '',
-        timeValue: timeValue,
-        timeUnit: timeUnit,
+        timeValue: parseInt(timeValue) || 1,
+        timeUnit: timeUnit || 'hours',
         description: step.description || ''
       };
     });
@@ -1492,7 +1473,7 @@ const ProductsManagementPage = () => {
                                         type="number"
                                         min="1"
                                         placeholder="1"
-                                        value={step.timeValue}
+                                        value={step.timeValue || ''}
                                         onChange={(e) => updateCustomStep(index, 'timeValue', parseInt(e.target.value) || 1)}
                                         className={`w-20 ${errors[`step_time_${index}`] ? 'border-red-300 bg-red-50' : ''}`}
                                       />
