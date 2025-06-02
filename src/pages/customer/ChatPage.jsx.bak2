@@ -54,8 +54,7 @@ const ChatPage = () => {
     customerEmail,
     orderId,
     chatDataId: chatData?.id,
-    messagesCount: messages.length,
-    storeId
+    messagesCount: messages.length
   });
 
   useEffect(() => {
@@ -146,7 +145,7 @@ const ChatPage = () => {
         if (!urlChatId) {
           navigate(`/customer/chat/${response.id}`, { 
             replace: true,
-            state: { customerEmail, orderId, customerData, storeId }
+            state: { customerEmail, orderId, customerData }
           });
         }
         
@@ -305,13 +304,7 @@ const ChatPage = () => {
     
     try {
       setSending(true);
-      console.log('📤 Sending message:', {
-        message: message,
-        chatId: chatId,
-        customerEmail: customerEmail,
-        storeId: storeId,
-        chatData: chatData
-      });
+      console.log('📤 Sending message:', message, 'to chatId:', chatId);
 
       const messageData = {
         text: message.trim(),
@@ -321,8 +314,6 @@ const ChatPage = () => {
         type: 'text',
         timestamp: new Date()
       };
-
-      console.log('📦 Message data:', messageData);
 
       const tempMessage = {
         id: `temp-${Date.now()}`,
@@ -340,34 +331,19 @@ const ChatPage = () => {
       // 🔧 CORREÇÃO: Tentar enviar mesmo sem chatId
       if (chatId && chatId !== 'general-chat') {
         try {
-          console.log('📤 Calling apiService.sendMessage with:', {
-            chatId: chatId,
-            messageData: messageData
-          });
+          console.log('📤 Sending via API to chatId:', chatId);
+          await apiService.sendMessage(chatId, messageData);
+          console.log('✅ Message sent successfully');
           
-          const sendResponse = await apiService.sendMessage(chatId, messageData);
-          console.log('✅ Message sent successfully, response:', sendResponse);
-          
-          // Reload messages after a short delay
           setTimeout(() => {
             loadMessages(true);
           }, 500);
         } catch (apiError) {
           console.error('❌ API send failed:', apiError);
-          console.error('❌ Error details:', {
-            status: apiError.response?.status,
-            statusText: apiError.response?.statusText,
-            data: apiError.response?.data,
-            message: apiError.message
-          });
           
-          // Show error message to user
           setMessages(prev => prev.map(msg => 
-            msg.id.startsWith('temp-') ? { ...msg, id: `error-${Date.now()}`, content: msg.content + ' (Failed to send)' } : msg
+            msg.id.startsWith('temp-') ? { ...msg, id: `local-${Date.now()}`, read: false } : msg
           ));
-          
-          // Show detailed error
-          alert(`Failed to send message: ${apiError.response?.data?.error || apiError.message}`);
         }
       } else {
         console.log('💬 Local message (no API chatId)');
@@ -396,7 +372,7 @@ const ChatPage = () => {
       setError('Error sending message');
       
       setMessages(prev => prev.filter(msg => !msg.id.startsWith('temp-')));
-      setMessage(message);
+      setMessage(messageData.text);
       
     } finally {
       setSending(false);
@@ -682,12 +658,14 @@ const ChatPage = () => {
             </Button>
           </div>
           
-          {/* Debug info */}
-          <div className="text-center mt-2">
-            <p className="text-xs text-slate-400">
-              Chat: {chatId || 'none'} | Messages: {messages.length} | StoreId: {storeId}
-            </p>
-          </div>
+          {/* Debug info - only in development */}
+          {process.env.NODE_ENV === 'development' && (
+            <div className="text-center mt-2">
+              <p className="text-xs text-slate-400">
+                Chat: {chatId || 'none'} | Messages: {messages.length}
+              </p>
+            </div>
+          )}
         </div>
       </main>
     </div>
