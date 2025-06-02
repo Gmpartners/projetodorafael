@@ -66,6 +66,7 @@ const OrderDetailsCustomer = () => {
   const [pulseStep, setPulseStep] = useState(0);
 
   const customerEmail = location.state?.customerEmail || localStorage.getItem('customerEmail');
+  const storeId = 'E47OkrK3IcNu1Ys8gD4CA29RrHk2';
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -365,7 +366,7 @@ const OrderDetailsCustomer = () => {
       console.log('💬 Opening chat for order:', {
         orderId: orderId,
         customerEmail: customerEmail,
-        storeId: orderDetails?.storeId || location.state?.storeId
+        storeId: storeId
       });
 
       navigate(`/customer/chat`, {
@@ -373,7 +374,7 @@ const OrderDetailsCustomer = () => {
           orderId: orderId,
           customerEmail: customerEmail,
           orderDetails: orderDetails
-          storeId: orderDetails?.storeId,        }
+        }
       });
       
     } catch (error) {
@@ -390,7 +391,7 @@ const OrderDetailsCustomer = () => {
   };
 
   const calculateCurrentProgress = (orderDetails, enhancedSteps) => {
-    if (!enhancedSteps || enhancedSteps.length === 0) return 0; // Default para teste
+    if (!enhancedSteps || enhancedSteps.length === 0) return 50; // Default para teste
     
     if (orderDetails.customSteps && orderDetails.customSteps.length > 0) {
       const completedSteps = orderDetails.customSteps.filter(step => step.completed).length;
@@ -404,7 +405,7 @@ const OrderDetailsCustomer = () => {
     }
     
     // Garantir que sempre retorne um valor maior que 0 para mostrar a cor
-    return orderDetails.progress || 0;
+    return Math.max(orderDetails.progress || 50, 10);
   };
 
   // Simplificada para sempre retornar azul

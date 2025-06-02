@@ -46,7 +46,7 @@ const ChatPage = () => {
   const customerEmail = location.state?.customerEmail || localStorage.getItem('customerEmail');
   const customerData = location.state?.customerData || JSON.parse(localStorage.getItem('customerData') || '{}');
   const orderId = location.state?.orderId || null;
-  const storeId = location.state?.storeId || location.state?.orderDetails?.storeId || chatData?.storeId || 'store-default';
+  const storeId = 'E47OkrK3IcNu1Ys8gD4CA29RrHk2';
 
   console.log('💬 ChatPage: Current state:', {
     urlChatId,
