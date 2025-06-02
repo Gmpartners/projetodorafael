@@ -6,8 +6,7 @@ import {
   query, 
   where, 
   onSnapshot, 
-  orderBy,
-  or
+  orderBy 
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
@@ -35,7 +34,6 @@ export const StoreChatProvider = ({ children }) => {
   const [error, setError] = useState(null);
 
   const storeId = userProfile?.uid;
-  const storeEmail = userProfile?.email;
   const isStore = userProfile?.role === 'store';
 
   useEffect(() => {
@@ -46,15 +44,9 @@ export const StoreChatProvider = ({ children }) => {
     setIsLoading(true);
     setError(null);
 
-    console.log('🔍 StoreChatContext: Buscando chats para:', {
-      storeId,
-      storeEmail,
-      userProfile
-    });
-
-    // 🔧 CORREÇÃO: Buscar chats por UID OU email da loja
     const chatsQuery = query(
       collection(db, 'chats'),
+      where('storeId', '==', storeId),
       where('status', '==', 'active'),
       orderBy('lastUpdated', 'desc')
     );
@@ -62,56 +54,26 @@ export const StoreChatProvider = ({ children }) => {
     const unsubscribe = onSnapshot(
       chatsQuery,
       (snapshot) => {
-        // 🔧 CORREÇÃO: Filtrar chats que pertencem a esta loja
-        const chatsList = snapshot.docs
-          .map(doc => {
-            const data = doc.data();
-            return {
-              id: doc.id,
-              ...data
-            };
-          })
-          .filter(chat => {
-            // Verifica se o chat pertence a esta loja por:
-            // 1. storeId == uid
-            // 2. storeEmail == email da loja
-            // 3. participants.storeId == uid
-            // 4. participants.storeEmail == email
-            return (
-              chat.storeId === storeId ||
-              chat.storeEmail === storeEmail ||
-              chat.participants?.storeId === storeId ||
-              chat.participants?.storeEmail === storeEmail ||
-              // 🔧 NOVO: Verificar também pelo email hardcoded temporariamente
-              (storeEmail === 'loja-teste-rafael@teste.com' && 
-               (chat.storeId === 'loja-teste-rafael' || 
-                chat.storeEmail === 'loja-teste-rafael@teste.com'))
-            );
-          })
-          .map(chat => {
-            return {
-              ...chat,
-              name: chat.participants?.customerName || chat.customerName || 'Cliente',
-              avatar: `https://i.pravatar.cc/150?u=${chat.customerId}`,
-              initials: (chat.participants?.customerName || chat.customerName || 'C')[0],
-              isCustomer: true,
-              isVerified: true,
-              online: true,
-              userUnreadCount: chat.unreadCount?.store || 0,
-              unreadCount: chat.unreadCount?.store || 0,
-              lastMessage: chat.lastMessage || { text: 'Conversa iniciada', timestamp: chat.createdAt },
-              hasAttention: (chat.unreadCount?.store || 0) > 0,
-              priority: (chat.unreadCount?.store || 0) > 2 ? 'high' : 'medium',
-              hasAttachment: false,
-              hasRating: false,
-              orderStatus: chat.orderDetails?.status || 'processing'
-            };
-          });
-
-        console.log('📊 Chats encontrados:', {
-          total: snapshot.docs.length,
-          filtered: chatsList.length,
-          chats: chatsList
+        const chatsList = snapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            ...data,
+            name: data.participants?.customerName || data.customerName || 'Cliente',
+            avatar: `https://i.pravatar.cc/150?u=${data.customerId}`,
+            initials: (data.participants?.customerName || data.customerName || 'C')[0],
+            isCustomer: true,
+            isVerified: true,
+            online: true,
+            userUnreadCount: data.unreadCount?.store || 0,
+            unreadCount: data.unreadCount?.store || 0,
+            lastMessage: data.lastMessage || { text: 'Conversa iniciada', timestamp: data.createdAt },
+            hasAttention: (data.unreadCount?.store || 0) > 0,
+            priority: (data.unreadCount?.store || 0) > 2 ? 'high' : 'medium',
+            hasAttachment: false,
+            hasRating: false,
+            orderStatus: data.orderDetails?.status || 'processing'
+          };
         });
 
         setChats(chatsList);
@@ -135,15 +97,13 @@ export const StoreChatProvider = ({ children }) => {
     );
 
     return unsubscribe;
-  }, [storeId, storeEmail, isStore]);
+  }, [storeId, isStore]);
 
   useEffect(() => {
     if (!activeChat?.id) {
       setMessages([]);
       return;
     }
-
-    console.log('📨 Carregando mensagens para chat:', activeChat.id);
 
     const messagesQuery = query(
       collection(db, 'chats', activeChat.id, 'messages'),
@@ -165,7 +125,6 @@ export const StoreChatProvider = ({ children }) => {
           };
         });
 
-        console.log('✅ Mensagens carregadas:', messagesList.length);
         setMessages(messagesList);
       },
       (error) => {
@@ -181,12 +140,6 @@ export const StoreChatProvider = ({ children }) => {
     if (!activeChat?.id || !messageText.trim()) return;
 
     try {
-      console.log('📤 Enviando mensagem da loja:', {
-        chatId: activeChat.id,
-        storeId,
-        message: messageText
-      });
-
       const messageData = {
         text: messageText.trim(),
         senderId: storeId,
