@@ -17,14 +17,14 @@ const CustomerLookup = () => {
     e.preventDefault();
     
     if (!email.trim()) {
-      setError('Please enter your email address');
+      setError('Por favor, digite seu email');
       return;
     }
 
     // Basic email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      setError('Please enter a valid email address');
+      setError('Por favor, digite um email válido');
       return;
     }
 
@@ -32,7 +32,7 @@ const CustomerLookup = () => {
     setError('');
 
     try {
-      console.log('🔍 Looking up orders for:', email);
+      console.log('🔍 Procurando pedidos para:', email);
       
       const response = await apiService.lookupCustomerByEmail(email);
       
@@ -41,22 +41,22 @@ const CustomerLookup = () => {
         localStorage.setItem('customerEmail', email);
         localStorage.setItem('customerData', JSON.stringify(response.data));
         
-        console.log('✅ Customer found, redirecting to dashboard');
+        console.log('✅ Cliente encontrado, redirecionando para o dashboard');
         
         // Navigate to customer dashboard
         navigate('/customer/dashboard');
       } else {
-        setError('No orders found for this email address');
+        setError('Nenhum pedido encontrado para este email');
       }
     } catch (error) {
-      console.error('❌ Lookup error:', error);
+      console.error('❌ Erro na busca:', error);
       
       if (error.response?.status === 404) {
-        setError('No orders found for this email address');
+        setError('Nenhum pedido encontrado para este email');
       } else if (error.response?.status === 400) {
-        setError('Please enter a valid email address');
+        setError('Por favor, digite um email válido');
       } else {
-        setError('Unable to find your orders. Please try again.');
+        setError('Não foi possível buscar seus pedidos. Tente novamente.');
       }
     } finally {
       setIsLoading(false);
@@ -71,8 +71,8 @@ const CustomerLookup = () => {
           <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
             <Package className="h-8 w-8 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Track Your Orders</h1>
-          <p className="text-gray-600">Enter your email address to view order status and updates</p>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Acompanhe seus Pedidos</h1>
+          <p className="text-gray-600">Digite seu email para ver o status e atualizações dos seus pedidos</p>
         </div>
 
         {/* Main Card */}
@@ -82,14 +82,14 @@ const CustomerLookup = () => {
               {/* Email Input */}
               <div className="space-y-2">
                 <label htmlFor="email" className="text-sm font-medium text-gray-700">
-                  Email Address
+                  Email utilizado na compra
                 </label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                   <Input
                     id="email"
                     type="email"
-                    placeholder="your.email@example.com"
+                    placeholder="seu.email@exemplo.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="pl-10 h-12 text-base"
@@ -118,12 +118,12 @@ const CustomerLookup = () => {
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Searching Orders...
+                    Buscando Pedidos...
                   </>
                 ) : (
                   <>
                     <Search className="mr-2 h-4 w-4" />
-                    Find My Orders
+                    Buscar Meus Pedidos
                   </>
                 )}
               </Button>
@@ -132,7 +132,7 @@ const CustomerLookup = () => {
             {/* Sample Email Helper */}
             <div className="mt-6 p-4 bg-gray-50 rounded-lg border">
               <p className="text-sm text-gray-600 mb-2">
-                <strong>Try with sample email:</strong>
+                <strong>Email de exemplo para teste:</strong>
               </p>
               <button
                 onClick={() => setEmail('maria.customer@teste.com')}
@@ -149,22 +149,35 @@ const CustomerLookup = () => {
         <div className="mt-8 space-y-3">
           <div className="flex items-center text-sm text-gray-600">
             <ArrowRight className="h-4 w-4 mr-2 text-blue-500" />
-            Real-time order tracking
+            Acompanhamento em tempo real
           </div>
           <div className="flex items-center text-sm text-gray-600">
             <ArrowRight className="h-4 w-4 mr-2 text-blue-500" />
-            Direct messaging with store
+            Chat direto com a loja
           </div>
           <div className="flex items-center text-sm text-gray-600">
             <ArrowRight className="h-4 w-4 mr-2 text-blue-500" />
-            Instant notifications
+            Notificações instantâneas
           </div>
         </div>
 
         {/* Footer */}
         <div className="mt-8 text-center">
           <p className="text-xs text-gray-500">
-            Secure and private • No account required
+            Seguro e privado • Sem necessidade de cadastro
+          </p>
+        </div>
+
+        {/* Link para área de lojistas */}
+        <div className="mt-6 text-center">
+          <p className="text-sm text-gray-600">
+            É lojista?{' '}
+            <a 
+              href="/login" 
+              className="font-medium text-purple-600 hover:text-purple-700 hover:underline"
+            >
+              Acesse o painel administrativo
+            </a>
           </p>
         </div>
       </div>

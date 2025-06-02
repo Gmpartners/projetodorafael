@@ -79,7 +79,7 @@ const PlaceholderPage = ({ title }) => {
   );
 };
 
-// 🆕 NOVO: Redirecionamento inteligente baseado no usuário logado
+// 🆕 CORRIGIDO: Redirecionamento inteligente - Clientes não fazem login
 const SmartRedirect = () => {
   const { isAuthenticated, userProfile, loading } = useAuth();
 
@@ -89,22 +89,20 @@ const SmartRedirect = () => {
     return <LoadingFallback />;
   }
 
-  // Se não está autenticado, mostrar opções ou ir para login
+  // Se não está autenticado, ir para customer lookup (não login)
   if (!isAuthenticated) {
-    console.log('❌ Não autenticado, redirecionando para login');
-    return <Navigate to="/login" replace />;
+    console.log('❌ Não autenticado, redirecionando para customer lookup');
+    return <Navigate to="/customer/lookup" replace />;
   }
 
-  // Se está autenticado, redirecionar baseado no role
+  // Se está autenticado e é loja, ir para dashboard da loja
   if (userProfile?.role === 'store') {
     console.log('🏪 Usuário é loja, redirecionando para store dashboard');
     return <Navigate to="/store/dashboard" replace />;
-  } else if (userProfile?.role === 'customer') {
-    console.log('👤 Usuário é cliente, redirecionando para customer dashboard');
-    return <Navigate to="/customer/dashboard" replace />;
   } else {
-    console.log('🤔 Role não identificado, redirecionando para login');
-    return <Navigate to="/login" replace />;
+    // Se está autenticado mas não é loja, fazer logout e ir para customer lookup
+    console.log('❌ Usuário autenticado mas não é loja, redirecionando para customer lookup');
+    return <Navigate to="/customer/lookup" replace />;
   }
 };
 
@@ -112,14 +110,7 @@ const SmartRedirect = () => {
 const ChatContextProvider = ({ children }) => {
   const { userProfile } = useAuth();
   
-  if (userProfile?.role === 'customer') {
-    return (
-      <CustomerChatProvider>
-        {children}
-      </CustomerChatProvider>
-    );
-  }
-  
+  // Clientes não fazem mais login, então não precisam de contexto autenticado
   if (userProfile?.role === 'store') {
     return (
       <StoreChatProvider>
@@ -128,8 +119,12 @@ const ChatContextProvider = ({ children }) => {
     );
   }
   
-  // Se não tem role definido ainda, renderizar sem context de chat
-  return children;
+  // Para rotas de cliente, usar CustomerChatProvider sem autenticação
+  return (
+    <CustomerChatProvider>
+      {children}
+    </CustomerChatProvider>
+  );
 };
 
 // Componente para proteger rotas autenticadas (ONLY FOR STORES)
@@ -147,35 +142,34 @@ const ProtectedRoute = ({ children, requiredRole = null }) => {
     return <Navigate to="/login" replace />;
   }
 
-  // Se tem role requerido mas não corresponde, mostrar uma mensagem em vez de redirecionar
+  // Se tem role requerido mas não corresponde
   if (requiredRole && userProfile?.role && userProfile.role !== requiredRole) {
     console.log('⚠️ Wrong role:', userProfile.role, 'expected:', requiredRole);
-    return (
-      <div className="h-screen flex items-center justify-center bg-zinc-50">
-        <div className="max-w-md w-full bg-white p-8 rounded-xl shadow-sm border border-zinc-200 text-center">
-          <div className="text-6xl mb-4">🚫</div>
-          <h1 className="text-xl font-bold text-zinc-900 mb-2">Access Denied</h1>
-          <p className="text-zinc-600 mb-6">
-            This page is for {requiredRole === 'store' ? 'store owners' : 'customers'}.<br/>
-            You are logged in as {userProfile.role === 'store' ? 'store owner' : 'customer'}.
-          </p>
-          <div className="flex gap-3 justify-center">
+    
+    // Se é store mas tentando acessar área de cliente
+    if (userProfile.role === 'store' && requiredRole === 'customer') {
+      return (
+        <div className="h-screen flex items-center justify-center bg-zinc-50">
+          <div className="max-w-md w-full bg-white p-8 rounded-xl shadow-sm border border-zinc-200 text-center">
+            <div className="text-6xl mb-4">🚫</div>
+            <h1 className="text-xl font-bold text-zinc-900 mb-2">Acesso Negado</h1>
+            <p className="text-zinc-600 mb-6">
+              Esta área é para clientes.<br/>
+              Você está logado como loja.
+            </p>
             <a 
-              href={userProfile.role === 'store' ? '/store/dashboard' : '/customer/lookup'}
+              href="/store/dashboard"
               className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
             >
-              Go to My Dashboard
-            </a>
-            <a 
-              href="/login"
-              className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors shadow-sm"
-            >
-              Switch Account
+              Ir para Dashboard da Loja
             </a>
           </div>
         </div>
-      </div>
-    );
+      );
+    }
+    
+    // Outros casos
+    return <Navigate to="/login" replace />;
   }
 
   console.log('✅ Access granted');
@@ -252,7 +246,7 @@ function AppContent() {
           } 
         />
         
-        {/* Store routes - PROTECTED (Auth required) */}
+        {/* Store routes - Auth pages */}
         <Route 
           path="/login" 
           element={

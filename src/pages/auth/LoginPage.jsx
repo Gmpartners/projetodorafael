@@ -6,8 +6,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Mail, Lock, LogIn, Eye, EyeOff, Store, User, LogOut, AlertCircle } from 'lucide-react';
+import { Loader2, Mail, Lock, LogIn, Eye, EyeOff, Store, AlertCircle, ShoppingBag } from 'lucide-react';
 import { toast } from 'sonner';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 const LoginPage = () => {
   const [email, setEmail] = useState('');
@@ -18,8 +20,6 @@ const LoginPage = () => {
   
   const { login, logout, isAuthenticated, userProfile, user } = useAuth();
   const navigate = useNavigate();
-
-  // REMOVIDO o useEffect que causava redirecionamento automático
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -34,39 +34,66 @@ const LoginPage = () => {
 
     try {
       console.log('🔐 Tentando login para:', email);
-      await login(email, password);
       
-      toast.success('Login realizado com sucesso!');
-      console.log('✅ Login bem sucedido, redirecionando...');
+      // Fazer login primeiro
+      const firebaseUser = await login(email, password);
       
-      // Redirecionamento manual baseado no email (mais confiável)
-      setTimeout(() => {
-        if (email === 'maria.customer@teste.com') {
-          console.log('👤 Redirecionando para customer dashboard');
-          navigate('/customer/dashboard');
-        } else if (email === 'gmpartners00@gmail.com' || email === 'teste@loja.com') {
-          console.log('🏪 Redirecionando para store dashboard');
-          navigate('/store/dashboard');
-        } else {
-          // Fallback para outros usuários
-          console.log('🤔 Email não reconhecido, usando userProfile');
-          // Aguardar um pouco para userProfile carregar
-          setTimeout(() => {
-            if (userProfile?.role === 'customer') {
-              navigate('/customer/dashboard');
-            } else {
-              navigate('/store/dashboard');
-            }
-          }, 1000);
+      // IMPORTANTE: Verificar se é uma loja
+      console.log('🔍 Verificando se é uma loja...');
+      
+      try {
+        const storeDoc = await getDoc(doc(db, 'stores', firebaseUser.uid));
+        
+        if (!storeDoc.exists()) {
+          // NÃO É UMA LOJA - fazer logout e mostrar erro
+          console.log('❌ Não é uma loja - negando acesso');
+          await logout();
+          
+          setError('Esta área é exclusiva para lojistas. Clientes devem acessar através da consulta de pedidos.');
+          toast.error('Acesso negado - área exclusiva para lojas', {
+            description: 'Clique no botão abaixo para acessar como cliente'
+          });
+          
+          // Limpar campos
+          setPassword('');
+          
+          return; // Interromper o processo
         }
-      }, 1500); // Aguardar 1.5 segundos para garantir que tudo carregou
+        
+        const storeData = storeDoc.data();
+        
+        // Verificar se a loja está ativa
+        if (storeData.status !== 'active') {
+          console.log('❌ Loja inativa');
+          await logout();
+          setError('Esta loja está inativa. Entre em contato com o suporte.');
+          return;
+        }
+        
+        console.log('✅ Loja válida e ativa:', storeData.storeName);
+        
+      } catch (firestoreError) {
+        console.error('❌ Erro ao verificar loja:', firestoreError);
+        await logout();
+        setError('Erro ao verificar permissões. Tente novamente.');
+        return;
+      }
+      
+      // Se chegou aqui, é uma loja válida
+      toast.success('Login realizado com sucesso!');
+      console.log('✅ Redirecionando para dashboard da loja...');
+      
+      // Aguardar um pouco para garantir que tudo foi carregado
+      setTimeout(() => {
+        navigate('/store/dashboard');
+      }, 1000);
       
     } catch (error) {
       console.error('❌ Erro no login:', error);
       let errorMessage = 'Erro ao fazer login. Tente novamente.';
       
       if (error.code === 'auth/user-not-found') {
-        errorMessage = 'Usuário não encontrado. Verifique o email.';
+        errorMessage = 'Email não cadastrado. Verifique se você tem uma conta de loja.';
       } else if (error.code === 'auth/wrong-password') {
         errorMessage = 'Senha incorreta. Tente novamente.';
       } else if (error.code === 'auth/invalid-email') {
@@ -93,8 +120,8 @@ const LoginPage = () => {
       setPassword('');
       setError('');
       
-      toast.success('Logout realizado! Pode logar com outro usuário.');
-      console.log('✅ Logout completo - pronto para novo login');
+      toast.success('Logout realizado!');
+      console.log('✅ Logout completo');
       
     } catch (error) {
       console.error('❌ Erro no logout:', error);
@@ -104,42 +131,9 @@ const LoginPage = () => {
     }
   };
 
-  // ✅ FUNÇÃO ATUALIZADA - Login rápido como LOJA com email real
-  const handleStoreLogin = async () => {
-    console.log('🏪 Login rápido como loja');
-    setEmail('gmpartners00@gmail.com'); // ✅ EMAIL REAL DA LOJA
-    setPassword('123456789');
-    setError('');
-    
-    setTimeout(() => {
-      handleSubmit({ preventDefault: () => {} });
-    }, 500);
-  };
-
-  // Função para login rápido como CUSTOMER  
-  const handleCustomerLogin = async () => {
-    console.log('👤 Login rápido como customer');
-    setEmail('maria.customer@teste.com');
-    setPassword('123456789');
-    setError('');
-    
-    setTimeout(() => {
-      handleSubmit({ preventDefault: () => {} });
-    }, 500);
-  };
-
-  // Função para ir para dashboard do usuário logado (apenas quando clicado manualmente)
-  const goToDashboard = () => {
-    console.log('🎯 Ir para dashboard manualmente, userProfile:', userProfile);
-    
-    if (userProfile?.role === 'store') {
-      navigate('/store/dashboard');
-    } else if (userProfile?.role === 'customer') {
-      navigate('/customer/dashboard');
-    } else {
-      console.warn('⚠️ Role não identificado:', userProfile);
-      toast.error('Erro: tipo de usuário não identificado');
-    }
+  // Função para ir ao lookup de cliente
+  const goToCustomerLookup = () => {
+    navigate('/customer/lookup');
   };
 
   return (
@@ -149,37 +143,34 @@ const LoginPage = () => {
           <CardHeader className="space-y-4 pb-8">
             <div className="text-center">
               <div className="w-16 h-16 mx-auto bg-gradient-to-br from-purple-600 to-indigo-600 rounded-2xl flex items-center justify-center mb-4 shadow-lg">
-                <LogIn className="h-8 w-8 text-white" />
+                <Store className="h-8 w-8 text-white" />
               </div>
               <CardTitle className="text-2xl font-bold bg-gradient-to-r from-purple-900 to-indigo-900 bg-clip-text text-transparent">
-                Portal Rafael
+                Portal Rafael - Área do Lojista
               </CardTitle>
               <p className="text-sm text-zinc-600 mt-2">
-                Sistema de comunicação pós-venda
+                Acesso exclusivo para lojas parceiras
               </p>
             </div>
           </CardHeader>
           
           <CardContent className="space-y-6">
-            {/* Status do usuário atual - APENAS informativo, sem redirecionamento automático */}
-            {isAuthenticated && userProfile && (
+            {/* Status do usuário atual - apenas para lojas */}
+            {isAuthenticated && userProfile && userProfile.role === 'store' && (
               <Alert className="border-amber-200 bg-amber-50">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription className="text-amber-800">
                   <div className="flex items-center justify-between">
                     <div>
-                      <strong>Usuário atual:</strong> {userProfile.name || user.email}<br/>
+                      <strong>Logado como:</strong> {userProfile.name || user.email}<br/>
                       <span className="text-sm">
-                        Tipo: {userProfile.role === 'store' ? '🏪 Loja' : userProfile.role === 'customer' ? '👤 Cliente' : `❓ ${userProfile.role}`}
-                      </span><br/>
-                      <span className="text-xs text-amber-600">
-                        Faça logout para trocar de usuário ou clique para ir ao dashboard
+                        🏪 Loja ativa
                       </span>
                     </div>
                     <div className="flex gap-2">
                       <Button 
                         size="sm" 
-                        onClick={goToDashboard}
+                        onClick={() => navigate('/store/dashboard')}
                         className="bg-amber-600 hover:bg-amber-700"
                       >
                         Dashboard
@@ -211,7 +202,7 @@ const LoginPage = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-sm font-medium text-zinc-700">
-                  Email
+                  Email da Loja
                 </Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-zinc-400" />
@@ -220,7 +211,7 @@ const LoginPage = () => {
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="seu@email.com"
+                    placeholder="loja@exemplo.com"
                     className="pl-10 h-12 bg-white border-zinc-200 focus:border-purple-400 focus:ring-purple-200 text-base"
                     disabled={loading}
                   />
@@ -266,96 +257,82 @@ const LoginPage = () => {
                 ) : (
                   <>
                     <LogIn className="h-5 w-5 mr-2" />
-                    Entrar
+                    Entrar como Lojista
                   </>
                 )}
               </Button>
             </form>
 
-            {/* Botões de teste rápido */}
-            <div className="pt-4 border-t border-zinc-200 space-y-3">
-              <div className="text-center">
-                <p className="text-sm font-medium text-zinc-600 mb-3">🔄 Trocar de Usuário:</p>
+            {/* Divisor */}
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-zinc-200"></div>
               </div>
-              
-              <Button 
-                type="button"
-                variant="outline"
-                onClick={handleStoreLogin}
-                className="w-full h-11 border-blue-300 text-blue-700 hover:bg-blue-50 hover:border-blue-400"
-                disabled={loading}
-              >
-                <Store className="h-4 w-4 mr-2" />
-                🏪 Login como LOJA
-              </Button>
-              
-              <Button 
-                type="button"
-                variant="outline"
-                onClick={handleCustomerLogin}
-                className="w-full h-11 border-green-300 text-green-700 hover:bg-green-50 hover:border-green-400"
-                disabled={loading}
-              >
-                <User className="h-4 w-4 mr-2" />
-                👤 Login como CUSTOMER
-              </Button>
-              
-              <div className="text-center">
-                <p className="text-xs text-zinc-500 mt-2">
-                  ✨ Pode alternar entre usuários no mesmo navegador!
-                </p>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-white px-2 text-zinc-500">Cliente?</span>
               </div>
             </div>
 
+            {/* Botão para área do cliente */}
+            <Button 
+              type="button"
+              variant="outline"
+              onClick={goToCustomerLookup}
+              className="w-full h-11 border-green-300 text-green-700 hover:bg-green-50 hover:border-green-400"
+              disabled={loading}
+            >
+              <ShoppingBag className="h-4 w-4 mr-2" />
+              Sou Cliente - Consultar Pedidos
+            </Button>
+
             <div className="text-center pt-2">
               <p className="text-sm text-zinc-600">
-                Ainda não tem uma conta?{' '}
+                Ainda não tem uma loja cadastrada?{' '}
                 <Link 
                   to="/register" 
                   className="font-medium text-purple-600 hover:text-purple-700 hover:underline"
                 >
-                  Criar conta
+                  Cadastrar minha loja
                 </Link>
               </p>
+            </div>
+
+            {/* Link de ajuda */}
+            <div className="text-center">
+              <a 
+                href="#" 
+                className="text-sm text-indigo-600 hover:text-indigo-700"
+                onClick={(e) => {
+                  e.preventDefault();
+                  toast.info('Entre em contato: suporte@rafaellobo.com');
+                }}
+              >
+                Esqueceu sua senha?
+              </a>
             </div>
           </CardContent>
         </Card>
 
-        {/* ✅ INFO ATUALIZADA - Com email real da loja */}
+        {/* Informações extras */}
         <div className="mt-6 p-4 bg-white/60 backdrop-blur-sm rounded-lg border border-white/50">
-          <div className="text-center mb-3">
-            <h3 className="text-sm font-semibold text-zinc-800">🔄 Teste de Alternância</h3>
-            <p className="text-xs text-zinc-600">
-              Sistema permite alternar entre usuários no mesmo navegador
-            </p>
-          </div>
-          
-          <div className="grid grid-cols-2 gap-4 text-center">
-            <div>
-              <Store className="h-6 w-6 text-purple-600 mx-auto mb-2" />
-              <h4 className="text-sm font-semibold text-zinc-800">Loja</h4>
-              <p className="text-xs text-zinc-600">gmpartners00@gmail.com</p>
+          <div className="text-center">
+            <h3 className="text-sm font-semibold text-zinc-800 mb-2">ℹ️ Informações Importantes</h3>
+            <div className="space-y-2 text-xs text-zinc-600">
+              <p>
+                <strong className="text-purple-700">🏪 Lojistas:</strong> Faça login com email e senha para gerenciar pedidos e conversar com clientes
+              </p>
+              <p>
+                <strong className="text-green-700">🛍️ Clientes:</strong> Consulte seus pedidos apenas com o email (sem necessidade de senha)
+              </p>
             </div>
-            <div>
-              <User className="h-6 w-6 text-blue-600 mx-auto mb-2" />
-              <h4 className="text-sm font-semibold text-zinc-800">Cliente</h4>
-              <p className="text-xs text-zinc-600">maria.customer@teste.com</p>
-            </div>
-          </div>
-          
-          <div className="mt-3 pt-3 border-t border-zinc-200 text-center">
-            <p className="text-xs text-zinc-500">
-              <strong>Senha para ambos:</strong> 123456789
-            </p>
           </div>
         </div>
 
-        {/* Debug info */}
-        <div className="mt-4 p-2 bg-gray-100 rounded text-xs text-gray-600 text-center">
-          Status: {isAuthenticated ? '✅ Logado' : '❌ Deslogado'} | 
-          Role: {userProfile?.role || 'N/A'} | 
-          User: {user?.email || 'N/A'} | 
-          Loading: {loading ? '⏳' : '✅'}
+        {/* Login da loja de teste */}
+        <div className="mt-4 p-3 bg-purple-50 rounded-lg border border-purple-200">
+          <p className="text-xs text-purple-800 text-center">
+            <strong>🧪 Loja de teste:</strong> loja-teste-rafael@teste.com | senha: teste123
+          </p>
         </div>
       </div>
     </div>
