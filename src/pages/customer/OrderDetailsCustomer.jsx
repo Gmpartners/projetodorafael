@@ -372,7 +372,7 @@ const OrderDetailsCustomer = () => {
         state: {
           orderId: orderId,
           customerEmail: customerEmail,
-          orderDetails: orderDetails
+          orderDetails: orderDetails,
           storeId: orderDetails?.storeId,        }
       });
       
