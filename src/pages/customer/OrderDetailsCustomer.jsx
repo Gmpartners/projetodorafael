@@ -141,13 +141,11 @@ const OrderDetailsCustomer = () => {
           id: index + 1,
           name: translateStepName(step.name),
           description: translateStepDescription(step.description || `Step ${index + 1} of your order`),
-          icon: getStepIcon(step.name),
           progress: stepProgress,
           status: status,
           estimatedTime: translateEstimatedTime(formattedDate),
           timeDisplay: timeDisplay,
           showTime: showTime,
-          color: getStepColor(status, index),
           scheduledAt: step.scheduledAt,
           completedAt: step.completedAt,
           estimatedDuration: step.estimatedDuration
@@ -162,67 +160,55 @@ const OrderDetailsCustomer = () => {
         id: 1,
         name: "Order Placed",
         description: "Your order has been successfully placed",
-        icon: ShoppingBag,
         progress: 16.67,
         status: "completed",
         estimatedTime: "Completed",
-        showTime: false,
-        color: "emerald"
+        showTime: false
       },
       {
         id: 2,
         name: "Confirmed",
         description: "We received your order and are preparing it",
-        icon: CheckCircle2,
         progress: 33.33,
         status: baseProgress >= 33.33 ? "completed" : "current",
-        estimatedTime: baseProgress >= 33.33 ? "Completed" : "Processing",
-        showTime: false,
-        color: "emerald"
+        estimatedTime: baseProgress >= 33.33 ? "Completed" : "In Progress",
+        showTime: false
       },
       {
         id: 3,
         name: "Preparing",
         description: "Your order is being carefully prepared",
-        icon: Settings,
         progress: 50,
         status: baseProgress >= 50 ? "completed" : baseProgress >= 33.33 ? "current" : "pending",
-        estimatedTime: baseProgress >= 50 ? "Completed" : "Est: 2 hours",
-        showTime: false,
-        color: "blue"
+        estimatedTime: baseProgress >= 50 ? "Completed" : "Pending",
+        showTime: false
       },
       {
         id: 4,
         name: "Packaging",
         description: "Product being packaged for shipping",
-        icon: Package,
         progress: 66.67,
         status: baseProgress >= 66.67 ? "completed" : baseProgress >= 50 ? "current" : "pending",
-        estimatedTime: baseProgress >= 66.67 ? "Completed" : "Est: 4 hours",
-        showTime: false,
-        color: "violet"
+        estimatedTime: baseProgress >= 66.67 ? "Completed" : "Pending",
+        showTime: false
       },
       {
         id: 5,
         name: "Shipped",
         description: "Your order is on its way",
-        icon: TruckIcon,
         progress: 83.33,
         status: baseProgress >= 83.33 ? "completed" : baseProgress >= 66.67 ? "current" : "pending",
-        estimatedTime: baseProgress >= 83.33 ? "Shipped" : "Est: 1 day",
-        showTime: false,
-        color: "orange"
+        estimatedTime: baseProgress >= 83.33 ? "Shipped" : "Pending",
+        showTime: false
       },
       {
         id: 6,
         name: "Delivered",
         description: "Order successfully delivered",
-        icon: Home,
         progress: 100,
         status: baseProgress >= 100 ? "completed" : baseProgress >= 83.33 ? "current" : "pending",
-        estimatedTime: baseProgress >= 100 ? "Delivered" : "Est: 3 days",
-        showTime: false,
-        color: "emerald"
+        estimatedTime: baseProgress >= 100 ? "Delivered" : "Pending",
+        showTime: false
       }
     ];
 
@@ -287,13 +273,13 @@ const OrderDetailsCustomer = () => {
     
     const translations = {
       'Aguardando': 'Pending',
-      'Em processamento': 'Processing',
-      'Processando': 'Processing',
+      'Em processamento': 'In Progress',
+      'Processando': 'In Progress',
       'Concluído': 'Completed',
       'Finalizado': 'Completed',
       'Entregue': 'Delivered',
       'A caminho': 'On the way',
-      'Em andamento': 'In progress'
+      'Em andamento': 'In Progress'
     };
     
     return translations[timeText] || timeText;
@@ -332,32 +318,19 @@ const OrderDetailsCustomer = () => {
     return translated;
   };
 
-  const getStepIcon = (stepName) => {
-    if (!stepName) return Clock;
-    
-    const name = stepName.toLowerCase();
-    
-    if (name.includes('pedido') && (name.includes('realizado') || name.includes('recebido') || name.includes('confirmado'))) return ShoppingBag;
-    if (name.includes('confirmad') || name.includes('aceito')) return CheckCircle2;
-    if (name.includes('pagamento') || name.includes('pago')) return ShieldCheck;
-    if (name.includes('processando') || name.includes('preparando')) return Settings;
-    if (name.includes('separando') || name.includes('picking')) return Search;
-    if (name.includes('qualidade') || name.includes('conferindo')) return Eye;
-    if (name.includes('embalando') || name.includes('empacotando')) return Package;
-    if (name.includes('pronto') || name.includes('despachado')) return PackageCheck;
-    if (name.includes('enviado') || name.includes('transito') || name.includes('transportadora')) return TruckIcon;
-    if (name.includes('saiu') && name.includes('entrega')) return TruckIcon;
-    if (name.includes('entregue') || name.includes('finalizado')) return Home;
-    
-    return Clock;
+  // 🔧 SIMPLIFICADO: Ícones uniformes baseados apenas no status
+  const getStepIcon = (status) => {
+    if (status === 'completed') {
+      return CheckCircle; // ✅ Verde para completas
+    }
+    return Clock; // ⏰ Relógio para todas as outras (current, pending)
   };
 
-  const getStepColor = (status, index) => {
-    if (status === 'completed') return 'emerald';
-    if (status === 'current') return 'blue';
-    
-    const colors = ['blue', 'violet', 'orange', 'amber'];
-    return colors[index % colors.length] || 'blue';
+  // 🔧 SIMPLIFICADO: Cores baseadas apenas no status  
+  const getStepColor = (status) => {
+    if (status === 'completed') return 'emerald'; // Verde para completas
+    if (status === 'current') return 'blue';      // Azul para atual
+    return 'gray';                                // Cinza para pendentes
   };
 
   const handleOpenChat = async () => {
@@ -432,26 +405,14 @@ const OrderDetailsCustomer = () => {
         border: 'border-blue-200',
         glow: 'shadow-blue-200'
       },
-      violet: {
-        bg: 'bg-violet-500',
-        text: 'text-violet-700',
-        border: 'border-violet-200',
-        glow: 'shadow-violet-200'
-      },
-      orange: {
-        bg: 'bg-orange-500',
-        text: 'text-orange-700',
-        border: 'border-orange-200',
-        glow: 'shadow-orange-200'
-      },
-      amber: {
-        bg: 'bg-amber-500',
-        text: 'text-amber-700',
-        border: 'border-amber-200',
-        glow: 'shadow-amber-200'
+      gray: {
+        bg: 'bg-gray-400',
+        text: 'text-gray-600',
+        border: 'border-gray-200',
+        glow: 'shadow-gray-200'
       }
     };
-    return colors[step.color] || colors.blue;
+    return colors[getStepColor(step.status)] || colors.gray;
   };
 
   const getOrderNumber = (orderDetails) => {
@@ -742,10 +703,8 @@ const OrderDetailsCustomer = () => {
                 <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-3 sm:p-4 rounded-xl border border-blue-200 relative overflow-hidden">
                   <div className="absolute top-0 right-0 w-16 sm:w-20 h-16 sm:h-20 bg-blue-200/20 rounded-full -translate-y-8 sm:-translate-y-10 translate-x-8 sm:translate-x-10"></div>
                   <div className="relative flex items-start">
-                    <div className={`p-2 rounded-lg mr-3 ${getStepColorClasses(enhancedSteps.find(s => s.status === 'current')).bg} shadow-lg`}>
-                      {React.createElement(enhancedSteps.find(s => s.status === 'current').icon, {
-                        className: "h-4 w-4 sm:h-5 sm:w-5 text-white"
-                      })}
+                    <div className="p-2 rounded-lg mr-3 bg-blue-500 shadow-lg">
+                      <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
                     </div>
                     <div className="flex-1">
                       <h4 className="font-semibold text-slate-800 mb-1 flex items-center text-sm sm:text-base">
@@ -771,7 +730,7 @@ const OrderDetailsCustomer = () => {
           </div>
         </Card>
 
-        {/* 🎯 ORDER JOURNEY CARD - TRADUZIDO COMPLETAMENTE */}
+        {/* 🎯 ORDER JOURNEY CARD - ÍCONES UNIFORMES */}
         <Card className="bg-white shadow-lg mb-4 sm:mb-6 border-0">
           <CardContent className="p-4 sm:p-6">
             <div className="flex items-center justify-between mb-4 sm:mb-6">
@@ -793,6 +752,7 @@ const OrderDetailsCustomer = () => {
               {enhancedSteps.map((step, index) => {
                 const isLast = index === enhancedSteps.length - 1;
                 const colors = getStepColorClasses(step);
+                const StepIcon = getStepIcon(step.status); // 🔧 Ícone baseado no status
                 
                 return (
                   <div key={step.id} className="flex items-start relative group">
@@ -812,11 +772,9 @@ const OrderDetailsCustomer = () => {
                         ${step.status === 'completed' ? `${colors.bg} border-emerald-200 ${colors.glow} shadow-lg` : 
                           step.status === 'current' ? `${colors.bg} border-blue-200 shadow-blue-200 shadow-lg animate-pulse` : 
                           'bg-slate-100 border-slate-200 shadow-sm'}`}>
-                        {React.createElement(step.icon, {
-                          className: `h-5 w-5 sm:h-6 sm:w-6 transition-colors duration-300 ${
-                            step.status === 'completed' || step.status === 'current' ? 'text-white' : 'text-slate-400'
-                          }`
-                        })}
+                        <StepIcon className={`h-5 w-5 sm:h-6 sm:w-6 transition-colors duration-300 ${
+                          step.status === 'completed' || step.status === 'current' ? 'text-white' : 'text-slate-400'
+                        }`} />
                         
                         {step.status === 'current' && (
                           <div className="absolute inset-0 rounded-xl border-2 border-blue-300 animate-ping"></div>

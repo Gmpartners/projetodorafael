@@ -92,8 +92,10 @@ export const StoreChatProvider = ({ children }) => {
             return {
               ...chat,
               name: chat.participants?.customerName || chat.customerName || 'Cliente',
-              avatar: `https://i.pravatar.cc/150?u=${chat.customerId}`,
+              // ✅ CORREÇÃO: Removeu avatar aleatório
               initials: (chat.participants?.customerName || chat.customerName || 'C')[0],
+              // ✅ CORREÇÃO: Adicionou email do cliente
+              customerEmail: chat.participants?.customerEmail || chat.customerEmail || 'email@exemplo.com',
               isCustomer: true,
               isVerified: true,
               online: true,
@@ -228,8 +230,10 @@ export const StoreChatProvider = ({ children }) => {
       const processedChat = {
         ...chatData,
         name: customerName,
-        avatar: `https://i.pravatar.cc/150?u=${customerId}`,
+        // ✅ CORREÇÃO: Removeu avatar aleatório
         initials: customerName[0],
+        // ✅ CORREÇÃO: Adicionou email do cliente
+        customerEmail: customerId,
         isCustomer: true,
         isVerified: true,
         online: true,

@@ -46,7 +46,29 @@ const ChatPage = () => {
   const customerEmail = location.state?.customerEmail || localStorage.getItem('customerEmail');
   const customerData = location.state?.customerData || JSON.parse(localStorage.getItem('customerData') || '{}');
   const orderId = location.state?.orderId || null;
+  const orderDetails = location.state?.orderDetails || null;
   const storeId = location.state?.storeId || location.state?.orderDetails?.storeId || chatData?.storeId || 'store-default';
+
+  // 🔧 NOVA LÓGICA: Generate team name from product
+  const getTeamName = () => {
+    if (orderDetails?.productDetails?.displayName) {
+      return `Team - ${orderDetails.productDetails.displayName}`;
+    } else if (orderDetails?.productName) {
+      return `Team - ${orderDetails.productName}`;
+    } else if (orderDetails?.product?.name) {
+      return `Team - ${orderDetails.product.name}`;
+    }
+    return 'Team - Support';
+  };
+
+  const getTeamInitials = () => {
+    const teamName = getTeamName();
+    const words = teamName.split(' ');
+    if (words.length >= 2) {
+      return words[0][0] + words[1][0]; // T + first letter of product
+    }
+    return 'TS'; // Team Support
+  };
 
   console.log('💬 ChatPage: Current state:', {
     urlChatId,
@@ -55,7 +77,8 @@ const ChatPage = () => {
     orderId,
     chatDataId: chatData?.id,
     messagesCount: messages.length,
-    storeId
+    storeId,
+    teamName: getTeamName()
   });
 
   useEffect(() => {
@@ -72,13 +95,15 @@ const ChatPage = () => {
     } else {
       // 🔧 CORREÇÃO: Permitir chat mesmo sem chatId específico
       setIsLoading(false);
-      // Set up default chat data
+      // Set up default chat data with team name
+      const teamName = getTeamName();
+      const teamInitials = getTeamInitials();
       setChatData({
         id: 'general-chat',
-        name: 'Store Support',
-        avatar: `https://ui-avatars.com/api/?name=Store&background=3b82f6&color=fff`,
-        initials: 'ST',
-        storeName: 'Store Support'
+        name: teamName,
+        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(teamInitials)}&background=3b82f6&color=fff`,
+        initials: teamInitials,
+        storeName: teamName
       });
     }
   }, [urlChatId, customerEmail, orderId, navigate]);
@@ -129,16 +154,19 @@ const ChatPage = () => {
         console.log('✅ Chat created/found:', response);
         setChatId(response.id);
         
+        const teamName = getTeamName();
+        const teamInitials = getTeamInitials();
+        
         const newChatData = {
           id: response.id,
           orderId: response.orderId,
-          storeName: response.participants?.storeName || 'Store Support',
+          storeName: teamName,
           storeId: response.storeId,
           customerEmail: response.customerEmail || customerEmail,
           participants: response.participants,
-          name: response.participants?.storeName || 'Store Support',
-          avatar: `https://ui-avatars.com/api/?name=Store&background=3b82f6&color=fff`,
-          initials: 'ST'
+          name: teamName,
+          avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(teamInitials)}&background=3b82f6&color=fff`,
+          initials: teamInitials
         };
         
         setChatData(newChatData);
@@ -146,7 +174,7 @@ const ChatPage = () => {
         if (!urlChatId) {
           navigate(`/customer/chat/${response.id}`, { 
             replace: true,
-            state: { customerEmail, orderId, customerData, storeId }
+            state: { customerEmail, orderId, customerData, storeId, orderDetails }
           });
         }
         
@@ -168,15 +196,18 @@ const ChatPage = () => {
       setError(null);
       console.log('💬 Loading chat data:', { chatId: urlChatId, customerEmail });
 
+      const teamName = getTeamName();
+      const teamInitials = getTeamInitials();
+
       try {
         const chatDetails = await apiService.getChatDetails(urlChatId, customerEmail);
         console.log('✅ Chat details loaded:', chatDetails);
         
         setChatData({
           ...chatDetails,
-          name: chatDetails.participants?.storeName || 'Store Support',
-          avatar: `https://ui-avatars.com/api/?name=Store&background=3b82f6&color=fff`,
-          initials: 'ST'
+          name: teamName,
+          avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(teamInitials)}&background=3b82f6&color=fff`,
+          initials: teamInitials
         });
       } catch (apiError) {
         console.log('⚠️ Could not load chat details, using mock data');
@@ -184,15 +215,15 @@ const ChatPage = () => {
         setChatData({
           id: urlChatId,
           orderId: orderId,
-          storeName: 'Store Support',
+          storeName: teamName,
           storeId: storeId,
           customerEmail: customerEmail,
           participants: {
-            storeName: 'Store Support'
+            storeName: teamName
           },
-          name: 'Store Support',
-          avatar: `https://ui-avatars.com/api/?name=Store&background=3b82f6&color=fff`,
-          initials: 'ST'
+          name: teamName,
+          avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(teamInitials)}&background=3b82f6&color=fff`,
+          initials: teamInitials
         });
       }
 
@@ -253,7 +284,7 @@ const ChatPage = () => {
               id: msg.id || `msg-${index}`,
               content: msg.text || msg.content || '',
               sender: msg.senderType === 'customer' ? 'user' : msg.senderType === 'system' ? 'system' : 'store',
-              senderName: msg.senderName || (msg.senderType === 'customer' ? 'You' : msg.senderType === 'system' ? 'System' : 'Store'),
+              senderName: msg.senderName || (msg.senderType === 'customer' ? 'You' : msg.senderType === 'system' ? 'System' : getTeamName()),
               senderType: msg.senderType,
               time: messageTime,
               read: msg.read || false
@@ -376,13 +407,13 @@ const ChatPage = () => {
           msg.id.startsWith('temp-') ? { ...msg, id: `local-${Date.now()}`, read: false } : msg
         ));
         
-        // Simulate store response for demo
+        // 🔧 CORREÇÃO: Auto-reply with team name
         setTimeout(() => {
           const autoReply = {
             id: `auto-${Date.now()}`,
-            content: 'Thank you for your message! A store representative will respond soon.',
+            content: 'Thank you for your message! A team representative will respond soon.',
             sender: 'store',
-            senderName: 'Store Support',
+            senderName: getTeamName(),
             senderType: 'store',
             time: new Date(),
             read: true
@@ -455,8 +486,6 @@ const ChatPage = () => {
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-3" />
           <p className="text-slate-600 text-sm font-medium">Loading conversation...</p>
-          {chatId && <p className="text-xs text-slate-400 mt-1">Chat: {chatId.slice(-6)}</p>}
-          {orderId && <p className="text-xs text-slate-400 mt-1">Order: {orderId.slice(-6)}</p>}
         </div>
       </div>
     );
@@ -524,14 +553,14 @@ const ChatPage = () => {
             <Avatar className="h-10 w-10 sm:h-12 sm:w-12 mr-3 border-2 border-white/20">
               <AvatarImage src={chatData?.avatar} />
               <AvatarFallback className="bg-white/20 text-white font-bold text-sm sm:text-base">
-                {chatData?.initials || 'ST'}
+                {chatData?.initials || getTeamInitials()}
               </AvatarFallback>
             </Avatar>
             
             <div className="flex-1 min-w-0">
               <div className="flex items-center">
                 <h2 className="text-white text-base sm:text-lg font-medium mr-2 truncate">
-                  {chatData?.name || 'Store Support'}
+                  {chatData?.name || getTeamName()}
                 </h2>
                 <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 text-emerald-400 flex-shrink-0" />
               </div>
@@ -600,7 +629,7 @@ const ChatPage = () => {
                           <Avatar className="h-5 w-5 sm:h-6 sm:w-6 mr-2">
                             <AvatarImage src={chatData?.avatar} />
                             <AvatarFallback className="bg-blue-100 text-blue-700 text-xs">
-                              {chatData?.initials || 'ST'}
+                              {chatData?.initials || getTeamInitials()}
                             </AvatarFallback>
                           </Avatar>
                           <span className="text-xs text-slate-500">{msg.senderName}</span>
@@ -682,12 +711,7 @@ const ChatPage = () => {
             </Button>
           </div>
           
-          {/* Debug info */}
-          <div className="text-center mt-2">
-            <p className="text-xs text-slate-400">
-              Chat: {chatId || 'none'} | Messages: {messages.length} | StoreId: {storeId}
-            </p>
-          </div>
+          {/* ✅ CORREÇÃO: Removeu a barra de debug */}
         </div>
       </main>
     </div>

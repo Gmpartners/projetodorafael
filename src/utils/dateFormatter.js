@@ -156,31 +156,23 @@ export const formatDuration = (duration) => {
 };
 
 /**
- * Formata data para exibição em etapas
+ * 🔧 CORRIGIDO: Formata data para exibição em etapas - SEM PREVISÕES
  * @param {Object} step - Objeto da etapa
  * @returns {string} Texto formatado para exibição
  */
 export const formatStepDate = (step) => {
   // Se etapa está concluída, mostrar data de conclusão
   if (step.completed && step.completedAt) {
-    return `Concluída ${formatRelativeTime(step.completedAt)}`;
+    return `Completed ${formatRelativeTime(step.completedAt)}`;
   }
   
-  // Se é etapa atual, mostrar tempo estimado
-  if (step.current) {
-    if (step.scheduledAt) {
-      const relativeTime = formatRelativeTime(step.scheduledAt);
-      return relativeTime.startsWith('há') ? 'Em processamento' : `Previsão: ${relativeTime}`;
-    }
-    return 'Em processamento';
+  // Se é etapa atual, sempre mostrar "In Progress" - SEM PREVISÃO
+  if (step.current || step.active) {
+    return 'In Progress';
   }
   
-  // Se é etapa futura, mostrar apenas duração estimada
-  if (step.estimatedDuration) {
-    return `Estimativa: ${formatDuration(step.estimatedDuration)}`;
-  }
-  
-  return 'Aguardando';
+  // Se é etapa futura, mostrar "Pending"
+  return 'Pending';
 };
 
 /**

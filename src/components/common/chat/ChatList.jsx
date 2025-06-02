@@ -130,7 +130,7 @@ const ChatListItem = ({ chat, activeChat, onClick }) => {
               "h-8 w-8 border-2 shadow-sm transition-all duration-300",
               isActive ? "border-purple-300 shadow-purple-200" : "border-white group-hover:border-purple-200"
             )}>
-              <AvatarImage src={chat.avatar} className="object-cover" />
+              {/* ✅ CORREÇÃO: Removeu a imagem aleatória */}
               <AvatarFallback className="bg-gradient-to-br from-purple-100 to-purple-200 text-purple-700 font-semibold text-xs">
                 {chat.initials}
               </AvatarFallback>
@@ -168,18 +168,11 @@ const ChatListItem = ({ chat, activeChat, onClick }) => {
                   )}
                 </div>
                 
-                {chat.orderId && (
-                  <Badge 
-                    variant="outline" 
-                    className={cn(
-                      "text-xs px-1 py-0 font-medium transition-colors h-4",
-                      isActive 
-                        ? "border-purple-300 text-purple-700 bg-purple-50" 
-                        : "border-zinc-200 text-zinc-700 bg-zinc-50 group-hover:border-purple-200 group-hover:text-purple-700"
-                    )}
-                  >
-                    {chat.orderId}
-                  </Badge>
+                {/* ✅ CORREÇÃO: Mostra email do cliente ao invés do orderId */}
+                {(chat.customerEmail || chat.participants?.customerEmail) && (
+                  <p className="text-xs text-zinc-500 truncate">
+                    {chat.customerEmail || chat.participants?.customerEmail}
+                  </p>
                 )}
               </div>
               
@@ -269,7 +262,8 @@ const ChatList = ({
     if (search) {
       result = result.filter(chat => 
         chat.name.toLowerCase().includes(search.toLowerCase()) ||
-        (chat.orderId && chat.orderId.toLowerCase().includes(search.toLowerCase())) ||
+        (chat.customerEmail && chat.customerEmail.toLowerCase().includes(search.toLowerCase())) ||
+        (chat.participants?.customerEmail && chat.participants.customerEmail.toLowerCase().includes(search.toLowerCase())) ||
         (chat.lastMessage?.text && chat.lastMessage.text.toLowerCase().includes(search.toLowerCase()))
       );
     }
