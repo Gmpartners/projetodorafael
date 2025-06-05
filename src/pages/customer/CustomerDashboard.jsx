@@ -210,18 +210,18 @@ const CustomerDashboard = () => {
            (order.orderId || order.id || order.externalOrderId || 'N/A').toString().slice(-6);
   };
 
+  // 🔧 CORRIGIDO: Usar EXATAMENTE a mesma lógica do OrderDetailsCustomer
   const calculateOrderProgress = (order) => {
     if (order.customSteps && order.customSteps.length > 0) {
+      // Contar apenas etapas completas (igual ao Order Journey)
       const completedSteps = order.customSteps.filter(step => step.completed).length;
-      const currentStepIndex = order.customSteps.findIndex(step => step.current || step.active);
       
-      if (currentStepIndex >= 0) {
-        return Math.floor((100 / order.customSteps.length) * (currentStepIndex + 0.5));
-      } else if (completedSteps > 0) {
-        return Math.floor((100 / order.customSteps.length) * completedSteps);
-      }
+      // Progresso = (etapas completas / total de etapas) * 100
+      const progress = Math.round((completedSteps / order.customSteps.length) * 100);
+      return progress;
     }
     
+    // Fallback para orders sem customSteps
     return order.progress || 0;
   };
 
@@ -245,14 +245,18 @@ const CustomerDashboard = () => {
     const progress = calculateOrderProgress(order);
     if (progress >= 100) return 'Delivered';
     
-    if (order.currentStep?.name) return order.currentStep.name;
-    if (order.customSteps) {
+    // Encontrar a etapa atual (current ou active)
+    if (order.customSteps && order.customSteps.length > 0) {
       const currentStep = order.customSteps.find(step => step.current || step.active);
       if (currentStep) return currentStep.name;
       
+      // Se não tem etapa marcada como current, pegar a próxima não completada
       const nextStep = order.customSteps.find(step => !step.completed);
       if (nextStep) return nextStep.name;
     }
+    
+    // Fallback
+    if (order.currentStep?.name) return order.currentStep.name;
     return order.status || 'Processing';
   };
 

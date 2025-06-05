@@ -17,14 +17,14 @@ const CustomerLookup = () => {
     e.preventDefault();
     
     if (!email.trim()) {
-      setError('Por favor, digite seu email');
+      setError('Please enter your email');
       return;
     }
 
     // Basic email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      setError('Por favor, digite um email válido');
+      setError('Please enter a valid email');
       return;
     }
 
@@ -32,7 +32,7 @@ const CustomerLookup = () => {
     setError('');
 
     try {
-      console.log('🔍 Procurando pedidos para:', email);
+      console.log('🔍 Looking for orders for:', email);
       
       const response = await apiService.lookupCustomerByEmail(email);
       
@@ -41,22 +41,22 @@ const CustomerLookup = () => {
         localStorage.setItem('customerEmail', email);
         localStorage.setItem('customerData', JSON.stringify(response.data));
         
-        console.log('✅ Cliente encontrado, redirecionando para o dashboard');
+        console.log('✅ Customer found, redirecting to dashboard');
         
         // Navigate to customer dashboard
         navigate('/customer/dashboard');
       } else {
-        setError('Nenhum pedido encontrado para este email');
+        setError('No orders found for this email');
       }
     } catch (error) {
-      console.error('❌ Erro na busca:', error);
+      console.error('❌ Search error:', error);
       
       if (error.response?.status === 404) {
-        setError('Nenhum pedido encontrado para este email');
+        setError('No orders found for this email');
       } else if (error.response?.status === 400) {
-        setError('Por favor, digite um email válido');
+        setError('Please enter a valid email');
       } else {
-        setError('Não foi possível buscar seus pedidos. Tente novamente.');
+        setError('Unable to search for your orders. Please try again.');
       }
     } finally {
       setIsLoading(false);
@@ -71,8 +71,8 @@ const CustomerLookup = () => {
           <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
             <Package className="h-8 w-8 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Acompanhe seus Pedidos</h1>
-          <p className="text-gray-600">Digite seu email para ver o status e atualizações dos seus pedidos</p>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Track Your Orders</h1>
+          <p className="text-gray-600">Enter your email to view status and updates for your orders</p>
         </div>
 
         {/* Main Card */}
@@ -82,14 +82,14 @@ const CustomerLookup = () => {
               {/* Email Input */}
               <div className="space-y-2">
                 <label htmlFor="email" className="text-sm font-medium text-gray-700">
-                  Email utilizado na compra
+                  Email used for purchase
                 </label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                   <Input
                     id="email"
                     type="email"
-                    placeholder="seu.email@exemplo.com"
+                    placeholder="your.email@example.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="pl-10 h-12 text-base"
@@ -118,30 +118,16 @@ const CustomerLookup = () => {
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Buscando Pedidos...
+                    Searching Orders...
                   </>
                 ) : (
                   <>
                     <Search className="mr-2 h-4 w-4" />
-                    Buscar Meus Pedidos
+                    Search My Orders
                   </>
                 )}
               </Button>
             </form>
-
-            {/* Sample Email Helper */}
-            <div className="mt-6 p-4 bg-gray-50 rounded-lg border">
-              <p className="text-sm text-gray-600 mb-2">
-                <strong>Email de exemplo para teste:</strong>
-              </p>
-              <button
-                onClick={() => setEmail('maria.customer@teste.com')}
-                className="text-sm text-blue-600 hover:text-blue-800 underline"
-                disabled={isLoading}
-              >
-                maria.customer@teste.com
-              </button>
-            </div>
           </CardContent>
         </Card>
 
@@ -149,35 +135,22 @@ const CustomerLookup = () => {
         <div className="mt-8 space-y-3">
           <div className="flex items-center text-sm text-gray-600">
             <ArrowRight className="h-4 w-4 mr-2 text-blue-500" />
-            Acompanhamento em tempo real
+            Real-time tracking
           </div>
           <div className="flex items-center text-sm text-gray-600">
             <ArrowRight className="h-4 w-4 mr-2 text-blue-500" />
-            Chat direto com a loja
+            Direct chat with store
           </div>
           <div className="flex items-center text-sm text-gray-600">
             <ArrowRight className="h-4 w-4 mr-2 text-blue-500" />
-            Notificações instantâneas
+            Instant notifications
           </div>
         </div>
 
         {/* Footer */}
         <div className="mt-8 text-center">
           <p className="text-xs text-gray-500">
-            Seguro e privado • Sem necessidade de cadastro
-          </p>
-        </div>
-
-        {/* Link para área de lojistas */}
-        <div className="mt-6 text-center">
-          <p className="text-sm text-gray-600">
-            É lojista?{' '}
-            <a 
-              href="/login" 
-              className="font-medium text-purple-600 hover:text-purple-700 hover:underline"
-            >
-              Acesse o painel administrativo
-            </a>
+            Secure and private • No registration required
           </p>
         </div>
       </div>

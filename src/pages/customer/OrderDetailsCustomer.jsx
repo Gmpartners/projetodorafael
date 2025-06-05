@@ -362,21 +362,22 @@ const OrderDetailsCustomer = () => {
     }).format(value || 0);
   };
 
+  // 🔧 CORRIGIDO: Usar EXATAMENTE a mesma lógica do Order Journey
   const calculateCurrentProgress = (orderDetails, enhancedSteps) => {
-    if (!enhancedSteps || enhancedSteps.length === 0) return 0; // Default para teste
+    if (!enhancedSteps || enhancedSteps.length === 0) return 0;
     
+    // Contar quantas etapas estão completas (igual ao Order Journey)
+    const completedSteps = enhancedSteps.filter(step => step.status === 'completed').length;
+    
+    // Se tem etapas customizadas, calcular baseado nelas
     if (orderDetails.customSteps && orderDetails.customSteps.length > 0) {
-      const completedSteps = orderDetails.customSteps.filter(step => step.completed).length;
-      const currentStepIndex = orderDetails.customSteps.findIndex(step => step.current || step.active);
-      
-      if (currentStepIndex >= 0) {
-        return Math.floor((100 / orderDetails.customSteps.length) * (currentStepIndex + 0.5));
-      } else if (completedSteps > 0) {
-        return Math.floor((100 / orderDetails.customSteps.length) * completedSteps);
-      }
+      // Progresso = (etapas completas / total de etapas) * 100
+      const progress = Math.round((completedSteps / orderDetails.customSteps.length) * 100);
+      console.log(`📊 Progresso calculado: ${completedSteps}/${orderDetails.customSteps.length} = ${progress}%`);
+      return progress;
     }
     
-    // Garantir que sempre retorne um valor maior que 0 para mostrar a cor
+    // Fallback para etapas genéricas
     return orderDetails.progress || 0;
   };
 
@@ -686,11 +687,6 @@ const OrderDetailsCustomer = () => {
                               <div className="absolute inset-0 bg-blue-500 rounded-full animate-ping opacity-75"></div>
                             )}
                           </div>
-                          <span className={`text-xs mt-1.5 text-center max-w-[50px] truncate ${
-                            isActive ? 'text-blue-600 font-medium' : 'text-gray-500'
-                          }`}>
-                            {step.name}
-                          </span>
                         </div>
                       );
                     })}
