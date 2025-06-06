@@ -43,9 +43,13 @@ import {
   Target,
   Shield,
   Search,
-  RefreshCw
+  RefreshCw,
+  Bell,
+  BellOff,
+  Smartphone
 } from 'lucide-react';
 import { apiService } from '@/services/apiService';
+import webPushService from '@/services/webPushService';
 import { 
   formatDate, 
   formatRelativeTime, 
@@ -64,6 +68,13 @@ const OrderDetailsCustomer = () => {
   const [orderDetails, setOrderDetails] = useState(null);
   const [error, setError] = useState(null);
   const [pulseStep, setPulseStep] = useState(0);
+  const [notificationStatus, setNotificationStatus] = useState({
+    hasSubscriptions: false,
+    isLinkedToStore: false,
+    canReceiveNotifications: false,
+    isLoading: true
+  });
+  const [isEnablingNotifications, setIsEnablingNotifications] = useState(false);
 
   const customerEmail = location.state?.customerEmail || localStorage.getItem('customerEmail');
 
@@ -84,6 +95,12 @@ const OrderDetailsCustomer = () => {
       fetchOrderDetails();
     }
   }, [orderId, customerEmail, navigate]);
+
+  useEffect(() => {
+    if (orderDetails) {
+      checkNotificationStatus();
+    }
+  }, [orderDetails]);
 
   const fetchOrderDetails = async () => {
     try {
@@ -113,6 +130,79 @@ const OrderDetailsCustomer = () => {
       }
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const checkNotificationStatus = async () => {
+    try {
+      console.log('📊 Verificando status das notificações para o pedido:', orderId);
+      
+      const status = await apiService.checkNotificationStatus(orderId);
+      console.log('📊 Status das notificações:', status);
+      
+      setNotificationStatus({
+        ...status,
+        isLoading: false
+      });
+    } catch (error) {
+      console.error('❌ Erro ao verificar status das notificações:', error);
+      setNotificationStatus({
+        hasSubscriptions: false,
+        isLinkedToStore: false,
+        canReceiveNotifications: false,
+        isLoading: false,
+        error: error.message
+      });
+    }
+  };
+
+  const enableNotifications = async () => {
+    try {
+      setIsEnablingNotifications(true);
+      console.log('🔔 Habilitando notificações para o pedido:', orderId);
+
+      await webPushService.initialize();
+      
+      const subscription = await webPushService.subscribeForOrder(orderId, customerEmail);
+      console.log('✅ Subscription criada/atualizada:', subscription);
+
+      if (!subscription) {
+        throw new Error('Falha ao criar subscription');
+      }
+
+      await apiService.linkNotificationsForOrder(orderId);
+      console.log('✅ Notificações vinculadas ao pedido');
+
+      await checkNotificationStatus();
+      
+      console.log('🎉 Notificações habilitadas com sucesso!');
+      
+    } catch (error) {
+      console.error('❌ Erro ao habilitar notificações:', error);
+      
+      if (error.message.includes('denied')) {
+        alert('Você precisa permitir notificações no seu navegador para receber atualizações do pedido.');
+      } else {
+        alert('Erro ao habilitar notificações. Tente novamente.');
+      }
+    } finally {
+      setIsEnablingNotifications(false);
+    }
+  };
+
+  const testNotification = async () => {
+    try {
+      console.log('🧪 Testando notificação...');
+      
+      const customUrl = window.location.href;
+      await webPushService.sendTestNotification(customUrl, {
+        title: '🎉 Notificações Ativadas!',
+        body: `Você receberá atualizações sobre seu pedido #${getOrderNumber(orderDetails)}`
+      });
+      
+      console.log('✅ Notificação de teste enviada');
+    } catch (error) {
+      console.error('❌ Erro ao testar notificação:', error);
     }
   };
 
@@ -288,7 +378,6 @@ const OrderDetailsCustomer = () => {
   const translateRelativeTime = (timeText) => {
     if (!timeText) return timeText;
     
-    // Traduzir expressões de tempo relativo
     let translated = timeText;
     
     translated = translated.replace(/há (\d+) dia/g, '$1 day ago');
@@ -298,7 +387,6 @@ const OrderDetailsCustomer = () => {
     translated = translated.replace(/há (\d+) minuto/g, '$1 minute ago');
     translated = translated.replace(/há (\d+) minutos/g, '$1 minutes ago');
     
-    // Traduzir meses
     translated = translated.replace('jan', 'Jan');
     translated = translated.replace('fev', 'Feb');
     translated = translated.replace('mar', 'Mar');
@@ -312,25 +400,22 @@ const OrderDetailsCustomer = () => {
     translated = translated.replace('nov', 'Nov');
     translated = translated.replace('dez', 'Dec');
     
-    // Traduzir "Completed"
     translated = translated.replace('Completed', 'Completed');
     
     return translated;
   };
 
-  // 🔧 SIMPLIFICADO: Ícones uniformes baseados apenas no status
   const getStepIcon = (status) => {
     if (status === 'completed') {
-      return CheckCircle; // ✅ Verde para completas
+      return CheckCircle;
     }
-    return Clock; // ⏰ Relógio para todas as outras (current, pending)
+    return Clock;
   };
 
-  // 🔧 SIMPLIFICADO: Cores baseadas apenas no status  
   const getStepColor = (status) => {
-    if (status === 'completed') return 'emerald'; // Verde para completas
-    if (status === 'current') return 'blue';      // Azul para atual
-    return 'gray';                                // Cinza para pendentes
+    if (status === 'completed') return 'emerald';
+    if (status === 'current') return 'blue';
+    return 'gray';
   };
 
   const handleOpenChat = async () => {
@@ -362,29 +447,23 @@ const OrderDetailsCustomer = () => {
     }).format(value || 0);
   };
 
-  // 🔧 CORRIGIDO: Usar EXATAMENTE a mesma lógica do Order Journey
   const calculateCurrentProgress = (orderDetails, enhancedSteps) => {
     if (!enhancedSteps || enhancedSteps.length === 0) return 0;
     
-    // Contar quantas etapas estão completas (igual ao Order Journey)
     const completedSteps = enhancedSteps.filter(step => step.status === 'completed').length;
     
-    // Se tem etapas customizadas, calcular baseado nelas
     if (orderDetails.customSteps && orderDetails.customSteps.length > 0) {
-      // Progresso = (etapas completas / total de etapas) * 100
       const progress = Math.round((completedSteps / orderDetails.customSteps.length) * 100);
       console.log(`📊 Progresso calculado: ${completedSteps}/${orderDetails.customSteps.length} = ${progress}%`);
       return progress;
     }
     
-    // Fallback para etapas genéricas
     return orderDetails.progress || 0;
   };
 
-  // Simplificada para sempre retornar azul
   const getProgressColor = (progress) => {
     if (progress >= 100) return 'bg-emerald-500';
-    return 'bg-blue-500'; // Azul sólido sempre
+    return 'bg-blue-500';
   };
 
   const getStatusColor = (progress) => {
@@ -559,7 +638,118 @@ const OrderDetailsCustomer = () => {
       </header>
 
       <main className="px-3 sm:px-4 py-4 sm:py-5 -mt-3 relative z-10">
-        {/* 🆕 CONTACT STORE MOVED TO TOP */}
+        {/* NOTIFICATIONS CARD */}
+        <Card className="bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 shadow-lg mb-4 sm:mb-6 border-0 overflow-hidden">
+          <div className="absolute top-0 right-0 w-24 sm:w-32 h-24 sm:h-32 bg-purple-200/20 rounded-full -translate-y-12 sm:-translate-y-16 translate-x-12 sm:translate-x-16"></div>
+          <CardContent className="p-4 sm:p-6 relative">
+            <div className="flex items-center justify-between mb-3 sm:mb-4">
+              <div className="flex items-center">
+                <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center mr-3 sm:mr-4 shadow-lg ${
+                  notificationStatus.canReceiveNotifications 
+                    ? 'bg-gradient-to-br from-emerald-500 to-green-600' 
+                    : 'bg-gradient-to-br from-indigo-500 to-purple-600'
+                }`}>
+                  {notificationStatus.canReceiveNotifications ? (
+                    <Bell className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+                  ) : (
+                    <Smartphone className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+                  )}
+                </div>
+                <div>
+                  <h3 className={`font-semibold text-base sm:text-lg ${
+                    notificationStatus.canReceiveNotifications ? 'text-emerald-800' : 'text-indigo-800'
+                  }`}>
+                    {notificationStatus.canReceiveNotifications ? 'Notifications Active' : 'Enable Notifications'}
+                  </h3>
+                  <p className={`text-xs sm:text-sm ${
+                    notificationStatus.canReceiveNotifications ? 'text-emerald-600' : 'text-indigo-600'
+                  }`}>
+                    {notificationStatus.canReceiveNotifications 
+                      ? 'You\'ll receive updates about your order' 
+                      : 'Get real-time updates about your order'}
+                  </p>
+                </div>
+              </div>
+              {notificationStatus.canReceiveNotifications && (
+                <div className="relative">
+                  <div className="w-6 h-6 sm:w-8 sm:h-8 bg-emerald-500 rounded-full flex items-center justify-center shadow-lg animate-pulse">
+                    <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
+                  </div>
+                  <div className="absolute inset-0 bg-emerald-400 rounded-full animate-ping opacity-50"></div>
+                </div>
+              )}
+            </div>
+            
+            {notificationStatus.canReceiveNotifications ? (
+              <div className="bg-white/80 backdrop-blur-sm p-3 sm:p-4 rounded-xl border border-emerald-200 mb-3 sm:mb-4 shadow-sm">
+                <div className="flex items-start">
+                  <div className="p-2 bg-emerald-100 rounded-lg mr-3">
+                    <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-600" />
+                  </div>
+                  <div className="text-xs sm:text-sm">
+                    <p className="text-emerald-800 font-semibold mb-1 flex items-center">
+                      Notifications Enabled
+                      <div className="ml-2 w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    </p>
+                    <p className="text-emerald-700 leading-relaxed">
+                      You'll automatically receive notifications when your order status changes.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white/80 backdrop-blur-sm p-3 sm:p-4 rounded-xl border border-indigo-200 mb-3 sm:mb-4 shadow-sm">
+                <div className="flex items-start">
+                  <div className="p-2 bg-indigo-100 rounded-lg mr-3">
+                    <Bell className="h-4 w-4 sm:h-5 sm:w-5 text-indigo-600" />
+                  </div>
+                  <div className="text-xs sm:text-sm">
+                    <p className="text-indigo-800 font-semibold mb-1">
+                      Stay Updated
+                    </p>
+                    <p className="text-indigo-700 leading-relaxed">
+                      Enable notifications to receive real-time updates about your order progress, 
+                      shipping status, and delivery confirmations.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {notificationStatus.canReceiveNotifications ? (
+              <Button 
+                onClick={testNotification}
+                variant="outline"
+                className="w-full border-emerald-300 text-emerald-700 hover:bg-emerald-50 h-11 sm:h-12"
+                size="lg"
+              >
+                <Bell className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
+                Test Notification
+              </Button>
+            ) : (
+              <Button 
+                onClick={enableNotifications}
+                disabled={isEnablingNotifications}
+                className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-lg transition-all duration-200 transform hover:scale-[1.02] h-11 sm:h-12"
+                size="lg"
+              >
+                {isEnablingNotifications ? (
+                  <>
+                    <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 mr-2 animate-spin" />
+                    Enabling...
+                  </>
+                ) : (
+                  <>
+                    <Smartphone className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
+                    Enable Notifications
+                    <Bell className="h-3 w-3 sm:h-4 sm:w-4 ml-2" />
+                  </>
+                )}
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+
         <Card className="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 shadow-lg mb-4 sm:mb-6 border-0 overflow-hidden">
           <div className="absolute top-0 right-0 w-24 sm:w-32 h-24 sm:h-32 bg-blue-200/20 rounded-full -translate-y-12 sm:-translate-y-16 translate-x-12 sm:translate-x-16"></div>
           <CardContent className="p-4 sm:p-6 relative">
@@ -613,7 +803,6 @@ const OrderDetailsCustomer = () => {
           </CardContent>
         </Card>
 
-        {/* 🎯 ORDER TRACKING CARD - CORRIGIDA E MAIS ELEGANTE */}
         <Card className="bg-white shadow-lg mb-4 sm:mb-6 border-0 overflow-hidden">
           <div className="bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 p-1">
             <CardContent className="p-4 sm:p-6 bg-white m-0 rounded-lg">
@@ -650,26 +839,20 @@ const OrderDetailsCustomer = () => {
                   </span>
                 </div>
                 
-                {/* 🎯 BARRA DE PROGRESSO ELEGANTE E FINA */}
                 <div className="relative mb-4">
-                  {/* Background da barra - mais fina */}
                   <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-                    {/* Barra de progresso azul - mais fina */}
                     <div 
                       className={`h-3 rounded-full ${getProgressColor(currentProgress)} transition-all duration-1000 ease-out relative`}
                       style={{ width: `${currentProgress}%` }}
                     >
-                      {/* Efeito shimmer sutil */}
                       <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse"></div>
                       
-                      {/* Indicador ativo (bolinha branca) - menor */}
                       {currentProgress > 0 && currentProgress < 100 && (
                         <div className="absolute top-1/2 right-0 w-2.5 h-2.5 bg-white rounded-full transform translate-x-1/2 -translate-y-1/2 shadow-sm border border-blue-500"></div>
                       )}
                     </div>
                   </div>
                   
-                  {/* Pontos de progresso abaixo da barra - menores e alinhados */}
                   <div className="flex justify-between mt-2 px-0.5">
                     {enhancedSteps.map((step, index) => {
                       const stepPercentage = Math.floor((100 / enhancedSteps.length) * (index + 1));
@@ -694,7 +877,6 @@ const OrderDetailsCustomer = () => {
                 </div>
               </div>
               
-              {/* Card do status atual */}
               {enhancedSteps.find(s => s.status === 'current') && (
                 <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-3 sm:p-4 rounded-xl border border-blue-200 relative overflow-hidden">
                   <div className="absolute top-0 right-0 w-16 sm:w-20 h-16 sm:h-20 bg-blue-200/20 rounded-full -translate-y-8 sm:-translate-y-10 translate-x-8 sm:translate-x-10"></div>
@@ -726,7 +908,6 @@ const OrderDetailsCustomer = () => {
           </div>
         </Card>
 
-        {/* 🎯 ORDER JOURNEY CARD - ÍCONES UNIFORMES */}
         <Card className="bg-white shadow-lg mb-4 sm:mb-6 border-0">
           <CardContent className="p-4 sm:p-6">
             <div className="flex items-center justify-between mb-4 sm:mb-6">
@@ -748,7 +929,7 @@ const OrderDetailsCustomer = () => {
               {enhancedSteps.map((step, index) => {
                 const isLast = index === enhancedSteps.length - 1;
                 const colors = getStepColorClasses(step);
-                const StepIcon = getStepIcon(step.status); // 🔧 Ícone baseado no status
+                const StepIcon = getStepIcon(step.status);
                 
                 return (
                   <div key={step.id} className="flex items-start relative group">
@@ -846,7 +1027,6 @@ const OrderDetailsCustomer = () => {
           </CardContent>
         </Card>
 
-        {/* PRODUCT DETAILS CARD */}
         <Card className="bg-white shadow-lg mb-4 sm:mb-6 border-0">
           <CardContent className="p-4 sm:p-6">
             <h3 className="text-slate-800 font-semibold mb-4 sm:mb-5 text-base sm:text-lg flex items-center">
@@ -899,7 +1079,6 @@ const OrderDetailsCustomer = () => {
           </CardContent>
         </Card>
 
-        {/* CUSTOMER INFO AND ADDRESS CARDS */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 mb-4 sm:mb-6">
           {(orderDetails.customer || orderDetails.customerName || customerEmail) && (
             <Card className="bg-white shadow-lg border-0">
@@ -965,7 +1144,6 @@ const OrderDetailsCustomer = () => {
         <div className="h-16 sm:h-20"></div>
       </main>
 
-      {/* BOTTOM NAVIGATION - MOBILE OPTIMIZED */}
       <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200/60 px-3 sm:px-4 py-2 sm:py-3 shadow-lg">
         <div className="flex justify-center items-center max-w-sm mx-auto">
           <button 

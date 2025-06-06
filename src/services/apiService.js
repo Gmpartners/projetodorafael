@@ -18,8 +18,6 @@ api.interceptors.request.use((config) => {
     config.headers['x-api-key'] = API_KEY;
   }
   
-  // IMPORTANTE: Não sobrescrever Content-Type para FormData
-  // O axios detecta automaticamente e adiciona o boundary correto
   if (config.data instanceof FormData) {
     delete config.headers['Content-Type'];
   }
@@ -41,13 +39,11 @@ api.interceptors.response.use(
 );
 
 export const apiService = {
-  // 🆕 NEW: Customer lookup by email (NO AUTH REQUIRED)
   async lookupCustomerByEmail(email) {
     const response = await api.get(`/customer/lookup-by-email?email=${encodeURIComponent(email)}`);
     return response.data;
   },
 
-  // 🆕 NEW: Get order progress by email (NO AUTH REQUIRED)
   async getOrderProgressByEmail(orderId, email) {
     const response = await api.get(`/customer/orders/${orderId}/progress-by-email?email=${encodeURIComponent(email)}`);
     return response.data;
@@ -299,7 +295,6 @@ export const apiService = {
     return response.data;
   },
 
-  // ✅ NOVA FUNÇÃO: Upload específico para imagens de notificação
   async uploadStoreImage(formData) {
     const response = await api.post('/storeImages/uploadImage', formData);
     return response.data;
@@ -354,10 +349,6 @@ export const apiService = {
     }
   },
 
-  // ==========================================
-  // 🚀 WEB PUSH APIs v7.0 - SISTEMA COMPLETO
-  // ==========================================
-  
   async getWebPushVapidKey() {
     const response = await api.get('/webPush/vapid-key');
     return response.data;
@@ -365,6 +356,41 @@ export const apiService = {
 
   async registerWebPushSubscription(data) {
     const response = await api.post('/webPush/subscribe', data);
+    return response.data;
+  },
+
+  async autoLinkSubscriptionToStore(data) {
+    const response = await api.post('/webPush/auto-link-store', data);
+    return response.data;
+  },
+
+  async checkNotificationStatus(orderId) {
+    const response = await api.get(`/customer/notification-status/${orderId}`);
+    return response.data;
+  },
+
+  async linkNotificationsForOrder(orderId) {
+    const response = await api.post(`/customer/link-notifications/${orderId}`);
+    return response.data;
+  },
+
+  async registerSubscriptionForOrder(orderId, data) {
+    const response = await api.post(`/customer/register-for-order/${orderId}`, data);
+    return response.data;
+  },
+
+  async getCustomerOrderDetails(orderId) {
+    const response = await api.get(`/customer/orders/${orderId}/details`);
+    return response.data;
+  },
+
+  async getStoreInfo(storeId) {
+    const response = await api.get(`/customer/stores/${storeId}/info`);
+    return response.data;
+  },
+
+  async getMyOrders() {
+    const response = await api.get('/customer/my-orders');
     return response.data;
   },
 
@@ -386,11 +412,10 @@ export const apiService = {
     return response.data;
   },
 
-  // 🆕 v7.0: Teste com URL personalizada
   async sendWebPushTestWithCustomUrl(customUrl, options = {}) {
     const response = await api.post('/webPush/test-notification', {
-      title: options.title || '🧪 Teste Web Push v7.0',
-      body: options.body || `Testando URL personalizada: ${customUrl}`,
+      title: options.title || '🧪 Teste Web Push v8.0',
+      body: options.body || `Testando detecção dinâmica de store: ${customUrl}`,
       customUrl,
       storeId: options.storeId,
       image: options.image,
@@ -400,9 +425,7 @@ export const apiService = {
     return response.data;
   },
 
-  // 🆕 v7.0: Envio customizado com URL específica
   async sendCustomWebPushWithUrl(notificationData, customUrl, targetUserId = null) {
-    // v7.1: Usar a API de notificações modificada (SEM BRANDING AUTOMÁTICO)
     const response = await api.post('/notifications/sendImmediateNotification', {
       ...notificationData,
       target: targetUserId ? 'user' : 'subscribers',
@@ -415,7 +438,6 @@ export const apiService = {
     return response.data;
   },
 
-  // 🆕 v7.0: Teste por tipos específicos
   async testWebPushByType(type, customUrl = null, options = {}) {
     const response = await api.post('/webPush/test-types', {
       type,
@@ -425,9 +447,7 @@ export const apiService = {
     return response.data;
   },
 
-  // 🆕 v7.0: Envio para loja com URL personalizada
   async sendWebPushToStore(storeId, notification, customUrl = null) {
-    // v7.1: Usar a API de notificações modificada (SEM BRANDING AUTOMÁTICO)
     const response = await api.post('/notifications/sendImmediateNotification', {
       ...notification,
       target: 'subscribers',
@@ -439,7 +459,6 @@ export const apiService = {
     return response.data;
   },
 
-  // 🆕 v7.0: Criar payload de e-commerce com URL personalizada
   async createEcommercePayload(type, data, customOptions = {}) {
     const response = await api.post('/webPush/create-ecommerce-payload', {
       type,
@@ -449,7 +468,6 @@ export const apiService = {
     return response.data;
   },
 
-  // 🆕 v7.0: Enviar notificação de status de pedido com URL personalizada
   async sendOrderStatusNotification(orderId, customerId, status, customUrl = null) {
     const response = await api.post('/webPush/send-order-status', {
       orderId,
@@ -460,7 +478,6 @@ export const apiService = {
     return response.data;
   },
 
-  // 🆕 v7.0: Enviar notificação de chat com URL personalizada
   async sendChatMessageNotification(message, chatData, customUrl = null) {
     const response = await api.post('/webPush/send-chat-message', {
       message,
@@ -470,7 +487,6 @@ export const apiService = {
     return response.data;
   },
 
-  // 🆕 v7.0: Enviar notificação customizada com URL e opções avançadas
   async sendCustomNotificationWithUrl(userId, notification, storeId, customUrl, options = {}) {
     const response = await api.post('/webPush/send-custom-with-url', {
       userId,
@@ -482,32 +498,27 @@ export const apiService = {
     return response.data;
   },
 
-  // 🆕 v7.0: Obter templates de actions por tipo
   async getActionTemplates(type = null) {
     const url = type ? `/webPush/action-templates?type=${type}` : '/webPush/action-templates';
     const response = await api.get(url);
     return response.data;
   },
 
-  // 🆕 v7.0: Validar URL personalizada
   async validateCustomUrl(url) {
     const response = await api.post('/webPush/validate-url', { url });
     return response.data;
   },
 
-  // 🆕 v7.0: Obter estatísticas de URLs
   async getUrlStats(storeId, dateRange = '7d') {
     const response = await api.get(`/webPush/url-stats?storeId=${storeId}&range=${dateRange}`);
     return response.data;
   },
 
-  // 🆕 v7.0: Testar compatibilidade de actions
   async testActionCompatibility(actions) {
     const response = await api.post('/webPush/test-actions', { actions });
     return response.data;
   },
 
-  // 🆕 v7.0: Criar notificação com actions inteligentes
   async createNotificationWithSmartActions(data) {
     const response = await api.post('/webPush/create-with-smart-actions', data);
     return response.data;

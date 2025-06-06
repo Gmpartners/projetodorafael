@@ -54,7 +54,8 @@ const CustomerDashboard = () => {
   const [showNotificationCard, setShowNotificationCard] = useState(false);
   const [notificationStatus, setNotificationStatus] = useState('checking');
   
-  const storeId = 'E47OkrK3IcNu1Ys8gD4CA29RrHk2';
+  // 🔧 REMOVIDO HARDCODE - StoreId será detectado dinamicamente
+  // const storeId = 'E47OkrK3IcNu1Ys8gD4CA29RrHk2';
   
   const [customerOrders, setCustomerOrders] = useState([]);
   const [dashboardStats, setDashboardStats] = useState({
@@ -120,14 +121,48 @@ const CustomerDashboard = () => {
   const handleActivateNotifications = async () => {
     try {
       await webPushService.initialize();
-      const subscription = await webPushService.subscribe();
+      
+      // 🎯 NOVO: Detectar storeIds dinamicamente dos pedidos
+      const uniqueStoreIds = new Set();
+      
+      // Coletar todos os storeIds únicos dos pedidos do cliente
+      customerOrders.forEach(order => {
+        if (order.storeId) {
+          uniqueStoreIds.add(order.storeId);
+        }
+      });
+      
+      console.log('🔍 StoreIds detectados:', Array.from(uniqueStoreIds));
+      
+      // Se não encontrar nenhum storeId, não pode ativar notificações
+      if (uniqueStoreIds.size === 0) {
+        toast.error('❌ Não foi possível detectar a loja', {
+          description: 'Nenhum pedido encontrado com identificação da loja'
+        });
+        return;
+      }
+      
+      // Criar subscription base
+      const subscription = await webPushService.subscribe({
+        customerEmail: customerEmail
+      });
       
       if (subscription) {
-        await apiService.subscribeToStoreWebPush(storeId);
+        // 🎯 Inscrever em TODAS as lojas do cliente
+        const subscriptionPromises = Array.from(uniqueStoreIds).map(storeId => {
+          console.log(`📱 Inscrevendo na loja: ${storeId}`);
+          return apiService.subscribeToStoreWebPush(storeId).catch(err => {
+            console.error(`❌ Erro ao inscrever na loja ${storeId}:`, err);
+            return null;
+          });
+        });
+        
+        await Promise.all(subscriptionPromises);
         
         setNotificationStatus('active');
         setShowNotificationCard(false);
         
+        // Enviar notificação de boas-vindas
         setTimeout(async () => {
           try {
             const welcomeTemplate = notificationTemplates.getTemplate('welcome', {
@@ -144,12 +179,12 @@ const CustomerDashboard = () => {
           }
         }, 2000);
         
-        toast.success('🎉 Notifications activated!', {
-          description: 'You will receive alerts about your orders'
+        toast.success('🎉 Notificações ativadas!', {
+          description: `Você receberá alertas de ${uniqueStoreIds.size} loja(s)`
         });
       }
     } catch (error) {
-      toast.error('❌ Failed to activate notifications', {
+      toast.error('❌ Falha ao ativar notificações', {
         description: error.message
       });
     }

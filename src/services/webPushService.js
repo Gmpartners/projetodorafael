@@ -1,4 +1,4 @@
-// src/services/webPushService.js - v7.0 Sistema Completo com Debug Aprimorado
+// src/services/webPushService.js - v8.0 Sistema com Detecção Dinâmica de Store
 import apiService from './apiService';
 
 class WebPushService {
@@ -7,13 +7,10 @@ class WebPushService {
     this.subscription = null;
     this.isSupported = 'PushManager' in window && 'serviceWorker' in navigator;
     this.registration = null;
-    this.version = 'v7.0.0-web-push-complete';
-    this.debugMode = true; // Ativar modo debug
+    this.version = 'v8.0.0-dynamic-store-detection';
+    this.debugMode = true;
   }
 
-  /**
-   * 🚀 v7.0: Inicializar o serviço Web Push com funcionalidades completas
-   */
   async initialize() {
     if (!this.isSupported) {
       console.warn('⚠️ Web Push não é suportado neste navegador');
@@ -28,36 +25,28 @@ class WebPushService {
     try {
       console.log(`🚀 Inicializando Web Push Service ${this.version}...`);
       
-      // Registrar Service Worker v7.0
       this.registration = await this.registerServiceWorker();
-      
-      // Obter VAPID key do backend
       await this.fetchVapidKey();
       
-      // Verificar subscription existente
       const existingSubscription = await this.registration.pushManager.getSubscription();
       if (existingSubscription) {
         this.subscription = existingSubscription;
-        console.log('✅ Subscription v7.0 existente encontrada');
+        console.log('✅ Subscription v8.0 existente encontrada');
       }
       
       console.log(`✅ Web Push Service ${this.version} inicializado com sucesso`);
       return true;
     } catch (error) {
-      console.error('❌ Erro ao inicializar Web Push v7.0:', error);
+      console.error('❌ Erro ao inicializar Web Push v8.0:', error);
       console.error('Stack:', error.stack);
       return false;
     }
   }
 
-  /**
-   * 🔄 v7.0: Registrar Service Worker com funcionalidades v7.0
-   */
   async registerServiceWorker() {
     try {
-      console.log('📦 Registrando Service Worker v7.0...');
+      console.log('📦 Registrando Service Worker v8.0...');
       
-      // Verificar se já existe um SW registrado
       const existingReg = await navigator.serviceWorker.getRegistration('/');
       if (existingReg) {
         console.log('♻️ Service Worker já registrado:', existingReg);
@@ -65,35 +54,26 @@ class WebPushService {
         return existingReg;
       }
       
-      // Registrar novo SW v7.0
       let registration = await navigator.serviceWorker.register('/sw.js', {
         scope: '/',
-        updateViaCache: 'none' // Sempre verificar atualizações
+        updateViaCache: 'none'
       });
       
-      console.log('✅ Service Worker v7.0 registrado:', registration.scope);
-      
-      // Aguardar até o SW estar pronto
+      console.log('✅ Service Worker v8.0 registrado:', registration.scope);
       await navigator.serviceWorker.ready;
       
-      // Verificar se é a versão correta
       if (registration.active) {
         console.log('🔍 Service Worker ativo:', registration.active.scriptURL);
       }
       
-      // Configurar listeners para updates
       this.setupServiceWorkerListeners(registration);
-      
       return registration;
     } catch (error) {
-      console.error('❌ Erro ao registrar Service Worker v7.0:', error);
+      console.error('❌ Erro ao registrar Service Worker v8.0:', error);
       throw error;
     }
   }
 
-  /**
-   * 🆕 v7.0: Limpar service workers antigos
-   */
   async cleanupOldServiceWorkers() {
     try {
       const registrations = await navigator.serviceWorker.getRegistrations();
@@ -107,19 +87,15 @@ class WebPushService {
     }
   }
 
-  /**
-   * 🆕 v7.0: Configurar listeners do Service Worker
-   */
   setupServiceWorkerListeners(registration) {
-    // Listener para mensagens do SW
     navigator.serviceWorker.addEventListener('message', (event) => {
       const { type, data } = event.data || {};
       
-      console.log(`💬 Mensagem do SW v7.0:`, event.data);
+      console.log(`💬 Mensagem do SW v8.0:`, event.data);
       
       switch (type) {
         case 'SW_ACTIVATED':
-          console.log('🎉 Service Worker v7.0 ativado com funcionalidades:', data);
+          console.log('🎉 Service Worker v8.0 ativado com funcionalidades:', data);
           break;
           
         case 'RESUBSCRIBE_NEEDED':
@@ -136,30 +112,21 @@ class WebPushService {
     });
   }
 
-  /**
-   * 🔄 v7.0: Lidar com re-subscription
-   */
   async handleResubscription() {
     try {
       console.log('🔄 Tentando re-subscription...');
       
-      // Primeiro cancelar subscription atual se existir
       if (this.subscription) {
         await this.subscription.unsubscribe();
       }
       
-      // Criar nova subscription
       await this.subscribe();
-      
       console.log('✅ Re-subscription concluída');
     } catch (error) {
       console.error('❌ Erro na re-subscription:', error);
     }
   }
 
-  /**
-   * 🔑 Obter VAPID public key do backend
-   */
   async fetchVapidKey() {
     try {
       console.log('🔑 Buscando VAPID key...');
@@ -179,19 +146,16 @@ class WebPushService {
     }
   }
 
-  /**
-   * 📝 v7.0: Solicitar permissão e criar subscription com funcionalidades v7.0
-   */
-  async subscribe() {
+  async subscribe(options = {}) {
     if (!this.isSupported) {
       throw new Error('Web Push não é suportado neste navegador');
     }
 
     try {
-      // Verificar permissão atual primeiro
-      console.log('🔐 Permissão atual:', Notification.permission);
+      const { storeId, orderId, customerEmail } = options;
       
-      // Solicitar permissão se necessário
+      console.log('🔐 Verificando permissão...', { storeId, orderId, customerEmail });
+      
       let permission = Notification.permission;
       if (permission === 'default') {
         permission = await Notification.requestPermission();
@@ -202,24 +166,20 @@ class WebPushService {
         throw new Error('Permissão para notificações negada');
       }
 
-      // Garantir que temos um registration
       if (!this.registration) {
         console.log('🔄 Registration não encontrado, obtendo...');
         this.registration = await navigator.serviceWorker.ready;
       }
       
-      // Verificar se o SW está ativo
       if (!this.registration.active) {
         throw new Error('Service Worker não está ativo. Recarregue a página.');
       }
       
       console.log('📱 Service Worker ativo, verificando subscription...');
       
-      // Verificar se já existe subscription
       let subscription = await this.registration.pushManager.getSubscription();
       
       if (!subscription) {
-        // Criar nova subscription
         console.log('📝 Criando nova subscription...');
         
         if (!this.vapidPublicKey) {
@@ -246,8 +206,7 @@ class WebPushService {
       
       this.subscription = subscription;
       
-      // Registrar no backend
-      await this.registerSubscription(subscription);
+      await this.registerSubscription(subscription, { storeId, orderId, customerEmail });
       
       return subscription;
     } catch (error) {
@@ -257,14 +216,13 @@ class WebPushService {
     }
   }
 
-  /**
-   * 📡 v7.0: Registrar subscription no backend com dados aprimorados
-   */
-  async registerSubscription(subscription) {
+  async registerSubscription(subscription, options = {}) {
     try {
+      const { storeId, orderId, customerEmail } = options;
       const deviceInfo = this.getDeviceInfo();
       
-      console.log('📡 Registrando subscription no backend...');
+      console.log('📡 Registrando subscription no backend com detecção dinâmica...');
+      console.log('🎯 Contexto:', { storeId, orderId, customerEmail });
       console.log('Device Info:', deviceInfo);
       
       const response = await apiService.registerWebPushSubscription({
@@ -273,16 +231,22 @@ class WebPushService {
           ...deviceInfo,
           version: this.version,
           features: {
+            dynamicStoreDetection: true,
+            autoStoreLink: true,
+            orderBasedSubscription: true,
             urlPersonalizada: true,
             actionsInteligentes: true,
             imagensGrandes: true,
             navegacaoOtimizada: true,
             cacheInteligente: true
           }
-        }
+        },
+        storeId,
+        orderId,
+        customerEmail
       });
       
-      console.log('✅ Subscription registrada no backend:', response);
+      console.log('✅ Subscription registrada com detecção dinâmica:', response);
       return response;
     } catch (error) {
       console.error('❌ Erro ao registrar subscription:', error);
@@ -291,16 +255,88 @@ class WebPushService {
     }
   }
 
-  /**
-   * 🧪 v7.0: Enviar notificação de teste com URL personalizada
-   */
+  async subscribeForOrder(orderId, customerEmail) {
+    try {
+      console.log('🎯 Registrando subscription para pedido específico:', { orderId, customerEmail });
+      
+      if (!this.subscription) {
+        await this.subscribe({ orderId, customerEmail });
+        return;
+      }
+      
+      console.log('📡 Vinculando subscription existente ao pedido...');
+      const response = await apiService.registerSubscriptionForOrder(orderId, {
+        subscription: this.subscription.toJSON ? this.subscription.toJSON() : this.subscription,
+        deviceInfo: this.getDeviceInfo(),
+        customerEmail
+      });
+      
+      console.log('✅ Subscription vinculada ao pedido:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ Erro ao registrar subscription para pedido:', error);
+      throw error;
+    }
+  }
+
+  async autoLinkToStore(storeId, orderId = null, customerEmail = null) {
+    try {
+      console.log('🔗 Auto-vinculando subscription ao store:', { storeId, orderId, customerEmail });
+      
+      const response = await apiService.autoLinkSubscriptionToStore({
+        storeId,
+        orderId,
+        customerEmail
+      });
+      
+      console.log('✅ Auto-link realizado:', response);
+      return response;
+    } catch (error) {
+      console.error('❌ Erro no auto-link:', error);
+      throw error;
+    }
+  }
+
+  async checkNotificationStatus(orderId) {
+    try {
+      console.log('📊 Verificando status de notificações para pedido:', orderId);
+      
+      const response = await apiService.checkNotificationStatus(orderId);
+      console.log('📊 Status das notificações:', response);
+      
+      return response.data || response;
+    } catch (error) {
+      console.error('❌ Erro ao verificar status de notificações:', error);
+      return {
+        hasSubscriptions: false,
+        isLinkedToStore: false,
+        canReceiveNotifications: false,
+        error: error.message
+      };
+    }
+  }
+
+  async linkNotificationsForOrder(orderId) {
+    try {
+      console.log('🔗 Vinculando notificações para pedido:', orderId);
+      
+      const response = await apiService.linkNotificationsForOrder(orderId);
+      console.log('✅ Notificações vinculadas:', response);
+      
+      return response;
+    } catch (error) {
+      console.error('❌ Erro ao vincular notificações:', error);
+      throw error;
+    }
+  }
+
   async sendTestNotification(customUrl = null, options = {}) {
     try {
       console.log('🧪 Preparando teste de notificação...');
       
       const testOptions = {
-        title: options.title || '🧪 Teste Web Push v7.0',
-        body: options.body || 'Sistema completo: URL personalizada + Actions inteligentes',
+        title: options.title || '🧪 Teste Web Push v8.0',
+        body: options.body || 'Detecção dinâmica de store funcionando perfeitamente!',
         customUrl: customUrl || 'https://projeto-rafael-53f73.web.app/customer/dashboard',
         ...options
       };
@@ -321,9 +357,6 @@ class WebPushService {
     }
   }
 
-  /**
-   * ❌ Cancelar subscription
-   */
   async unsubscribe() {
     try {
       const registration = await navigator.serviceWorker.ready;
@@ -342,9 +375,6 @@ class WebPushService {
     }
   }
 
-  /**
-   * 🔍 v7.0: Verificar status da subscription com informações v7.0
-   */
   async checkSubscription() {
     try {
       const registration = await navigator.serviceWorker.ready;
@@ -360,6 +390,9 @@ class WebPushService {
         serviceWorkerVersion: this.version,
         endpoint: subscription?.endpoint,
         features: {
+          dynamicStoreDetection: true,
+          autoStoreLink: true,
+          orderBasedSubscription: true,
           urlPersonalizada: true,
           actionsInteligentes: true,
           imagensGrandes: true,
@@ -387,9 +420,6 @@ class WebPushService {
     }
   }
 
-  /**
-   * 🆕 v7.0: Testar diferentes tipos de notificação
-   */
   async testNotificationByType(type, customUrl = null) {
     try {
       console.log(`🧪 Testando notificação tipo: ${type}`);
@@ -402,11 +432,7 @@ class WebPushService {
     }
   }
 
-  /**
-   * 🆕 v7.0: Validar URL personalizada (apenas local, sem API)
-   */
   async validateCustomUrl(url) {
-    // Validação apenas local para evitar 404
     const urlPattern = /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/;
     const isValid = urlPattern.test(url);
     
@@ -416,9 +442,6 @@ class WebPushService {
     };
   }
 
-  /**
-   * 🆕 v7.0: Obter templates de actions por tipo
-   */
   async getActionTemplates(type = null) {
     try {
       const response = await apiService.getActionTemplates(type);
@@ -426,7 +449,6 @@ class WebPushService {
     } catch (error) {
       console.error('❌ Erro ao obter action templates:', error);
       
-      // Fallback com templates padrão
       const defaultTemplates = {
         order_status: [
           { action: 'view_order', title: '📦 Ver Pedido', icon: '📦' },
@@ -448,9 +470,6 @@ class WebPushService {
     }
   }
 
-  /**
-   * 🆕 v7.0: Teste direto do Service Worker
-   */
   async testDirectFromServiceWorker() {
     try {
       console.log('🧪 Testando notificação diretamente do SW...');
@@ -472,7 +491,6 @@ class WebPushService {
         
         registration.active.postMessage({ type: 'TEST_NOTIFICATION' }, [messageChannel.port2]);
         
-        // Timeout de 5 segundos
         setTimeout(() => {
           reject(new Error('Timeout no teste direto'));
         }, 5000);
@@ -483,9 +501,6 @@ class WebPushService {
     }
   }
 
-  /**
-   * 📊 Obter informações do dispositivo
-   */
   getDeviceInfo() {
     const ua = navigator.userAgent;
     
@@ -509,9 +524,6 @@ class WebPushService {
     return info;
   }
 
-  /**
-   * 🔍 Detectar navegador
-   */
   detectBrowser(ua) {
     if (ua.includes('Chrome') && !ua.includes('Edg')) return 'Chrome';
     if (ua.includes('Safari') && !ua.includes('Chrome')) return 'Safari';
@@ -521,9 +533,6 @@ class WebPushService {
     return 'Unknown';
   }
 
-  /**
-   * 🔍 Detectar sistema operacional
-   */
   detectOS(ua) {
     if (ua.includes('Windows')) return 'Windows';
     if (ua.includes('Mac')) return 'macOS';
@@ -533,9 +542,6 @@ class WebPushService {
     return 'Unknown';
   }
 
-  /**
-   * 🔄 Converter VAPID key para Uint8Array
-   */
   urlBase64ToUint8Array(base64String) {
     const padding = '='.repeat((4 - base64String.length % 4) % 4);
     const base64 = (base64String + padding)
@@ -551,9 +557,6 @@ class WebPushService {
     return outputArray;
   }
 
-  /**
-   * 🔄 v7.0: Verificar se o Service Worker precisa de atualização
-   */
   async checkForUpdates() {
     try {
       const registration = await navigator.serviceWorker.ready;
@@ -564,20 +567,14 @@ class WebPushService {
     }
   }
 
-  /**
-   * 🧹 v7.0: Limpar dados e fazer logout
-   */
   async cleanup() {
     try {
-      // Cancelar subscription
       await this.unsubscribe();
       
-      // Limpar dados locais
       this.vapidPublicKey = null;
       this.subscription = null;
       this.registration = null;
       
-      // Limpar histórico de URLs
       localStorage.removeItem('webpush_url_history');
       
       console.log('🧹 Limpeza concluída');
@@ -587,5 +584,4 @@ class WebPushService {
   }
 }
 
-// Exportar instância única
 export default new WebPushService();
