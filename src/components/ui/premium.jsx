@@ -179,7 +179,7 @@ export const MetricCard = ({
     }
   };
 
-  const theme = colorThemes[color];
+  const theme = colorThemes[color] || colorThemes.purple;
 
   if (loading) {
     return (
@@ -231,9 +231,9 @@ export const MetricCard = ({
             {title}
           </h3>
           
-          <p className="text-3xl font-bold bg-gradient-to-r from-zinc-900 to-zinc-700 bg-clip-text text-transparent">
+          <div className="text-3xl font-bold bg-gradient-to-r from-zinc-900 to-zinc-700 bg-clip-text text-transparent">
             {value}
-          </p>
+          </div>
         </div>
         
         {trend && (

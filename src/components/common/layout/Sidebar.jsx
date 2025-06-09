@@ -16,7 +16,8 @@ import {
   ChevronRight,
   Package2Icon,
   CopyIcon,
-  LogOut
+  LogOut,
+  BarChart3
 } from 'lucide-react';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
@@ -45,7 +46,7 @@ const Sidebar = ({ userType = 'store' }) => {
   }, [location]);
   
   const isActive = (path) => {
-    if (path === '/store/products' || path === '/customer/dashboard') {
+    if (path === '/store/products' || path === '/customer/dashboard' || path === '/store/dashboard') {
       return location.pathname === path;
     }
     return location.pathname.startsWith(path);
@@ -86,27 +87,34 @@ const Sidebar = ({ userType = 'store' }) => {
   };
   
   const storeNavItems = [
-
-    
+    { 
+      name: 'Dashboard', 
+      path: '/store/dashboard', 
+      icon: <BarChart3 className="h-5 w-5" />,
+      badge: null,
+      description: 'Visão geral e métricas'
+    },
     { 
       name: 'Produtos', 
       path: '/store/products', 
-      icon: <Package2Icon className="h-5 w-5" />
+      icon: <Package2Icon className="h-5 w-5" />,
+      badge: null,
+      description: 'Gerenciar catálogo'
     },
-    
-    
-    
     { 
       name: 'Mensagens', 
       path: '/store/chats', 
-      icon: <MessageSquareIcon className="h-5 w-5" />
+      icon: <MessageSquareIcon className="h-5 w-5" />,
+      badge: null,
+      description: 'Chat com clientes'
     },
     { 
       name: 'Notificações', 
       path: '/store/push-notifications', 
-      icon: <BellIcon className="h-5 w-5" />
+      icon: <BellIcon className="h-5 w-5" />,
+      badge: null,
+      description: 'Push notifications'
     },
-   
   ];
   
   const customerNavItems = [
@@ -132,7 +140,12 @@ const Sidebar = ({ userType = 'store' }) => {
               {children}
             </TooltipTrigger>
             <TooltipContent side="right" className="ml-2">
-              <p>{item.name}</p>
+              <div className="text-left">
+                <p className="font-medium">{item.name}</p>
+                {item.description && (
+                  <p className="text-xs text-zinc-500">{item.description}</p>
+                )}
+              </div>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
@@ -153,9 +166,9 @@ const Sidebar = ({ userType = 'store' }) => {
         {!isCollapsed && (
           <div className="flex items-center gap-2">
             <div className="bg-purple-600 rounded-full w-9 h-9 flex items-center justify-center shadow-sm">
-              <span className="text-white font-bold text-sm">R</span>
+              <span className="text-white font-bold text-sm">T</span>
             </div>
-            <h1 className="font-semibold text-zinc-900">Rafael Portal</h1>
+            <h1 className="font-semibold text-zinc-900">Track2Me</h1>
           </div>
         )}
         
@@ -165,11 +178,11 @@ const Sidebar = ({ userType = 'store' }) => {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div className="bg-purple-600 rounded-full w-9 h-9 flex items-center justify-center shadow-sm">
-                    <span className="text-white font-bold text-sm">R</span>
+                    <span className="text-white font-bold text-sm">T</span>
                   </div>
                 </TooltipTrigger>
                 <TooltipContent side="right" className="ml-2">
-                  <p>Rafael Portal</p>
+                  <p>Track2Me</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
@@ -309,7 +322,7 @@ const Sidebar = ({ userType = 'store' }) => {
                     className={cn(
                       "flex items-center justify-between w-full px-3 py-2.5 rounded-lg no-underline transition-all mb-1 group hover:bg-zinc-100",
                       isActive(item.path)
-                        ? "bg-purple-100 text-purple-700 font-medium"
+                        ? "bg-purple-100 text-purple-700 font-medium shadow-sm border border-purple-200"
                         : "text-zinc-700",
                       isCollapsed && !isMobile && "justify-center px-2 py-2 relative"
                     )}
@@ -326,6 +339,15 @@ const Sidebar = ({ userType = 'store' }) => {
                         <span className="ml-3 text-sm font-medium">{item.name}</span>
                       )}
                     </div>
+
+                    {/* Badge ou indicador ativo */}
+                    {!isCollapsed && isActive(item.path) && (
+                      <div className="w-2 h-2 bg-purple-600 rounded-full animate-pulse" />
+                    )}
+                    
+                    {isCollapsed && !isMobile && isActive(item.path) && (
+                      <div className="absolute -right-1 top-1/2 transform -translate-y-1/2 w-1 h-6 bg-purple-600 rounded-full" />
+                    )}
                   </Link>
                 </NavItem>
               )}
